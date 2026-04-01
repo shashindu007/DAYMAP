@@ -4,12 +4,38 @@ A comprehensive web-based to-do list application built with React.js, Node.js, E
 
 ## 🚀 Features
 
-- **Time-Based Task Management** - Schedule tasks with specific times and durations
-- **Daily Routine Tracking** - Create and manage recurring routines
-- **Workload Visualization** - Visual capacity and progress tracking
-- **Analytics Dashboard** - Productivity insights and trends
-- **User Authentication** - Secure JWT-based authentication
-- **Responsive Design** - Works seamlessly on desktop and mobile
+- **User Authentication** - JWT-based login/register with protected routes
+- **Task Management** - Create, list, update, complete, delete, filter, and search tasks
+- **Today View** - Daily progress, quick add-task modal, and completion tracking
+- **Dashboard** - Profile details, all-task overview, time analysis, and most-used section insights
+- **Task Status Workflows** - Pending, in-progress, completed, cancelled lifecycle support
+- **Backend Analytics APIs** - Daily/weekly/monthly summary and trend endpoints
+- **Responsive UI Foundation** - Mobile-friendly layouts for core pages
+
+## ✅ Current Implementation Status (April 2026)
+
+### Working in UI
+- Authentication pages (`/login`, `/register`)
+- Dashboard (`/dashboard`) with:
+    - profile information
+    - all-task listing
+    - task/time summary metrics
+    - route usage analysis (most frequently used app sections)
+- Today view (`/today`) with task creation + completion
+- Tasks page (`/tasks`) with search, status filtering, mark done, delete
+- Settings page (`/settings`) with profile preview + logout
+
+### Implemented in API (available to frontend)
+- Auth endpoints under `/api/auth/*`
+- Full task endpoints under `/api/tasks/*`
+- Category endpoints under `/api/categories/*`
+- Routine endpoints under `/api/routines/*`
+- Analytics endpoints under `/api/analytics/*`
+
+### Placeholder / In Progress in UI
+- Week view page (`/week`) still placeholder UI
+- Routines page (`/routines`) still placeholder UI
+- Analytics page (`/analytics`) still placeholder UI (APIs exist)
 
 ## 🛠️ Tech Stack
 
@@ -246,14 +272,14 @@ For support, email support@daymap.com or open an issue in the repository.
 
 ## 🗺️ Roadmap
 
-- [ ] Mobile app (iOS/Android)
-- [ ] Real-time notifications
-- [ ] Team collaboration features
-- [ ] AI-powered task suggestions
+- [ ] Complete Week View interactive planner UI
+- [ ] Build full Routines management UI on top of existing routine APIs
+- [ ] Build Analytics charts page on top of analytics APIs
+- [ ] Real-time notifications/reminders
 - [ ] Calendar integrations (Google, Outlook)
-- [ ] Pomodoro timer
-- [ ] Voice input
-- [ ] Dark mode enhancements
+- [ ] Team collaboration features
+- [ ] Mobile app (iOS/Android)
+- [ ] AI-powered task suggestions
 
 ---
 

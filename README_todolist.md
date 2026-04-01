@@ -6,6 +6,32 @@ A web-based to-do list application focused on tracking daily routines, managing 
 
 This system helps users manage their daily activities by providing time-based task management, workload visualization, and routine tracking. Unlike traditional to-do lists, this focuses on **when** tasks happen and **how much time** they require, helping users realistically plan their days.
 
+## 🔍 Implementation Audit (April 2026)
+
+This file contains both product vision and implementation goals. The current codebase status is:
+
+### Implemented Now
+- Auth flow (register/login/logout/me)
+- Task CRUD APIs + status update + today/week/upcoming API endpoints
+- Today view with task completion and add-task modal
+- Tasks page with search/filter/delete/mark complete
+- **Dashboard with user profile details, all tasks listing, and time/usage analysis**
+  - Time analysis from task durations + schedule buckets
+  - Most frequently used system parts derived from route usage tracking
+- Settings page with profile readout and logout
+
+### API Implemented but UI Pending
+- Categories endpoints
+- Routines endpoints
+- Analytics endpoints
+
+### UI Placeholder / Not Fully Implemented Yet
+- Week View page
+- Routines page
+- Analytics page
+
+Use this section as the source of truth for what is currently functional versus planned.
+
 ## 🎯 Project Goals
 
 - Enable users to track and manage their daily routines effectively

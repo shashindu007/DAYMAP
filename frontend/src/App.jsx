@@ -1,9 +1,10 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { TaskProvider } from './context/TaskContext';
 import { ThemeProvider } from './context/ThemeContext';
 import PrivateRoute from './components/common/PrivateRoute';
+import usageService from './services/usageService';
 
 // Pages
 import Login from './pages/Login';
@@ -18,6 +19,16 @@ import Settings from './pages/Settings';
 
 import './App.css';
 
+const RouteUsageTracker = () => {
+    const location = useLocation();
+
+    useEffect(() => {
+        usageService.recordRouteVisit(location.pathname);
+    }, [location.pathname]);
+
+    return null;
+};
+
 function App() {
     return (
         <ThemeProvider>
@@ -25,6 +36,7 @@ function App() {
                 <TaskProvider>
                     <Router>
                         <div className="App">
+                            <RouteUsageTracker />
                             <Routes>
                                 {/* Public routes */}
                                 <Route path="/login" element={<Login />} />

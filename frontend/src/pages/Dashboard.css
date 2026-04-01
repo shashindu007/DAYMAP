@@ -4,15 +4,71 @@
     margin: 0 auto;
 }
 
-.dashboard-container h1 {
-    margin-bottom: 2rem;
+.dashboard-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.dashboard-nav-actions {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.dashboard-link-btn {
+    border: 1px solid var(--border);
+    background: white;
     color: var(--text-primary);
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+}
+
+.dark .dashboard-link-btn {
+    background: #1F2937;
+    border-color: #374151;
+}
+
+.dashboard-link-btn:hover {
+    border-color: var(--primary);
+}
+
+.dashboard-container h1 {
+    margin-bottom: 0;
+    color: var(--text-primary);
+}
+
+.dashboard-profile {
+    margin-bottom: 1.25rem;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-top: 0.75rem;
+}
+
+.profile-label {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+}
+
+.profile-grid p {
+    margin-top: 0.3rem;
+    color: var(--text-primary);
+    font-weight: 600;
 }
 
 .dashboard-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1.5rem;
+    margin-bottom: 1.25rem;
 }
 
 .dashboard-card {
@@ -44,4 +100,90 @@
 .dashboard-card p {
     color: var(--text-secondary);
     font-size: 0.875rem;
+    margin-top: 0.45rem;
+}
+
+.stats-card {
+    cursor: default;
+}
+
+.compact-list {
+    margin: 0.4rem 0 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.compact-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.45rem;
+    color: var(--text-primary);
+    font-size: 0.87rem;
+}
+
+.usage-total {
+    margin-top: 0.75rem;
+}
+
+.dashboard-tasks {
+    margin-top: 0.75rem;
+}
+
+.dashboard-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.dashboard-task-table-wrap {
+    overflow-x: auto;
+}
+
+.dashboard-task-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dashboard-task-table th,
+.dashboard-task-table td {
+    border-bottom: 1px solid var(--border);
+    padding: 0.6rem;
+    text-align: left;
+    font-size: 0.87rem;
+    color: var(--text-primary);
+}
+
+.dashboard-task-table th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.02em;
+}
+
+.muted {
+    color: var(--text-secondary);
+}
+
+.dashboard-error {
+    color: #B91C1C;
+}
+
+@media (max-width: 768px) {
+    .dashboard-container {
+        padding: 1rem;
+    }
+
+    .dashboard-header-row,
+    .dashboard-section-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .dashboard-nav-actions {
+        flex-wrap: wrap;
+    }
 }
