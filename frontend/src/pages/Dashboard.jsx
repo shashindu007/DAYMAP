@@ -87,11 +87,6 @@ const Dashboard = () => {
         <div className="dashboard-container">
             <div className="dashboard-header-row">
                 <h1>Dashboard</h1>
-                <div className="dashboard-nav-actions">
-                    <button className="dashboard-link-btn" onClick={() => navigate('/today')}>Today</button>
-                    <button className="dashboard-link-btn" onClick={() => navigate('/tasks')}>Tasks</button>
-                    <button className="dashboard-link-btn" onClick={() => navigate('/settings')}>Settings</button>
-                </div>
             </div>
 
             <div className="dashboard-profile card">
