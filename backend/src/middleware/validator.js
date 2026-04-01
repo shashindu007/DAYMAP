@@ -55,6 +55,68 @@ const loginValidation = [
 ];
 
 /**
+ * Validation rules for profile update
+ */
+const updateProfileValidation = [
+    body('name')
+        .optional()
+        .trim()
+        .isLength({ min: 2, max: 100 }).withMessage('Name must be between 2 and 100 characters'),
+    body('email')
+        .optional()
+        .trim()
+        .isEmail().withMessage('Please provide a valid email')
+        .normalizeEmail(),
+    body('timezone')
+        .optional()
+        .trim()
+        .isLength({ max: 100 }).withMessage('Timezone must not exceed 100 characters'),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for password change
+ */
+const changePasswordValidation = [
+    body('currentPassword')
+        .notEmpty().withMessage('Current password is required'),
+    body('newPassword')
+        .isLength({ min: 8 }).withMessage('New password must be at least 8 characters long')
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/).withMessage('New password must contain at least one uppercase letter, one lowercase letter, and one number'),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for analytics query parameters
+ */
+const analyticsWeeklyQueryValidation = [
+    query('start_date')
+        .optional()
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
+    query('end_date')
+        .optional()
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('end_date must be in YYYY-MM-DD format'),
+    handleValidationErrors
+];
+
+const analyticsMonthlyQueryValidation = [
+    query('year')
+        .optional()
+        .isInt({ min: 2000, max: 2100 }).withMessage('year must be between 2000 and 2100'),
+    query('month')
+        .optional()
+        .isInt({ min: 1, max: 12 }).withMessage('month must be between 1 and 12'),
+    handleValidationErrors
+];
+
+const analyticsTrendsQueryValidation = [
+    query('days')
+        .optional()
+        .isInt({ min: 1, max: 365 }).withMessage('days must be between 1 and 365'),
+    handleValidationErrors
+];
+
+/**
  * Validation rules for creating/updating tasks
  */
 const taskValidation = [
@@ -150,9 +212,14 @@ module.exports = {
     handleValidationErrors,
     registerValidation,
     loginValidation,
+    updateProfileValidation,
+    changePasswordValidation,
     taskValidation,
     categoryValidation,
     routineValidation,
     uuidParamValidation,
-    dateParamValidation
+    dateParamValidation,
+    analyticsWeeklyQueryValidation,
+    analyticsMonthlyQueryValidation,
+    analyticsTrendsQueryValidation
 };

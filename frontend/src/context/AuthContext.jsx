@@ -9,12 +9,33 @@ export const AuthProvider = ({ children }) => {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        // Check if user is logged in on mount
-        const storedUser = authService.getStoredUser();
-        if (storedUser) {
-            setUser(storedUser);
-        }
-        setLoading(false);
+        // Validate existing session on mount
+        const initializeAuth = async () => {
+            const storedUser = authService.getStoredUser();
+            const hasToken = authService.isAuthenticated();
+
+            if (!hasToken) {
+                setUser(null);
+                setLoading(false);
+                return;
+            }
+
+            if (storedUser) {
+                setUser(storedUser);
+            }
+
+            try {
+                const response = await authService.getCurrentUser();
+                setUser(response?.data || null);
+            } catch {
+                authService.clearSession();
+                setUser(null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        initializeAuth();
     }, []);
 
     const register = async (userData) => {

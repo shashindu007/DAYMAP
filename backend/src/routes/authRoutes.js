@@ -5,7 +5,9 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { authLimiter } = require('../middleware/rateLimiter');
 const {
     registerValidation,
-    loginValidation
+    loginValidation,
+    updateProfileValidation,
+    changePasswordValidation
 } = require('../middleware/validator');
 
 // Public routes
@@ -14,8 +16,8 @@ router.post('/login', authLimiter, loginValidation, AuthController.login);
 
 // Protected routes
 router.get('/me', authMiddleware, AuthController.getCurrentUser);
-router.put('/update-profile', authMiddleware, AuthController.updateProfile);
-router.put('/change-password', authMiddleware, AuthController.changePassword);
+router.put('/update-profile', authMiddleware, updateProfileValidation, AuthController.updateProfile);
+router.put('/change-password', authMiddleware, changePasswordValidation, AuthController.changePassword);
 router.post('/logout', authMiddleware, AuthController.logout);
 
 module.exports = router;

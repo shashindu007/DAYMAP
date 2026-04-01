@@ -1,4 +1,5 @@
 import axios from 'axios';
+import authService from './authService';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT) || 10000;
@@ -35,8 +36,7 @@ api.interceptors.response.use(
         if (error.response) {
             // Handle 401 Unauthorized
             if (error.response.status === 401) {
-                localStorage.removeItem('token');
-                localStorage.removeItem('user');
+                authService.clearSession();
                 window.location.href = '/login';
             }
             
