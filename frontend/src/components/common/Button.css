@@ -1,11 +1,11 @@
 .btn {
-    padding: 0.625rem 1.25rem;
+    padding: 0.65rem 1.4rem;
     border: none;
-    border-radius: 0.5rem;
-    font-size: 0.9375rem;
-    font-weight: 500;
+    border-radius: 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -13,8 +13,10 @@
 }
 
 .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
 }
 
 .btn-full {
@@ -22,45 +24,52 @@
 }
 
 .btn-primary {
-    background-color: var(--primary);
+    background: var(--primary-gradient);
     color: white;
+    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);
 }
 
 .btn-primary:hover:not(:disabled) {
-    background-color: var(--primary-dark);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.35);
 }
 
 .btn-secondary {
-    background-color: var(--secondary);
+    background: var(--secondary-gradient);
     color: white;
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background-color: #059669;
-    transform: translateY(-1px);
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.3);
 }
 
 .btn-danger {
-    background-color: var(--danger);
+    background: var(--danger-gradient);
     color: white;
 }
 
 .btn-danger:hover:not(:disabled) {
-    background-color: #DC2626;
-    transform: translateY(-1px);
+    background: #DC2626;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(220, 38, 38, 0.3);
 }
 
 .btn-outline {
-    background-color: transparent;
-    border: 1.5px solid var(--border);
+    background: rgba(255, 255, 255, 0.5);
+    border: 1.5px solid rgba(226, 232, 240, 0.8);
     color: var(--text-primary);
+    backdrop-filter: blur(5px);
 }
 
 .btn-outline:hover:not(:disabled) {
-    background-color: var(--light);
+    background: white;
     border-color: var(--primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .spinner-small {

@@ -5,20 +5,23 @@
 }
 
 :root {
-    --primary: #4f46e5;
-    --primary-dark: #4338ca;
+    --primary: #6366f1;
+    --primary-dark: #4f46e5;
     --primary-light: #e0e7ff;
+    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
     --secondary: #10b981;
+    --secondary-gradient: linear-gradient(135deg, #34d399 0%, #10b981 100%);
     --danger: #f43f5e;
+    --danger-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
     --warning: #f59e0b;
     --dark: #1e293b;
     --light: #f8fafc;
-    --background: #f1f5f9;
+    --background: transparent;
     --border: #e2e8f0;
-    --text-primary: #334155;
+    --text-primary: #1e293b;
     --text-secondary: #64748b;
-    --card-bg: #ffffff;
-    --header-bg: #ffffff;
+    --card-bg: rgba(255, 255, 255, 0.95);
+    --header-bg: rgba(255, 255, 255, 0.85);
 }
 
 body {
@@ -54,23 +57,23 @@ code {
 
 /* Common button styles */
 .btn {
-    padding: 0.5rem 1rem;
+    padding: 0.65rem 1.25rem;
     border: none;
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
+    border-radius: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
 }
 
 .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.1), 0 3px 6px -2px rgba(0, 0, 0, 0.06);
 }
 
 .btn:active {
@@ -78,21 +81,24 @@ code {
 }
 
 .btn-primary {
-    background-color: var(--primary);
+    background: var(--primary-gradient);
     color: white;
+    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);
 }
 
 .btn-primary:hover {
-    background-color: var(--primary-dark);
+    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
+    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.35);
 }
 
 .btn-secondary {
-    background-color: var(--secondary);
+    background: var(--secondary-gradient);
     color: white;
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
 }
 
 .btn-danger {
-    background-color: var(--danger);
+    background: var(--danger-gradient);
     color: white;
 }
 
@@ -110,13 +116,14 @@ code {
 /* Common input styles */
 .input {
     width: 100%;
-    padding: 0.6rem 0.8rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    font-size: 0.875rem;
-    background-color: white;
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 0.75rem;
+    font-size: 0.925rem;
+    background: rgba(255, 255, 255, 0.8);
     color: var(--text-primary);
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.01);
 }
 
 .dark .input {
@@ -127,21 +134,24 @@ code {
 .input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-light);
+    background: white;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15), 0 4px 6px rgba(0, 0, 0, 0.02);
 }
 
 /* Common card styles */
 .card {
     background-color: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 1rem;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+    border-radius: 1.25rem;
     padding: 1.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    backdrop-filter: blur(10px);
 }
 
 .card:hover {
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.02);
 }
 
 .dark .card {
