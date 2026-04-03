@@ -40,6 +40,12 @@ const errorHandler = (err, req, res, next) => {
         statusCode = 400;
         message = err.message;
     }
+
+    // Payload too large (e.g., profile image upload body)
+    if (err.type === 'entity.too.large' || err.status === 413) {
+        statusCode = 413;
+        message = 'Uploaded content is too large. Please use a smaller image.';
+    }
     
     res.status(statusCode).json({
         success: false,

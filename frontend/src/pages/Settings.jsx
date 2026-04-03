@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/common/Button';
 import './Dashboard.css';
+import './Settings.css';
 
 const fileToDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -9,6 +10,36 @@ const fileToDataUrl = (file) => new Promise((resolve, reject) => {
     reader.onerror = () => reject(new Error('Failed to read selected image file.'));
     reader.readAsDataURL(file);
 });
+
+const loadImage = (src) => new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Failed to process selected image.'));
+    image.src = src;
+});
+
+const compressImageDataUrl = async (dataUrl, options = {}) => {
+    const {
+        maxWidth = 640,
+        maxHeight = 640,
+        quality = 0.72,
+        outputType = 'image/jpeg'
+    } = options;
+
+    const image = await loadImage(dataUrl);
+    const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+    const targetWidth = Math.max(1, Math.round(image.width * ratio));
+    const targetHeight = Math.max(1, Math.round(image.height * ratio));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext('2d');
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    return canvas.toDataURL(outputType, quality);
+};
 
 const Settings = () => {
     const { user, logout, updateProfile, changePassword } = useAuth();
@@ -63,15 +94,17 @@ const Settings = () => {
             return;
         }
 
-        if (file.size > 2 * 1024 * 1024) {
-            setProfileMessage('Image too large. Please use a file under 2MB.');
-            return;
-        }
-
         try {
-            const dataUrl = await fileToDataUrl(file);
-            setProfileForm((prev) => ({ ...prev, profile_image: dataUrl }));
-            setProfileMessage('Image selected. Click “Save Profile” to upload it.');
+            const originalDataUrl = await fileToDataUrl(file);
+            const compressedDataUrl = await compressImageDataUrl(originalDataUrl);
+
+            if (compressedDataUrl.length > 2_800_000) {
+                setProfileMessage('Image is still too large after compression. Please choose a smaller photo.');
+                return;
+            }
+
+            setProfileForm((prev) => ({ ...prev, profile_image: compressedDataUrl }));
+            setProfileMessage('Image optimized and selected. Click “Save Profile” to upload.');
         } catch (error) {
             setProfileMessage(error.message || 'Could not process image.');
         }
@@ -117,10 +150,10 @@ const Settings = () => {
     };
 
     return (
-        <div className="dashboard-container" style={{ maxWidth: '900px' }}>
+        <div className="dashboard-container settings-page" style={{ maxWidth: '960px' }}>
             <h1>Settings</h1>
 
-            <div className="card" style={{ marginTop: '1rem' }}>
+            <div className="card settings-card" style={{ marginTop: '1rem' }}>
                 <h2>Profile Information</h2>
                 <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr' }} onSubmit={handleProfileSubmit}>
                     <div className="profile-header" style={{ gridColumn: '1 / -1' }}>
@@ -149,7 +182,7 @@ const Settings = () => {
                 </form>
             </div>
 
-            <div className="card" style={{ marginTop: '1rem' }}>
+            <div className="card settings-card" style={{ marginTop: '1rem' }}>
                 <h2>Change Password</h2>
                 <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }} onSubmit={handlePasswordSubmit}>
                     <input
@@ -186,7 +219,7 @@ const Settings = () => {
                 </form>
             </div>
 
-            <div className="card" style={{ marginTop: '1rem' }}>
+            <div className="card settings-card" style={{ marginTop: '1rem' }}>
                 <h2>Session</h2>
                 <p><strong>Logged in as:</strong> {user?.email}</p>
                 <div style={{ marginTop: '1rem' }}>
