@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTasks } from '../context/TaskContext';
-import usageService from '../services/usageService';
 import './Dashboard.css';
 
 const TASK_TIME_STORAGE_KEY = 'daymap_task_time_v1';
@@ -22,10 +21,19 @@ const formatElapsed = (seconds) => {
     return `${`${hours}`.padStart(2, '0')}:${`${minutes}`.padStart(2, '0')}:${`${secs}`.padStart(2, '0')}`;
 };
 
+const getInitials = (name) => {
+    const normalized = (name || '').trim();
+    if (!normalized) return 'U';
+
+    const parts = normalized.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+};
+
 const Dashboard = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const { tasks, loading, error, fetchTasks, createTask } = useTasks();
+    const { tasks, loading, error, fetchTasks, createTask, createDaySchedule } = useTasks();
     const today = toYmd(new Date());
 
     const [now, setNow] = useState(new Date());
@@ -38,16 +46,17 @@ const Dashboard = () => {
     });
     const [calendarError, setCalendarError] = useState('');
     const [savingCalendarTask, setSavingCalendarTask] = useState(false);
+    const [dayScheduleError, setDayScheduleError] = useState('');
+    const [dayScheduleMessage, setDayScheduleMessage] = useState('');
+    const [savingDaySchedule, setSavingDaySchedule] = useState(false);
+    const [replaceExistingSchedule, setReplaceExistingSchedule] = useState(false);
+    const [daySlots, setDaySlots] = useState([
+        { title: '', start_time: '', end_time: '', priority: 'medium', category: '' }
+    ]);
 
     const [activeTimerTaskId, setActiveTimerTaskId] = useState(null);
     const [timerStartedAt, setTimerStartedAt] = useState(null);
     const [timeSpentByTask, setTimeSpentByTask] = useState({});
-
-    const [usageSummary, setUsageSummary] = useState({
-        topRoutes: [],
-        totalVisits: 0,
-        totalMinutes: 0
-    });
 
     useEffect(() => {
         const loadTasks = async () => {
@@ -60,10 +69,6 @@ const Dashboard = () => {
 
         loadTasks();
     }, [fetchTasks]);
-
-    useEffect(() => {
-        setUsageSummary(usageService.getUsageSummary());
-    }, [tasks.length]);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -107,33 +112,22 @@ const Dashboard = () => {
         };
     }, [tasks]);
 
-    const timeAnalysis = useMemo(() => {
-        const buckets = {
-            morning: 0,
-            afternoon: 0,
-            evening: 0,
-            night: 0
-        };
-
-        tasks.forEach((task) => {
-            if (!task.scheduled_time) return;
-            const hour = parseInt(task.scheduled_time.split(':')[0], 10);
-            if (Number.isNaN(hour)) return;
-
-            if (hour >= 5 && hour <= 11) buckets.morning += 1;
-            else if (hour >= 12 && hour <= 17) buckets.afternoon += 1;
-            else if (hour >= 18 && hour <= 21) buckets.evening += 1;
-            else buckets.night += 1;
-        });
-
-        const entries = Object.entries(buckets).sort((a, b) => b[1] - a[1]);
-        const [topName, topCount] = entries[0] || ['none', 0];
+    const profileSummary = useMemo(() => {
+        const completedToday = tasks.filter((task) => task.scheduled_date === today && task.status === 'completed').length;
+        const plannedToday = tasks.filter((task) => task.scheduled_date === today).length;
+        const overdue = tasks.filter((task) => task.scheduled_date && task.scheduled_date < today && task.status !== 'completed').length;
+        const memberSince = user?.created_at
+            ? new Date(user.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : 'Today';
 
         return {
-            buckets,
-            topBucket: topCount > 0 ? `${topName} (${topCount} tasks)` : 'Not enough scheduled data'
+            initials: getInitials(user?.name),
+            completedToday,
+            plannedToday,
+            overdue,
+            memberSince
         };
-    }, [tasks]);
+    }, [tasks, today, user]);
 
     const selectedDateTasks = useMemo(() => {
         return tasks
@@ -197,6 +191,60 @@ const Dashboard = () => {
         }
     };
 
+    const updateDaySlot = (index, field, value) => {
+        setDaySlots((prev) => prev.map((slot, slotIndex) => (
+            slotIndex === index ? { ...slot, [field]: value } : slot
+        )));
+    };
+
+    const addDaySlot = () => {
+        setDaySlots((prev) => ([
+            ...prev,
+            { title: '', start_time: '', end_time: '', priority: 'medium', category: '' }
+        ]));
+    };
+
+    const removeDaySlot = (index) => {
+        setDaySlots((prev) => prev.filter((_, slotIndex) => slotIndex !== index));
+    };
+
+    const handleCreateDaySchedule = async (event) => {
+        event.preventDefault();
+        setDayScheduleError('');
+        setDayScheduleMessage('');
+
+        const normalizedSlots = daySlots
+            .map((slot) => ({
+                ...slot,
+                title: slot.title.trim(),
+                category: slot.category.trim()
+            }))
+            .filter((slot) => slot.title);
+
+        if (normalizedSlots.length === 0) {
+            setDayScheduleError('Add at least one slot with a title to build your day schedule.');
+            return;
+        }
+
+        try {
+            setSavingDaySchedule(true);
+            const response = await createDaySchedule({
+                date: selectedDate,
+                slots: normalizedSlots,
+                replaceExisting: replaceExistingSchedule
+            });
+
+            setDayScheduleMessage(`Saved ${response?.data?.count || normalizedSlots.length} slot(s) for ${selectedDate}.`);
+            setDaySlots([{ title: '', start_time: '', end_time: '', priority: 'medium', category: '' }]);
+            await fetchTasks();
+        } catch (scheduleError) {
+            const validationMessage = scheduleError?.errors?.[0]?.message;
+            setDayScheduleError(validationMessage || scheduleError?.message || 'Failed to create full-day schedule.');
+        } finally {
+            setSavingDaySchedule(false);
+        }
+    };
+
     const startTaskTimer = (taskId) => {
         if (activeTimerTaskId && activeTimerTaskId !== taskId) {
             stopTaskTimer();
@@ -236,52 +284,125 @@ const Dashboard = () => {
             </div>
 
             <div className="dashboard-profile card">
-                <h2>Profile</h2>
+                <div className="profile-header">
+                    {user?.profile_image ? (
+                        <img src={user.profile_image} alt="Profile" className="profile-avatar" style={{ objectFit: 'cover' }} />
+                    ) : (
+                        <div className="profile-avatar" aria-hidden="true">{profileSummary.initials}</div>
+                    )}
+                    <div>
+                        <h2 className="profile-name">{user?.name || 'User Profile'}</h2>
+                        <p className="profile-subtitle">Plan smarter and schedule your day with confidence.</p>
+                    </div>
+                </div>
                 <div className="profile-grid">
                     <div><span className="profile-label">Name</span><p>{user?.name || '—'}</p></div>
                     <div><span className="profile-label">Email</span><p>{user?.email || '—'}</p></div>
                     <div><span className="profile-label">Timezone</span><p>{user?.timezone || 'UTC'}</p></div>
+                    <div><span className="profile-label">Phone</span><p>{user?.phone || '—'}</p></div>
+                    <div><span className="profile-label">Location</span><p>{user?.location || '—'}</p></div>
+                    <div><span className="profile-label">Member since</span><p>{profileSummary.memberSince}</p></div>
                     <div><span className="profile-label">Total tasks</span><p>{taskStats.total}</p></div>
+                    <div><span className="profile-label">Planned today</span><p>{profileSummary.plannedToday}</p></div>
+                    <div><span className="profile-label">Completed today</span><p>{profileSummary.completedToday}</p></div>
+                    <div><span className="profile-label">Overdue tasks</span><p>{profileSummary.overdue}</p></div>
                 </div>
             </div>
 
             <div className="dashboard-grid">
                 <div className="dashboard-card stats-card" onClick={() => navigate('/tasks')}>
-                    <h3>Task Summary</h3>
+                    <h3>Daily Progress Overview</h3>
                     <p><strong>{taskStats.completed}</strong> completed • <strong>{taskStats.pending}</strong> pending • <strong>{taskStats.inProgress}</strong> in progress</p>
                     <p>Completion rate: <strong>{taskStats.completionRate}%</strong></p>
-                </div>
-
-                <div className="dashboard-card stats-card" onClick={() => navigate('/today')}>
-                    <h3>Time Analysis</h3>
                     <p>Total scheduled time: <strong>{taskStats.totalScheduledMinutes} min</strong></p>
-                    <p>Average task duration: <strong>{taskStats.avgTaskDuration} min</strong></p>
-                    <p>Peak schedule window: <strong>{timeAnalysis.topBucket}</strong></p>
                     <p>Tracked focus time: <strong>{Math.round(trackedSecondsTotal / 60)} min</strong></p>
                 </div>
-
-                <div className="dashboard-card stats-card" onClick={() => navigate('/today')}>
-                    <h3>Most Used Parts</h3>
-                    {usageSummary.topRoutes.length === 0 ? (
-                        <p>No usage data yet. Navigate through the app to build insights.</p>
-                    ) : (
-                        <ul className="compact-list">
-                            {usageSummary.topRoutes.map((item) => (
-                                <li key={item.path}>
-                                    <span>{item.label}</span>
-                                    <span>{item.visits} visits • {item.totalMinutes} min</span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                    <p className="usage-total">Total tracked navigation: <strong>{usageSummary.totalVisits}</strong> visits</p>
-                </div>
-
-                <div className="dashboard-card" onClick={() => navigate('/week')}>
-                    <h3>Week View</h3>
-                    <p>Open weekly planning view.</p>
-                </div>
             </div>
+
+            <section className="dashboard-calendar card">
+                <div className="dashboard-section-header">
+                    <h2>Full-Day Scheduler</h2>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="calendar-date-input"
+                    />
+                </div>
+
+                <form onSubmit={handleCreateDaySchedule} className="calendar-task-list">
+                    {daySlots.map((slot, index) => (
+                        <div className="calendar-task-item" key={`day-slot-${index}`}>
+                            <div className="calendar-task-slot-grid">
+                                <input
+                                    className="input"
+                                    type="text"
+                                    placeholder="Task title"
+                                    value={slot.title}
+                                    onChange={(e) => updateDaySlot(index, 'title', e.target.value)}
+                                    maxLength={255}
+                                />
+                                <input
+                                    className="input"
+                                    type="time"
+                                    value={slot.start_time}
+                                    onChange={(e) => updateDaySlot(index, 'start_time', e.target.value)}
+                                />
+                                <input
+                                    className="input"
+                                    type="time"
+                                    value={slot.end_time}
+                                    onChange={(e) => updateDaySlot(index, 'end_time', e.target.value)}
+                                />
+                                <select
+                                    className="input"
+                                    value={slot.priority}
+                                    onChange={(e) => updateDaySlot(index, 'priority', e.target.value)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                                <input
+                                    className="input"
+                                    type="text"
+                                    placeholder="Category"
+                                    value={slot.category}
+                                    onChange={(e) => updateDaySlot(index, 'category', e.target.value)}
+                                />
+                            </div>
+                            <div className="calendar-task-timer">
+                                {daySlots.length > 1 && (
+                                    <button type="button" className="btn btn-danger" onClick={() => removeDaySlot(index)}>
+                                        Remove
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    <div className="dashboard-section-header">
+                        <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input
+                                type="checkbox"
+                                checked={replaceExistingSchedule}
+                                onChange={(e) => setReplaceExistingSchedule(e.target.checked)}
+                            />
+                            Replace existing tasks on this date
+                        </label>
+                        <div style={{ display: 'flex', gap: '0.6rem' }}>
+                            <button type="button" className="btn btn-secondary" onClick={addDaySlot}>Add Slot</button>
+                            <button type="submit" className="btn btn-primary" disabled={savingDaySchedule}>
+                                {savingDaySchedule ? 'Saving...' : 'Save Full-Day Plan'}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+
+                {dayScheduleError && <p className="dashboard-error">{dayScheduleError}</p>}
+                {dayScheduleMessage && <p className="muted">{dayScheduleMessage}</p>}
+            </section>
 
             <section className="dashboard-calendar card">
                 <div className="dashboard-section-header">

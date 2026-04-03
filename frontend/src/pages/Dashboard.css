@@ -62,6 +62,38 @@
     margin-bottom: 1.25rem;
 }
 
+.profile-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+
+.profile-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.3);
+    object-fit: cover;
+}
+
+.profile-name {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.profile-subtitle {
+    margin: 0.2rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+}
+
 .profile-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -140,6 +172,10 @@
     font-size: 0.87rem;
 }
 
+.dashboard-card .compact-list li span {
+    line-height: 1.35;
+}
+
 .usage-total {
     margin-top: 0.75rem;
 }
@@ -181,6 +217,13 @@
     border-radius: 0.65rem;
     padding: 0.75rem;
     background: #fff;
+}
+
+.calendar-task-slot-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+    gap: 0.55rem;
+    width: 100%;
 }
 
 .calendar-task-title {
@@ -266,6 +309,14 @@
 
     .calendar-task-form {
         grid-template-columns: 1fr;
+    }
+
+    .calendar-task-slot-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-header {
+        align-items: flex-start;
     }
 
     .calendar-task-item {

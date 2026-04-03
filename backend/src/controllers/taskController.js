@@ -1,6 +1,30 @@
 const Task = require('../models/Task');
 const Analytics = require('../models/Analytics');
 
+const normalizeTimeToSeconds = (value) => {
+    if (!value || typeof value !== 'string') return null;
+    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+        return `${value}:00`;
+    }
+    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) {
+        return value;
+    }
+    return null;
+};
+
+const minutesBetweenTimes = (start, end) => {
+    if (!start || !end) return null;
+
+    const [sH, sM] = start.split(':').map(Number);
+    const [eH, eM] = end.split(':').map(Number);
+
+    const startMinutes = (sH * 60) + sM;
+    const endMinutes = (eH * 60) + eM;
+    const diff = endMinutes - startMinutes;
+
+    return diff > 0 ? diff : null;
+};
+
 class TaskController {
     /**
      * Get all tasks for user
@@ -386,6 +410,93 @@ class TaskController {
             res.status(500).json({
                 success: false,
                 message: 'Error fetching upcoming tasks',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get full-day schedule (tasks) for a selected date
+     * @route GET /api/tasks/day-schedule/:date
+     */
+    static async getDaySchedule(req, res) {
+        try {
+            const { date } = req.params;
+            const tasks = await Task.findByDate(req.user.id, date);
+            const totalMinutes = tasks.reduce((acc, task) => acc + (parseInt(task.duration_minutes, 10) || 0), 0);
+
+            res.json({
+                success: true,
+                data: {
+                    date,
+                    tasks,
+                    count: tasks.length,
+                    total_scheduled_minutes: totalMinutes
+                }
+            });
+        } catch (error) {
+            console.error('Get day schedule error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching day schedule',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Create a full-day schedule with multiple tasks for one date
+     * @route POST /api/tasks/day-schedule
+     */
+    static async createDaySchedule(req, res) {
+        try {
+            const { date, slots = [], replaceExisting = false } = req.body;
+
+            if (replaceExisting) {
+                await Task.deleteByUserAndDate(req.user.id, date);
+            }
+
+            const createdTasks = [];
+            for (const slot of slots) {
+                const normalizedStart = normalizeTimeToSeconds(slot.start_time);
+                const normalizedEnd = normalizeTimeToSeconds(slot.end_time);
+
+                const durationMinutes = slot.duration_minutes
+                    ? parseInt(slot.duration_minutes, 10)
+                    : minutesBetweenTimes(slot.start_time || '', slot.end_time || '');
+
+                const created = await Task.create({
+                    user_id: req.user.id,
+                    title: slot.title,
+                    description: slot.description || null,
+                    category: slot.category || null,
+                    priority: slot.priority || 'medium',
+                    status: slot.status || 'pending',
+                    scheduled_date: date,
+                    scheduled_time: normalizedStart,
+                    duration_minutes: Number.isFinite(durationMinutes) ? durationMinutes : null,
+                    recurrence_pattern: normalizedEnd ? { end_time: normalizedEnd } : null
+                });
+
+                createdTasks.push(created);
+            }
+
+            await this.updateAnalytics(req.user.id, date);
+
+            res.status(201).json({
+                success: true,
+                message: 'Day schedule created successfully',
+                data: {
+                    date,
+                    tasks: createdTasks,
+                    count: createdTasks.length
+                }
+            });
+        } catch (error) {
+            console.error('Create day schedule error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error creating day schedule',
                 error: error.message
             });
         }

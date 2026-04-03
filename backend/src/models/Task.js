@@ -199,6 +199,15 @@ class Task {
 
         await TaskDocument.deleteMany({ id: { $in: ids } });
     }
+
+    /**
+     * Delete all tasks for a user on a specific date
+     * @param {String} userId - User ID
+     * @param {String} date - Date in YYYY-MM-DD
+     */
+    static async deleteByUserAndDate(userId, date) {
+        await TaskDocument.deleteMany({ user_id: userId, scheduled_date: date });
+    }
     
     /**
      * Get task statistics for a user

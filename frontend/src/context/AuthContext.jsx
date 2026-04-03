@@ -84,6 +84,17 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const changePassword = async (passwordData) => {
+        try {
+            setError(null);
+            const response = await authService.changePassword(passwordData);
+            return response;
+        } catch (error) {
+            setError(error.message || 'Password change failed');
+            throw error;
+        }
+    };
+
     const value = {
         user,
         loading,
@@ -92,6 +103,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         updateProfile,
+        changePassword,
         isAuthenticated: !!user
     };
 

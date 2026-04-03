@@ -71,6 +71,22 @@ const updateProfileValidation = [
         .optional()
         .trim()
         .isLength({ max: 100 }).withMessage('Timezone must not exceed 100 characters'),
+    body('profile_image')
+        .optional({ nullable: true })
+        .isString().withMessage('profile_image must be a string')
+        .isLength({ max: 3000000 }).withMessage('Profile image payload is too large'),
+    body('bio')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 500 }).withMessage('Bio must not exceed 500 characters'),
+    body('phone')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 30 }).withMessage('Phone must not exceed 30 characters'),
+    body('location')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 120 }).withMessage('Location must not exceed 120 characters'),
     handleValidationErrors
 ];
 
@@ -153,6 +169,40 @@ const taskValidation = [
 ];
 
 /**
+ * Validation rules for full-day scheduling payload
+ */
+const dayScheduleValidation = [
+    body('date')
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('date must be in YYYY-MM-DD format'),
+    body('replaceExisting')
+        .optional()
+        .isBoolean().withMessage('replaceExisting must be a boolean'),
+    body('slots')
+        .isArray({ min: 1 }).withMessage('slots must be a non-empty array'),
+    body('slots.*.title')
+        .trim()
+        .notEmpty().withMessage('Each slot requires a title')
+        .isLength({ max: 255 }).withMessage('Slot title must not exceed 255 characters'),
+    body('slots.*.start_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('slots.*.end_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('slots.*.priority')
+        .optional()
+        .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid slot priority value'),
+    body('slots.*.category')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 50 }).withMessage('Category must not exceed 50 characters'),
+    body('slots.*.description')
+        .optional({ nullable: true })
+        .trim(),
+    handleValidationErrors
+];
+
+/**
  * Validation rules for creating/updating categories
  */
 const categoryValidation = [
@@ -223,6 +273,7 @@ module.exports = {
     updateProfileValidation,
     changePasswordValidation,
     taskValidation,
+    dayScheduleValidation,
     categoryValidation,
     routineValidation,
     uuidParamValidation,

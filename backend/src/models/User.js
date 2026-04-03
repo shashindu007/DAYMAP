@@ -8,7 +8,11 @@ const userSchema = new mongoose.Schema(
         email: { type: String, required: true, unique: true, trim: true, lowercase: true },
         password_hash: { type: String, required: true },
         name: { type: String, required: true, minlength: 2, maxlength: 100, trim: true },
-        timezone: { type: String, default: 'UTC', maxlength: 50 }
+        timezone: { type: String, default: 'UTC', maxlength: 50 },
+        profile_image: { type: String, default: null, maxlength: 3000000 },
+        bio: { type: String, default: null, maxlength: 500 },
+        phone: { type: String, default: null, maxlength: 30 },
+        location: { type: String, default: null, maxlength: 120 }
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -29,13 +33,26 @@ class User {
      * @returns {Object} Created user
      */
     static async create(userData) {
-        const { email, password_hash, name, timezone = 'UTC' } = userData;
+        const {
+            email,
+            password_hash,
+            name,
+            timezone = 'UTC',
+            profile_image = null,
+            bio = null,
+            phone = null,
+            location = null
+        } = userData;
         const created = await UserDocument.create({
             id: uuidv4(),
             email,
             password_hash,
             name,
-            timezone
+            timezone,
+            profile_image,
+            bio,
+            phone,
+            location
         });
 
         return await this.findById(created.id);
@@ -80,7 +97,7 @@ class User {
      * @returns {Object} Updated user
      */
     static async update(id, userData) {
-        const allowedFields = ['name', 'email', 'timezone'];
+        const allowedFields = ['name', 'email', 'timezone', 'profile_image', 'bio', 'phone', 'location'];
         const updates = {};
         
         for (const [key, value] of Object.entries(userData)) {
