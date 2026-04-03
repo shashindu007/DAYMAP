@@ -1,5 +1,36 @@
-const { pool } = require('../config/database');
+const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+
+// NOTE: Major migration change - SQL table -> Mongoose schema.
+const taskSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, unique: true, default: uuidv4 },
+        user_id: { type: String, required: true, ref: 'User' },
+        title: { type: String, required: true, maxlength: 255, trim: true },
+        description: { type: String, default: null },
+        category: { type: String, default: null, maxlength: 50 },
+        priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+        status: { type: String, enum: ['pending', 'in_progress', 'completed', 'cancelled'], default: 'pending' },
+        scheduled_date: { type: String, default: null }, // Kept as YYYY-MM-DD for API compatibility
+        scheduled_time: { type: String, default: null }, // Kept as HH:MM:SS for API compatibility
+        duration_minutes: { type: Number, default: null },
+        actual_duration_minutes: { type: Number, default: null },
+        is_recurring: { type: Boolean, default: false },
+        recurrence_pattern: { type: mongoose.Schema.Types.Mixed, default: null },
+        parent_task_id: { type: String, default: null },
+        completed_at: { type: Date, default: null }
+    },
+    {
+        timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+        versionKey: false
+    }
+);
+
+taskSchema.index({ user_id: 1, scheduled_date: 1 });
+taskSchema.index({ status: 1 });
+taskSchema.index({ priority: 1 });
+
+const TaskDocument = mongoose.models.Task || mongoose.model('Task', taskSchema);
 
 class Task {
     /**
@@ -22,27 +53,24 @@ class Task {
             recurrence_pattern = null,
             parent_task_id = null
         } = taskData;
-        
-        const id = uuidv4();
-        
-        const query = `
-            INSERT INTO tasks (
-                id, user_id, title, description, category, priority, status,
-                scheduled_date, scheduled_time, duration_minutes, is_recurring,
-                recurrence_pattern, parent_task_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        
-        const values = [
-            id, user_id, title, description, category, priority, status,
-            scheduled_date, scheduled_time, duration_minutes, is_recurring,
-            recurrence_pattern ? JSON.stringify(recurrence_pattern) : null,
+
+        const created = await TaskDocument.create({
+            id: uuidv4(),
+            user_id,
+            title,
+            description,
+            category,
+            priority,
+            status,
+            scheduled_date,
+            scheduled_time,
+            duration_minutes,
+            is_recurring,
+            recurrence_pattern,
             parent_task_id
-        ];
-        
-        await pool.execute(query, values);
-        
-        return await this.findById(id);
+        });
+
+        return await this.findById(created.id);
     }
     
     /**
@@ -51,17 +79,7 @@ class Task {
      * @returns {Object|null} Task object
      */
     static async findById(id) {
-        const query = 'SELECT * FROM tasks WHERE id = ?';
-        const [rows] = await pool.execute(query, [id]);
-        
-        if (rows.length === 0) return null;
-        
-        const task = rows[0];
-        if (task.recurrence_pattern) {
-            task.recurrence_pattern = JSON.parse(task.recurrence_pattern);
-        }
-        
-        return task;
+        return await TaskDocument.findOne({ id }).lean();
     }
     
     /**
@@ -71,44 +89,19 @@ class Task {
      * @returns {Array} Array of tasks
      */
     static async findByUser(userId, filters = {}) {
-        let query = 'SELECT * FROM tasks WHERE user_id = ?';
-        const values = [userId];
-        
-        if (filters.status) {
-            query += ' AND status = ?';
-            values.push(filters.status);
-        }
-        
-        if (filters.priority) {
-            query += ' AND priority = ?';
-            values.push(filters.priority);
-        }
-        
-        if (filters.category) {
-            query += ' AND category = ?';
-            values.push(filters.category);
-        }
-        
-        if (filters.scheduled_date) {
-            query += ' AND scheduled_date = ?';
-            values.push(filters.scheduled_date);
-        }
-        
+        const mongoFilters = { user_id: userId };
+
+        if (filters.status) mongoFilters.status = filters.status;
+        if (filters.priority) mongoFilters.priority = filters.priority;
+        if (filters.category) mongoFilters.category = filters.category;
+        if (filters.scheduled_date) mongoFilters.scheduled_date = filters.scheduled_date;
         if (filters.date_from && filters.date_to) {
-            query += ' AND scheduled_date BETWEEN ? AND ?';
-            values.push(filters.date_from, filters.date_to);
+            mongoFilters.scheduled_date = { $gte: filters.date_from, $lte: filters.date_to };
         }
-        
-        query += ' ORDER BY scheduled_date ASC, scheduled_time ASC';
-        
-        const [rows] = await pool.execute(query, values);
-        
-        return rows.map(task => {
-            if (task.recurrence_pattern) {
-                task.recurrence_pattern = JSON.parse(task.recurrence_pattern);
-            }
-            return task;
-        });
+
+        return await TaskDocument.find(mongoFilters)
+            .sort({ scheduled_date: 1, scheduled_time: 1 })
+            .lean();
     }
     
     /**
@@ -118,20 +111,9 @@ class Task {
      * @returns {Array} Array of tasks
      */
     static async findByDate(userId, date) {
-        const query = `
-            SELECT * FROM tasks 
-            WHERE user_id = ? AND scheduled_date = ?
-            ORDER BY scheduled_time ASC
-        `;
-        
-        const [rows] = await pool.execute(query, [userId, date]);
-        
-        return rows.map(task => {
-            if (task.recurrence_pattern) {
-                task.recurrence_pattern = JSON.parse(task.recurrence_pattern);
-            }
-            return task;
-        });
+        return await TaskDocument.find({ user_id: userId, scheduled_date: date })
+            .sort({ scheduled_time: 1 })
+            .lean();
     }
     
     /**
@@ -142,20 +124,12 @@ class Task {
      * @returns {Array} Array of tasks
      */
     static async findByWeek(userId, startDate, endDate) {
-        const query = `
-            SELECT * FROM tasks 
-            WHERE user_id = ? AND scheduled_date BETWEEN ? AND ?
-            ORDER BY scheduled_date ASC, scheduled_time ASC
-        `;
-        
-        const [rows] = await pool.execute(query, [userId, startDate, endDate]);
-        
-        return rows.map(task => {
-            if (task.recurrence_pattern) {
-                task.recurrence_pattern = JSON.parse(task.recurrence_pattern);
-            }
-            return task;
-        });
+        return await TaskDocument.find({
+            user_id: userId,
+            scheduled_date: { $gte: startDate, $lte: endDate }
+        })
+            .sort({ scheduled_date: 1, scheduled_time: 1 })
+            .lean();
     }
     
     /**
@@ -170,29 +144,20 @@ class Task {
             'scheduled_date', 'scheduled_time', 'duration_minutes',
             'actual_duration_minutes', 'is_recurring', 'recurrence_pattern'
         ];
-        
-        const updates = [];
-        const values = [];
+
+        const updates = {};
         
         for (const [key, value] of Object.entries(taskData)) {
             if (allowedFields.includes(key)) {
-                updates.push(`${key} = ?`);
-                if (key === 'recurrence_pattern' && value !== null) {
-                    values.push(JSON.stringify(value));
-                } else {
-                    values.push(value);
-                }
+                updates[key] = value;
             }
         }
         
-        if (updates.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return await this.findById(id);
         }
-        
-        values.push(id);
-        const query = `UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`;
-        
-        await pool.execute(query, values);
+
+        await TaskDocument.updateOne({ id }, { $set: updates });
         
         return await this.findById(id);
     }
@@ -204,17 +169,16 @@ class Task {
      * @returns {Object} Updated task
      */
     static async updateStatus(id, status) {
-        let query = 'UPDATE tasks SET status = ?';
-        const values = [status, id];
-        
-        if (status === 'completed') {
-            query += ', completed_at = CURRENT_TIMESTAMP WHERE id = ?';
-        } else {
-            query += ', completed_at = NULL WHERE id = ?';
-        }
-        
-        await pool.execute(query, values);
-        
+        await TaskDocument.updateOne(
+            { id },
+            {
+                $set: {
+                    status,
+                    completed_at: status === 'completed' ? new Date() : null
+                }
+            }
+        );
+
         return await this.findById(id);
     }
     
@@ -223,8 +187,7 @@ class Task {
      * @param {String} id - Task ID
      */
     static async delete(id) {
-        const query = 'DELETE FROM tasks WHERE id = ?';
-        await pool.execute(query, [id]);
+        await TaskDocument.deleteOne({ id });
     }
     
     /**
@@ -233,11 +196,8 @@ class Task {
      */
     static async bulkDelete(ids) {
         if (ids.length === 0) return;
-        
-        const placeholders = ids.map(() => '?').join(',');
-        const query = `DELETE FROM tasks WHERE id IN (${placeholders})`;
-        
-        await pool.execute(query, ids);
+
+        await TaskDocument.deleteMany({ id: { $in: ids } });
     }
     
     /**
@@ -247,18 +207,45 @@ class Task {
      * @returns {Object} Statistics
      */
     static async getStatsByDate(userId, date) {
-        const query = `
-            SELECT 
-                COUNT(*) as total_tasks,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_tasks,
-                SUM(duration_minutes) as total_scheduled_minutes,
-                SUM(CASE WHEN status = 'completed' THEN actual_duration_minutes ELSE 0 END) as total_actual_minutes
-            FROM tasks
-            WHERE user_id = ? AND scheduled_date = ?
-        `;
-        
-        const [rows] = await pool.execute(query, [userId, date]);
-        
+        const rows = await TaskDocument.aggregate([
+            {
+                $match: {
+                    user_id: userId,
+                    scheduled_date: date
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total_tasks: { $sum: 1 },
+                    completed_tasks: {
+                        $sum: {
+                            $cond: [{ $eq: ['$status', 'completed'] }, 1, 0]
+                        }
+                    },
+                    total_scheduled_minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+                    total_actual_minutes: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$status', 'completed'] },
+                                { $ifNull: ['$actual_duration_minutes', 0] },
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        if (!rows.length) {
+            return {
+                total_tasks: 0,
+                completed_tasks: 0,
+                total_scheduled_minutes: 0,
+                total_actual_minutes: 0
+            };
+        }
+
         return rows[0];
     }
 }

@@ -8,20 +8,20 @@ const errorHandler = (err, req, res, next) => {
     let statusCode = err.statusCode || 500;
     let message = err.message || 'Internal Server Error';
     
-    // MySQL specific errors
-    if (err.code === 'ER_DUP_ENTRY') {
+    // Mongo duplicate key
+    if (err.code === 11000) {
         statusCode = 400;
         message = 'Duplicate entry. This record already exists.';
     }
     
-    if (err.code === 'ER_NO_REFERENCED_ROW_2') {
+    if (err.name === 'CastError') {
         statusCode = 400;
-        message = 'Referenced record does not exist.';
+        message = 'Invalid identifier or field type.';
     }
     
-    if (err.code === 'ER_ROW_IS_REFERENCED_2') {
+    if (err.name === 'MongoServerError' && err.message?.includes('E11000')) {
         statusCode = 400;
-        message = 'Cannot delete. This record is referenced by other records.';
+        message = 'Duplicate entry. This record already exists.';
     }
     
     // JSON web token errors

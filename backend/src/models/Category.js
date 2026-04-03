@@ -1,5 +1,25 @@
-const { pool } = require('../config/database');
+const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+
+// NOTE: Major migration change - SQL table -> Mongoose schema.
+const categorySchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, unique: true, default: uuidv4 },
+        user_id: { type: String, required: true, ref: 'User' },
+        name: { type: String, required: true, maxlength: 100, trim: true },
+        color: { type: String, default: '#3B82F6' },
+        icon: { type: String, default: null, maxlength: 50 }
+    },
+    {
+        timestamps: { createdAt: 'created_at', updatedAt: false },
+        versionKey: false
+    }
+);
+
+categorySchema.index({ user_id: 1, name: 1 }, { unique: true });
+categorySchema.index({ user_id: 1 });
+
+const CategoryDocument = mongoose.models.Category || mongoose.model('Category', categorySchema);
 
 class Category {
     /**
@@ -14,17 +34,9 @@ class Category {
             color = '#3B82F6',
             icon = null
         } = categoryData;
-        
-        const id = uuidv4();
-        
-        const query = `
-            INSERT INTO categories (id, user_id, name, color, icon)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-        
-        await pool.execute(query, [id, user_id, name, color, icon]);
-        
-        return await this.findById(id);
+
+        const created = await CategoryDocument.create({ id: uuidv4(), user_id, name, color, icon });
+        return await this.findById(created.id);
     }
     
     /**
@@ -33,10 +45,7 @@ class Category {
      * @returns {Object|null} Category object
      */
     static async findById(id) {
-        const query = 'SELECT * FROM categories WHERE id = ?';
-        const [rows] = await pool.execute(query, [id]);
-        
-        return rows.length > 0 ? rows[0] : null;
+        return await CategoryDocument.findOne({ id }).lean();
     }
     
     /**
@@ -45,15 +54,7 @@ class Category {
      * @returns {Array} Array of categories
      */
     static async findByUser(userId) {
-        const query = `
-            SELECT * FROM categories 
-            WHERE user_id = ?
-            ORDER BY name ASC
-        `;
-        
-        const [rows] = await pool.execute(query, [userId]);
-        
-        return rows;
+        return await CategoryDocument.find({ user_id: userId }).sort({ name: 1 }).lean();
     }
     
     /**
@@ -64,24 +65,19 @@ class Category {
      */
     static async update(id, categoryData) {
         const allowedFields = ['name', 'color', 'icon'];
-        const updates = [];
-        const values = [];
+        const updates = {};
         
         for (const [key, value] of Object.entries(categoryData)) {
             if (allowedFields.includes(key)) {
-                updates.push(`${key} = ?`);
-                values.push(value);
+                updates[key] = value;
             }
         }
         
-        if (updates.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return await this.findById(id);
         }
-        
-        values.push(id);
-        const query = `UPDATE categories SET ${updates.join(', ')} WHERE id = ?`;
-        
-        await pool.execute(query, values);
+
+        await CategoryDocument.updateOne({ id }, { $set: updates });
         
         return await this.findById(id);
     }
@@ -91,8 +87,7 @@ class Category {
      * @param {String} id - Category ID
      */
     static async delete(id) {
-        const query = 'DELETE FROM categories WHERE id = ?';
-        await pool.execute(query, [id]);
+        await CategoryDocument.deleteOne({ id });
     }
     
     /**
@@ -102,10 +97,8 @@ class Category {
      * @returns {Boolean} True if exists
      */
     static async nameExists(userId, name) {
-        const query = 'SELECT id FROM categories WHERE user_id = ? AND name = ?';
-        const [rows] = await pool.execute(query, [userId, name]);
-        
-        return rows.length > 0;
+        const count = await CategoryDocument.countDocuments({ user_id: userId, name });
+        return count > 0;
     }
 }
 

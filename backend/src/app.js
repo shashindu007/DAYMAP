@@ -16,10 +16,25 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 // Initialize express app
 const app = express();
 
+// NOTE: Supports comma-separated CORS origins, e.g. "http://localhost:3000,http://localhost:3010"
+const allowedOrigins = String(config.cors.origin || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
 // Security middleware
 app.use(helmet()); // Set security headers
 app.use(cors({
-    origin: config.cors.origin,
+    origin: (origin, callback) => {
+        // Allow non-browser clients/tools without Origin header.
+        if (!origin) return callback(null, true);
+
+        if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true
 }));
 

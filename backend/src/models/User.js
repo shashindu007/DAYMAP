@@ -1,5 +1,26 @@
-const { pool } = require('../config/database');
+const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+
+// NOTE: Major migration change - SQL table -> Mongoose schema.
+const userSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, unique: true, default: uuidv4 },
+        email: { type: String, required: true, unique: true, trim: true, lowercase: true },
+        password_hash: { type: String, required: true },
+        name: { type: String, required: true, minlength: 2, maxlength: 100, trim: true },
+        timezone: { type: String, default: 'UTC', maxlength: 50 }
+    },
+    {
+        timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
+        versionKey: false
+    }
+);
+
+userSchema.index({ email: 1 }, { unique: true });
+
+const UserDocument = mongoose.models.User || mongoose.model('User', userSchema);
+
+const toPlain = (doc) => (doc ? doc.toObject ? doc.toObject() : doc : null);
 
 class User {
     /**
@@ -9,16 +30,15 @@ class User {
      */
     static async create(userData) {
         const { email, password_hash, name, timezone = 'UTC' } = userData;
-        const id = uuidv4();
-        
-        const query = `
-            INSERT INTO users (id, email, password_hash, name, timezone)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-        
-        await pool.execute(query, [id, email, password_hash, name, timezone]);
-        
-        return await this.findById(id);
+        const created = await UserDocument.create({
+            id: uuidv4(),
+            email,
+            password_hash,
+            name,
+            timezone
+        });
+
+        return await this.findById(created.id);
     }
     
     /**
@@ -27,12 +47,8 @@ class User {
      * @returns {Object|null} User object
      */
     static async findById(id) {
-        const query = 'SELECT * FROM users WHERE id = ?';
-        const [rows] = await pool.execute(query, [id]);
-        
-        if (rows.length === 0) return null;
-        
-        const user = rows[0];
+        const user = toPlain(await UserDocument.findOne({ id }).lean());
+        if (!user) return null;
         delete user.password_hash; // Don't return password hash
         return user;
     }
@@ -43,10 +59,8 @@ class User {
      * @returns {Object|null} User object
      */
     static async findByEmail(email) {
-        const query = 'SELECT * FROM users WHERE email = ?';
-        const [rows] = await pool.execute(query, [email]);
-        
-        return rows.length > 0 ? rows[0] : null;
+        const user = toPlain(await UserDocument.findOne({ email: email.toLowerCase() }).lean());
+        return user;
     }
     
     /**
@@ -55,10 +69,8 @@ class User {
      * @returns {Object|null} User object with password hash
      */
     static async findByEmailWithPassword(email) {
-        const query = 'SELECT * FROM users WHERE email = ?';
-        const [rows] = await pool.execute(query, [email]);
-        
-        return rows.length > 0 ? rows[0] : null;
+        const user = toPlain(await UserDocument.findOne({ email: email.toLowerCase() }).lean());
+        return user;
     }
     
     /**
@@ -69,24 +81,19 @@ class User {
      */
     static async update(id, userData) {
         const allowedFields = ['name', 'email', 'timezone'];
-        const updates = [];
-        const values = [];
+        const updates = {};
         
         for (const [key, value] of Object.entries(userData)) {
             if (allowedFields.includes(key)) {
-                updates.push(`${key} = ?`);
-                values.push(value);
+                updates[key] = key === 'email' && typeof value === 'string' ? value.toLowerCase() : value;
             }
         }
         
-        if (updates.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return await this.findById(id);
         }
-        
-        values.push(id);
-        const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
-        
-        await pool.execute(query, values);
+
+        await UserDocument.updateOne({ id }, { $set: updates });
         
         return await this.findById(id);
     }
@@ -97,8 +104,7 @@ class User {
      * @param {String} password_hash - New password hash
      */
     static async updatePassword(id, password_hash) {
-        const query = 'UPDATE users SET password_hash = ? WHERE id = ?';
-        await pool.execute(query, [password_hash, id]);
+        await UserDocument.updateOne({ id }, { $set: { password_hash } });
     }
     
     /**
@@ -106,8 +112,7 @@ class User {
      * @param {String} id - User ID
      */
     static async delete(id) {
-        const query = 'DELETE FROM users WHERE id = ?';
-        await pool.execute(query, [id]);
+        await UserDocument.deleteOne({ id });
     }
     
     /**
@@ -116,10 +121,8 @@ class User {
      * @returns {Boolean} True if exists
      */
     static async emailExists(email) {
-        const query = 'SELECT id FROM users WHERE email = ?';
-        const [rows] = await pool.execute(query, [email]);
-        
-        return rows.length > 0;
+        const count = await UserDocument.countDocuments({ email: email.toLowerCase() });
+        return count > 0;
     }
 }
 

@@ -1,5 +1,25 @@
-const { pool } = require('../config/database');
+const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+
+// NOTE: Major migration change - SQL table -> Mongoose schema.
+const routineSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, unique: true, default: uuidv4 },
+        user_id: { type: String, required: true, ref: 'User' },
+        name: { type: String, required: true, maxlength: 100, trim: true },
+        description: { type: String, default: null },
+        routine_type: { type: String, enum: ['morning', 'afternoon', 'evening', 'custom'], default: 'custom' },
+        is_active: { type: Boolean, default: true }
+    },
+    {
+        timestamps: { createdAt: 'created_at', updatedAt: false },
+        versionKey: false
+    }
+);
+
+routineSchema.index({ user_id: 1, is_active: 1 });
+
+const RoutineDocument = mongoose.models.Routine || mongoose.model('Routine', routineSchema);
 
 class Routine {
     /**
@@ -15,17 +35,17 @@ class Routine {
             routine_type = 'custom',
             is_active = true
         } = routineData;
-        
-        const id = uuidv4();
-        
-        const query = `
-            INSERT INTO routines (id, user_id, name, description, routine_type, is_active)
-            VALUES (?, ?, ?, ?, ?, ?)
-        `;
-        
-        await pool.execute(query, [id, user_id, name, description, routine_type, is_active]);
-        
-        return await this.findById(id);
+
+        const created = await RoutineDocument.create({
+            id: uuidv4(),
+            user_id,
+            name,
+            description,
+            routine_type,
+            is_active
+        });
+
+        return await this.findById(created.id);
     }
     
     /**
@@ -34,10 +54,7 @@ class Routine {
      * @returns {Object|null} Routine object
      */
     static async findById(id) {
-        const query = 'SELECT * FROM routines WHERE id = ?';
-        const [rows] = await pool.execute(query, [id]);
-        
-        return rows.length > 0 ? rows[0] : null;
+        return await RoutineDocument.findOne({ id }).lean();
     }
     
     /**
@@ -47,17 +64,9 @@ class Routine {
      * @returns {Array} Array of routines
      */
     static async findByUser(userId, activeOnly = false) {
-        let query = 'SELECT * FROM routines WHERE user_id = ?';
-        
-        if (activeOnly) {
-            query += ' AND is_active = 1';
-        }
-        
-        query += ' ORDER BY created_at DESC';
-        
-        const [rows] = await pool.execute(query, [userId]);
-        
-        return rows;
+        const filter = { user_id: userId };
+        if (activeOnly) filter.is_active = true;
+        return await RoutineDocument.find(filter).sort({ created_at: -1 }).lean();
     }
     
     /**
@@ -68,24 +77,19 @@ class Routine {
      */
     static async update(id, routineData) {
         const allowedFields = ['name', 'description', 'routine_type', 'is_active'];
-        const updates = [];
-        const values = [];
+        const updates = {};
         
         for (const [key, value] of Object.entries(routineData)) {
             if (allowedFields.includes(key)) {
-                updates.push(`${key} = ?`);
-                values.push(value);
+                updates[key] = value;
             }
         }
         
-        if (updates.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return await this.findById(id);
         }
-        
-        values.push(id);
-        const query = `UPDATE routines SET ${updates.join(', ')} WHERE id = ?`;
-        
-        await pool.execute(query, values);
+
+        await RoutineDocument.updateOne({ id }, { $set: updates });
         
         return await this.findById(id);
     }
@@ -96,9 +100,10 @@ class Routine {
      * @returns {Object} Updated routine
      */
     static async toggleActive(id) {
-        const query = 'UPDATE routines SET is_active = NOT is_active WHERE id = ?';
-        await pool.execute(query, [id]);
-        
+        const routine = await RoutineDocument.findOne({ id });
+        if (!routine) return null;
+        routine.is_active = !routine.is_active;
+        await routine.save();
         return await this.findById(id);
     }
     
@@ -107,8 +112,7 @@ class Routine {
      * @param {String} id - Routine ID
      */
     static async delete(id) {
-        const query = 'DELETE FROM routines WHERE id = ?';
-        await pool.execute(query, [id]);
+        await RoutineDocument.deleteOne({ id });
     }
 }
 

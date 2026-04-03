@@ -1,5 +1,27 @@
-const { pool } = require('../config/database');
+const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+
+// NOTE: Major migration change - SQL table -> Mongoose schema.
+const analyticsSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, unique: true, default: uuidv4 },
+        user_id: { type: String, required: true, ref: 'User' },
+        date: { type: String, required: true }, // Kept as YYYY-MM-DD for API compatibility
+        total_tasks_scheduled: { type: Number, default: 0 },
+        total_tasks_completed: { type: Number, default: 0 },
+        total_time_scheduled_minutes: { type: Number, default: 0 },
+        total_time_spent_minutes: { type: Number, default: 0 }
+    },
+    {
+        timestamps: { createdAt: 'created_at', updatedAt: false },
+        versionKey: false
+    }
+);
+
+analyticsSchema.index({ user_id: 1, date: 1 }, { unique: true });
+analyticsSchema.index({ user_id: 1, date: 1 });
+
+const AnalyticsDocument = mongoose.models.Analytics || mongoose.model('Analytics', analyticsSchema);
 
 class Analytics {
     /**
@@ -17,24 +39,23 @@ class Analytics {
             total_time_spent_minutes = 0
         } = stats;
         
-        const id = uuidv4();
-        
-        const query = `
-            INSERT INTO analytics (
-                id, user_id, date, total_tasks_scheduled, total_tasks_completed,
-                total_time_scheduled_minutes, total_time_spent_minutes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE
-                total_tasks_scheduled = VALUES(total_tasks_scheduled),
-                total_tasks_completed = VALUES(total_tasks_completed),
-                total_time_scheduled_minutes = VALUES(total_time_scheduled_minutes),
-                total_time_spent_minutes = VALUES(total_time_spent_minutes)
-        `;
-        
-        await pool.execute(query, [
-            id, userId, date, total_tasks_scheduled, total_tasks_completed,
-            total_time_scheduled_minutes, total_time_spent_minutes
-        ]);
+        await AnalyticsDocument.updateOne(
+            { user_id: userId, date },
+            {
+                $set: {
+                    total_tasks_scheduled,
+                    total_tasks_completed,
+                    total_time_scheduled_minutes,
+                    total_time_spent_minutes
+                },
+                $setOnInsert: {
+                    id: uuidv4(),
+                    user_id: userId,
+                    date
+                }
+            },
+            { upsert: true }
+        );
         
         return await this.findByDate(userId, date);
     }
@@ -46,10 +67,7 @@ class Analytics {
      * @returns {Object|null} Analytics object
      */
     static async findByDate(userId, date) {
-        const query = 'SELECT * FROM analytics WHERE user_id = ? AND date = ?';
-        const [rows] = await pool.execute(query, [userId, date]);
-        
-        return rows.length > 0 ? rows[0] : null;
+        return await AnalyticsDocument.findOne({ user_id: userId, date }).lean();
     }
     
     /**
@@ -60,15 +78,12 @@ class Analytics {
      * @returns {Array} Array of analytics
      */
     static async findByWeek(userId, startDate, endDate) {
-        const query = `
-            SELECT * FROM analytics 
-            WHERE user_id = ? AND date BETWEEN ? AND ?
-            ORDER BY date ASC
-        `;
-        
-        const [rows] = await pool.execute(query, [userId, startDate, endDate]);
-        
-        return rows;
+        return await AnalyticsDocument.find({
+            user_id: userId,
+            date: { $gte: startDate, $lte: endDate }
+        })
+            .sort({ date: 1 })
+            .lean();
     }
     
     /**
@@ -79,15 +94,16 @@ class Analytics {
      * @returns {Array} Array of analytics
      */
     static async findByMonth(userId, year, month) {
-        const query = `
-            SELECT * FROM analytics 
-            WHERE user_id = ? AND YEAR(date) = ? AND MONTH(date) = ?
-            ORDER BY date ASC
-        `;
-        
-        const [rows] = await pool.execute(query, [userId, year, month]);
-        
-        return rows;
+        const monthString = `${month}`.padStart(2, '0');
+        const start = `${year}-${monthString}-01`;
+        const end = `${year}-${monthString}-31`;
+
+        return await AnalyticsDocument.find({
+            user_id: userId,
+            date: { $gte: start, $lte: end }
+        })
+            .sort({ date: 1 })
+            .lean();
     }
     
     /**
@@ -96,19 +112,50 @@ class Analytics {
      * @returns {Object} Summary statistics
      */
     static async getSummary(userId) {
-        const query = `
-            SELECT 
-                SUM(total_tasks_scheduled) as total_tasks_scheduled,
-                SUM(total_tasks_completed) as total_tasks_completed,
-                SUM(total_time_scheduled_minutes) as total_time_scheduled_minutes,
-                SUM(total_time_spent_minutes) as total_time_spent_minutes,
-                AVG(total_tasks_completed / NULLIF(total_tasks_scheduled, 0) * 100) as avg_completion_rate
-            FROM analytics
-            WHERE user_id = ?
-        `;
-        
-        const [rows] = await pool.execute(query, [userId]);
-        
+        const rows = await AnalyticsDocument.aggregate([
+            { $match: { user_id: userId } },
+            {
+                $project: {
+                    total_tasks_scheduled: 1,
+                    total_tasks_completed: 1,
+                    total_time_scheduled_minutes: 1,
+                    total_time_spent_minutes: 1,
+                    completion_rate: {
+                        $cond: [
+                            { $gt: ['$total_tasks_scheduled', 0] },
+                            {
+                                $multiply: [
+                                    { $divide: ['$total_tasks_completed', '$total_tasks_scheduled'] },
+                                    100
+                                ]
+                            },
+                            0
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total_tasks_scheduled: { $sum: '$total_tasks_scheduled' },
+                    total_tasks_completed: { $sum: '$total_tasks_completed' },
+                    total_time_scheduled_minutes: { $sum: '$total_time_scheduled_minutes' },
+                    total_time_spent_minutes: { $sum: '$total_time_spent_minutes' },
+                    avg_completion_rate: { $avg: '$completion_rate' }
+                }
+            }
+        ]);
+
+        if (!rows.length) {
+            return {
+                total_tasks_scheduled: 0,
+                total_tasks_completed: 0,
+                total_time_scheduled_minutes: 0,
+                total_time_spent_minutes: 0,
+                avg_completion_rate: 0
+            };
+        }
+
         return rows[0];
     }
 }

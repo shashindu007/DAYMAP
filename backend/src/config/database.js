@@ -1,30 +1,21 @@
-const mysql = require('mysql2/promise');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
-// Create connection pool
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 3306,
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'routine_tracker',
-    waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0
-});
+// NOTE: Major migration change - SQL pool removed; backend now uses Mongoose.
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/daymap';
 
-// Test database connection
+// Keep function name for minimal changes in server bootstrap logic.
 const testConnection = async () => {
     try {
-        const connection = await pool.getConnection();
-        console.log('✅ Database connected successfully');
-        connection.release();
+        await mongoose.connect(MONGODB_URI, {
+            autoIndex: true,
+            serverSelectionTimeoutMS: 10000
+        });
+        console.log('✅ MongoDB connected successfully');
     } catch (error) {
-        console.error('❌ Database connection failed:', error.message);
+        console.error('❌ MongoDB connection failed:', error.message);
         process.exit(1);
     }
 };
 
-module.exports = { pool, testConnection };
+module.exports = { mongoose, testConnection };

@@ -191,11 +191,19 @@ const routineValidation = [
 ];
 
 /**
- * Validation rules for UUID parameters
+ * Validation rules for resource ID parameters
+ * NOTE: Accepts UUID or Mongo ObjectId to keep routes unchanged during DB migration.
  */
 const uuidParamValidation = [
     param('id')
-        .isUUID().withMessage('Invalid ID format'),
+        .custom((value) => {
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+            const isObjectId = /^[0-9a-fA-F]{24}$/.test(value);
+            if (!isUuid && !isObjectId) {
+                throw new Error('Invalid ID format');
+            }
+            return true;
+        }),
     handleValidationErrors
 ];
 

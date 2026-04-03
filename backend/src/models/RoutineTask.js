@@ -1,5 +1,23 @@
-const { pool } = require('../config/database');
+const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+
+// NOTE: Major migration change - SQL table -> Mongoose schema.
+const routineTaskSchema = new mongoose.Schema(
+    {
+        id: { type: String, required: true, unique: true, default: uuidv4 },
+        routine_id: { type: String, required: true, ref: 'Routine' },
+        task_template: { type: mongoose.Schema.Types.Mixed, required: true },
+        task_order: { type: Number, required: true }
+    },
+    {
+        timestamps: { createdAt: 'created_at', updatedAt: false },
+        versionKey: false
+    }
+);
+
+routineTaskSchema.index({ routine_id: 1, task_order: 1 });
+
+const RoutineTaskDocument = mongoose.models.RoutineTask || mongoose.model('RoutineTask', routineTaskSchema);
 
 class RoutineTask {
     /**
@@ -13,22 +31,15 @@ class RoutineTask {
             task_template,
             task_order
         } = routineTaskData;
-        
-        const id = uuidv4();
-        
-        const query = `
-            INSERT INTO routine_tasks (id, routine_id, task_template, task_order)
-            VALUES (?, ?, ?, ?)
-        `;
-        
-        await pool.execute(query, [
-            id,
+
+        const created = await RoutineTaskDocument.create({
+            id: uuidv4(),
             routine_id,
-            JSON.stringify(task_template),
+            task_template,
             task_order
-        ]);
-        
-        return await this.findById(id);
+        });
+
+        return await this.findById(created.id);
     }
     
     /**
@@ -37,15 +48,7 @@ class RoutineTask {
      * @returns {Object|null} Routine task object
      */
     static async findById(id) {
-        const query = 'SELECT * FROM routine_tasks WHERE id = ?';
-        const [rows] = await pool.execute(query, [id]);
-        
-        if (rows.length === 0) return null;
-        
-        const routineTask = rows[0];
-        routineTask.task_template = JSON.parse(routineTask.task_template);
-        
-        return routineTask;
+        return await RoutineTaskDocument.findOne({ id }).lean();
     }
     
     /**
@@ -54,18 +57,7 @@ class RoutineTask {
      * @returns {Array} Array of routine tasks
      */
     static async findByRoutine(routineId) {
-        const query = `
-            SELECT * FROM routine_tasks 
-            WHERE routine_id = ?
-            ORDER BY task_order ASC
-        `;
-        
-        const [rows] = await pool.execute(query, [routineId]);
-        
-        return rows.map(task => {
-            task.task_template = JSON.parse(task.task_template);
-            return task;
-        });
+        return await RoutineTaskDocument.find({ routine_id: routineId }).sort({ task_order: 1 }).lean();
     }
     
     /**
@@ -76,28 +68,19 @@ class RoutineTask {
      */
     static async update(id, routineTaskData) {
         const allowedFields = ['task_template', 'task_order'];
-        const updates = [];
-        const values = [];
+        const updates = {};
         
         for (const [key, value] of Object.entries(routineTaskData)) {
             if (allowedFields.includes(key)) {
-                updates.push(`${key} = ?`);
-                if (key === 'task_template') {
-                    values.push(JSON.stringify(value));
-                } else {
-                    values.push(value);
-                }
+                updates[key] = value;
             }
         }
         
-        if (updates.length === 0) {
+        if (Object.keys(updates).length === 0) {
             return await this.findById(id);
         }
-        
-        values.push(id);
-        const query = `UPDATE routine_tasks SET ${updates.join(', ')} WHERE id = ?`;
-        
-        await pool.execute(query, values);
+
+        await RoutineTaskDocument.updateOne({ id }, { $set: updates });
         
         return await this.findById(id);
     }
@@ -107,8 +90,7 @@ class RoutineTask {
      * @param {String} id - Routine task ID
      */
     static async delete(id) {
-        const query = 'DELETE FROM routine_tasks WHERE id = ?';
-        await pool.execute(query, [id]);
+        await RoutineTaskDocument.deleteOne({ id });
     }
     
     /**
@@ -116,8 +98,7 @@ class RoutineTask {
      * @param {String} routineId - Routine ID
      */
     static async deleteByRoutine(routineId) {
-        const query = 'DELETE FROM routine_tasks WHERE routine_id = ?';
-        await pool.execute(query, [routineId]);
+        await RoutineTaskDocument.deleteMany({ routine_id: routineId });
     }
 }
 
