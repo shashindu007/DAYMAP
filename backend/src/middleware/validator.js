@@ -132,6 +132,26 @@ const analyticsTrendsQueryValidation = [
     handleValidationErrors
 ];
 
+const analyticsFocusPatternsQueryValidation = [
+    query('days')
+        .optional()
+        .isInt({ min: 1, max: 365 }).withMessage('days must be between 1 and 365'),
+    handleValidationErrors
+];
+
+const focusSessionValidation = [
+    body('date')
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('date must be in YYYY-MM-DD format'),
+    body('start_time')
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('end_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('duration_minutes')
+        .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
+    handleValidationErrors
+];
+
 /**
  * Validation rules for creating/updating tasks
  */
@@ -280,5 +300,7 @@ module.exports = {
     dateParamValidation,
     analyticsWeeklyQueryValidation,
     analyticsMonthlyQueryValidation,
-    analyticsTrendsQueryValidation
+    analyticsTrendsQueryValidation,
+    analyticsFocusPatternsQueryValidation,
+    focusSessionValidation
 };

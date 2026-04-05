@@ -1,6 +1,6 @@
 .dashboard-container {
     padding: 2rem;
-    max-width: 1200px;
+    max-width: 1100px;
     margin: 0 auto;
     background: radial-gradient(circle at 20% 0%, rgba(79, 70, 229, 0.07), transparent 35%),
                 radial-gradient(circle at 90% 10%, rgba(16, 185, 129, 0.08), transparent 28%);
@@ -12,6 +12,11 @@
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1rem;
+}
+
+.dashboard-container h1 {
+    margin-bottom: 0;
+    color: var(--text-primary);
 }
 
 .dashboard-live-clock {
@@ -32,85 +37,177 @@
     color: var(--primary-dark);
 }
 
-.dashboard-nav-actions {
+.dashboard-section-header {
     display: flex;
-    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
 }
 
-.dashboard-link-btn {
+.dashboard-card,
+.dashboard-calendar {
+    background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
     border: 1px solid var(--border);
-    background: white;
-    color: var(--text-primary);
-    border-radius: 0.55rem;
-    padding: 0.5rem 0.8rem;
-    cursor: pointer;
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
 }
 
-.dark .dashboard-link-btn {
-    background: #1F2937;
+.dark .dashboard-card,
+.dark .dashboard-calendar {
+    background-color: #1F2937;
     border-color: #374151;
 }
 
-.dashboard-link-btn:hover {
-    border-color: var(--primary);
+.dashboard-calendar-grid {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) 1fr;
+    gap: 1rem;
+    align-items: start;
 }
 
-.dashboard-container h1 {
-    margin-bottom: 0;
+.react-calendar {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+    background: white;
+}
+
+.dark .react-calendar {
+    background: #111827;
+    border-color: #374151;
+    color: #E5E7EB;
+}
+
+.calendar-insight-card {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    background: rgba(255, 255, 255, 0.7);
+}
+
+.dark .calendar-insight-card {
+    background: rgba(17, 24, 39, 0.7);
+    border-color: #374151;
+}
+
+.calendar-selected-date {
+    color: var(--text-primary);
+    margin-bottom: 0.35rem;
+}
+
+.calendar-task-preview {
+    margin-top: 0.65rem;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.calendar-task-preview-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.55rem;
+    padding: 0.5rem 0.6rem;
     color: var(--text-primary);
 }
 
-.dashboard-profile {
-    margin-bottom: 1.25rem;
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    background: linear-gradient(165deg, #ffffff 0%, #eef3ff 100%);
+.calendar-task-preview-item small {
+    color: var(--text-secondary);
 }
 
-.profile-header {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin-bottom: 0.25rem;
-}
-
-.profile-avatar {
-    width: 54px;
-    height: 54px;
-    border-radius: 999px;
+.upcoming-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
     display: grid;
-    place-items: center;
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: white;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    box-shadow: 0 8px 18px rgba(59, 130, 246, 0.3);
-    object-fit: cover;
+    gap: 0.65rem;
 }
 
-.profile-name {
+.upcoming-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    padding: 0.65rem 0.75rem;
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.dark .upcoming-list li {
+    background: rgba(17, 24, 39, 0.65);
+    border-color: #374151;
+}
+
+.upcoming-title {
     margin: 0;
     color: var(--text-primary);
+    font-weight: 600;
 }
 
-.profile-subtitle {
+.upcoming-meta {
     margin: 0.2rem 0 0;
     color: var(--text-secondary);
-    font-size: 0.86rem;
+    font-size: 0.82rem;
 }
 
-.profile-grid {
+.focus-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--text-secondary);
+}
+
+.focus-settings-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.focus-duration-input {
+    max-width: 120px;
+}
+
+.focus-live-box {
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 0.75rem;
+    padding: 0.9rem;
+    margin-bottom: 0.75rem;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(56, 189, 248, 0.08));
+}
+
+.focus-timer {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.focus-actions {
+    margin-bottom: 0.65rem;
+}
+
+.focus-insights-grid {
+    margin-top: 0.8rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 1rem;
-    margin-top: 0.75rem;
+    gap: 0.75rem;
 }
 
-.profile-grid > div {
-    min-width: 0;
-    border: 1px solid rgba(148, 163, 184, 0.25);
-    border-radius: 0.7rem;
-    padding: 0.65rem 0.7rem;
-    background: rgba(255, 255, 255, 0.75);
+.focus-insights-grid > div {
+    border: 1px solid var(--border);
+    border-radius: 0.65rem;
+    padding: 0.6rem;
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.dark .focus-insights-grid > div {
+    background: rgba(17, 24, 39, 0.65);
+    border-color: #374151;
 }
 
 .profile-label {
@@ -120,189 +217,38 @@
     letter-spacing: 0.02em;
 }
 
-.profile-grid p {
-    margin-top: 0.3rem;
-    color: var(--text-primary);
-    font-weight: 600;
-    overflow-wrap: anywhere;
-    word-break: break-word;
-    line-height: 1.3;
-}
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 1.25rem;
-}
-
-.dashboard-card {
-    background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
-    border: 1px solid var(--border);
-    border-radius: 0.75rem;
-    padding: 2rem;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.dark .dashboard-card {
-    background-color: #1F2937;
-    border-color: #374151;
-}
-
-.dashboard-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    border-color: var(--primary);
-}
-
-.dashboard-card h3 {
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
-    font-size: 1.25rem;
-}
-
-.dashboard-card p {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    margin-top: 0.45rem;
-}
-
-.stats-card {
-    cursor: default;
-}
-
-.compact-list {
-    margin: 0.4rem 0 0 0;
-    padding: 0;
-    list-style: none;
-}
-
-.compact-list li {
-    display: flex;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.45rem;
-    color: var(--text-primary);
-    font-size: 0.87rem;
-}
-
-.dashboard-card .compact-list li span {
-    line-height: 1.35;
-}
-
-.usage-total {
-    margin-top: 0.75rem;
-}
-
-.dashboard-tasks {
-    margin-top: 0.75rem;
-}
-
-.dashboard-calendar {
+.focus-insights-grid p {
     margin-top: 0.25rem;
-    margin-bottom: 1rem;
-    border: 1px solid rgba(79, 70, 229, 0.18);
-}
-
-.calendar-date-input {
-    padding: 0.5rem 0.65rem;
-    border-radius: 0.55rem;
-    border: 1px solid var(--border);
     color: var(--text-primary);
-    background: white;
-}
-
-.calendar-task-form {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr auto;
-    gap: 0.65rem;
-    margin-bottom: 0.75rem;
-}
-
-.calendar-task-list {
-    display: grid;
-    gap: 0.6rem;
-}
-
-.calendar-task-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    padding: 0.75rem;
-    background: linear-gradient(160deg, #ffffff 0%, #f9fbff 100%);
-}
-
-.calendar-task-slot-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
-    gap: 0.55rem;
-    width: 100%;
-}
-
-.calendar-task-title {
     font-weight: 600;
-    color: var(--text-primary);
 }
 
-.calendar-task-meta {
-    margin-top: 0.2rem;
-    color: var(--text-secondary);
-    font-size: 0.83rem;
+.task-priority {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    font-size: 0.78rem;
 }
 
-.calendar-task-timer {
-    display: flex;
-    gap: 0.6rem;
-    align-items: center;
-    font-weight: 700;
-    color: var(--primary-dark);
+.priority-low {
+    background-color: #DBEAFE;
+    color: #1E40AF;
 }
 
-.dashboard-section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
+.priority-medium {
+    background-color: #FEF3C7;
+    color: #92400E;
 }
 
-.dashboard-task-table-wrap {
-    overflow-x: auto;
+.priority-high {
+    background-color: #FED7AA;
+    color: #9A3412;
 }
 
-.dashboard-task-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.dashboard-task-table th,
-.dashboard-task-table td {
-    border-bottom: 1px solid var(--border);
-    padding: 0.6rem;
-    text-align: left;
-    font-size: 0.87rem;
-    color: var(--text-primary);
-}
-
-.dashboard-task-table th {
-    color: var(--text-secondary);
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.02em;
-}
-
-.dark .dashboard-profile {
-    background: linear-gradient(165deg, #1f2937 0%, #111827 100%);
-    border-color: #374151;
-}
-
-.dark .profile-grid > div {
-    background: rgba(17, 24, 39, 0.7);
-    border-color: rgba(75, 85, 99, 0.6);
+.priority-urgent {
+    background-color: #FEE2E2;
+    color: #991B1B;
 }
 
 .muted {
@@ -311,6 +257,13 @@
 
 .dashboard-error {
     color: #B91C1C;
+    margin-bottom: 0.75rem;
+}
+
+@media (max-width: 900px) {
+    .dashboard-calendar-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 768px) {
@@ -324,30 +277,13 @@
         align-items: flex-start;
     }
 
-    .dashboard-nav-actions {
-        flex-wrap: wrap;
-    }
-
     .dashboard-live-clock {
         width: 100%;
         text-align: left;
     }
 
-    .calendar-task-form {
-        grid-template-columns: 1fr;
-    }
-
-    .calendar-task-slot-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .profile-header {
-        align-items: flex-start;
-    }
-
-    .calendar-task-item {
+    .upcoming-list li {
         flex-direction: column;
         align-items: flex-start;
-        gap: 0.5rem;
     }
 }

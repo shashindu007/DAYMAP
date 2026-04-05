@@ -63,6 +63,30 @@ const analyticsService = {
         } catch (error) {
             throw error;
         }
+    },
+
+    /**
+     * Record completed focus session
+     */
+    logFocusSession: async (sessionData) => {
+        try {
+            const response = await api.post('/analytics/focus-session', sessionData);
+            return response;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Get focus patterns for last N days
+     */
+    getFocusPatterns: async (days = 14) => {
+        try {
+            const response = await api.get(`/analytics/focus-patterns?days=${days}`);
+            return response;
+        } catch (error) {
+            throw error;
+        }
     }
 };
 

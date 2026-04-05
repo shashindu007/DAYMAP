@@ -6,7 +6,9 @@ const {
     dateParamValidation,
     analyticsWeeklyQueryValidation,
     analyticsMonthlyQueryValidation,
-    analyticsTrendsQueryValidation
+    analyticsTrendsQueryValidation,
+    analyticsFocusPatternsQueryValidation,
+    focusSessionValidation
 } = require('../middleware/validator');
 
 // All routes require authentication
@@ -18,5 +20,7 @@ router.get('/weekly', analyticsWeeklyQueryValidation, AnalyticsController.getWee
 router.get('/monthly', analyticsMonthlyQueryValidation, AnalyticsController.getMonthlyAnalytics);
 router.get('/summary', AnalyticsController.getSummary);
 router.get('/trends', analyticsTrendsQueryValidation, AnalyticsController.getTrends);
+router.get('/focus-patterns', analyticsFocusPatternsQueryValidation, AnalyticsController.getFocusPatterns);
+router.post('/focus-session', focusSessionValidation, AnalyticsController.logFocusSession);
 
 module.exports = router;

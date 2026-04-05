@@ -10,7 +10,9 @@ const analyticsSchema = new mongoose.Schema(
         total_tasks_scheduled: { type: Number, default: 0 },
         total_tasks_completed: { type: Number, default: 0 },
         total_time_scheduled_minutes: { type: Number, default: 0 },
-        total_time_spent_minutes: { type: Number, default: 0 }
+        total_time_spent_minutes: { type: Number, default: 0 },
+        focus_time_spent_minutes: { type: Number, default: 0 },
+        focus_sessions_count: { type: Number, default: 0 }
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: false },
@@ -19,7 +21,6 @@ const analyticsSchema = new mongoose.Schema(
 );
 
 analyticsSchema.index({ user_id: 1, date: 1 }, { unique: true });
-analyticsSchema.index({ user_id: 1, date: 1 });
 
 const AnalyticsDocument = mongoose.models.Analytics || mongoose.model('Analytics', analyticsSchema);
 
@@ -36,7 +37,9 @@ class Analytics {
             total_tasks_scheduled = 0,
             total_tasks_completed = 0,
             total_time_scheduled_minutes = 0,
-            total_time_spent_minutes = 0
+            total_time_spent_minutes = 0,
+            focus_time_spent_minutes = 0,
+            focus_sessions_count = 0
         } = stats;
         
         await AnalyticsDocument.updateOne(
@@ -46,7 +49,9 @@ class Analytics {
                     total_tasks_scheduled,
                     total_tasks_completed,
                     total_time_scheduled_minutes,
-                    total_time_spent_minutes
+                    total_time_spent_minutes,
+                    focus_time_spent_minutes,
+                    focus_sessions_count
                 },
                 $setOnInsert: {
                     id: uuidv4(),
@@ -58,6 +63,61 @@ class Analytics {
         );
         
         return await this.findByDate(userId, date);
+    }
+
+    /**
+     * Record one focus session on a specific date
+     * @param {String} userId
+     * @param {String} date
+     * @param {Number} durationMinutes
+     * @returns {Object}
+     */
+    static async recordFocusSession(userId, date, durationMinutes) {
+        const normalizedDuration = Math.max(1, parseInt(durationMinutes, 10) || 0);
+
+        await AnalyticsDocument.updateOne(
+            { user_id: userId, date },
+            {
+                $inc: {
+                    focus_time_spent_minutes: normalizedDuration,
+                    focus_sessions_count: 1
+                },
+                $setOnInsert: {
+                    id: uuidv4(),
+                    user_id: userId,
+                    date,
+                    total_tasks_scheduled: 0,
+                    total_tasks_completed: 0,
+                    total_time_scheduled_minutes: 0,
+                    total_time_spent_minutes: 0
+                }
+            },
+            { upsert: true }
+        );
+
+        return await this.findByDate(userId, date);
+    }
+
+    /**
+     * Get focus statistics by date range
+     * @param {String} userId
+     * @param {String} startDate
+     * @param {String} endDate
+     * @returns {Array}
+     */
+    static async getFocusByRange(userId, startDate, endDate) {
+        return await AnalyticsDocument.find({
+            user_id: userId,
+            date: { $gte: startDate, $lte: endDate }
+        })
+            .sort({ date: 1 })
+            .select({
+                _id: 0,
+                date: 1,
+                focus_time_spent_minutes: 1,
+                focus_sessions_count: 1
+            })
+            .lean();
     }
     
     /**
@@ -120,6 +180,8 @@ class Analytics {
                     total_tasks_completed: 1,
                     total_time_scheduled_minutes: 1,
                     total_time_spent_minutes: 1,
+                    focus_time_spent_minutes: 1,
+                    focus_sessions_count: 1,
                     completion_rate: {
                         $cond: [
                             { $gt: ['$total_tasks_scheduled', 0] },
@@ -141,6 +203,8 @@ class Analytics {
                     total_tasks_completed: { $sum: '$total_tasks_completed' },
                     total_time_scheduled_minutes: { $sum: '$total_time_scheduled_minutes' },
                     total_time_spent_minutes: { $sum: '$total_time_spent_minutes' },
+                    focus_time_spent_minutes: { $sum: '$focus_time_spent_minutes' },
+                    focus_sessions_count: { $sum: '$focus_sessions_count' },
                     avg_completion_rate: { $avg: '$completion_rate' }
                 }
             }
@@ -152,6 +216,8 @@ class Analytics {
                 total_tasks_completed: 0,
                 total_time_scheduled_minutes: 0,
                 total_time_spent_minutes: 0,
+                focus_time_spent_minutes: 0,
+                focus_sessions_count: 0,
                 avg_completion_rate: 0
             };
         }
