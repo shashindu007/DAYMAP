@@ -6,10 +6,7 @@ import Button from '../components/common/Button';
 import './Login.css';
 
 const Login = () => {
-    const [formData, setFormData] = useState({
-        email: '',
-        password: ''
-    });
+    const [formData, setFormData] = useState({ email: '', password: '' });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -17,10 +14,7 @@ const Login = () => {
     const navigate = useNavigate();
 
     const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+        setFormData({...formData,[e.target.name]: e.target.value});
     };
 
     const handleSubmit = async (e) => {
@@ -47,12 +41,12 @@ const Login = () => {
                 </div>
 
                 {error && (
-                    <div className="alert alert-error">
+                    <div className="alert alert-error" role="alert" aria-live="polite">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="auth-form">
+                <form onSubmit={handleSubmit} className="auth-form" aria-busy={loading}>
                     <Input
                         label="Email"
                         type="email"
@@ -60,6 +54,7 @@ const Login = () => {
                         value={formData.email}
                         onChange={handleChange}
                         placeholder="Enter your email"
+                        autoComplete="email"
                         required
                     />
 
@@ -70,6 +65,7 @@ const Login = () => {
                         value={formData.password}
                         onChange={handleChange}
                         placeholder="Enter your password"
+                        autoComplete="current-password"
                         required
                     />
 

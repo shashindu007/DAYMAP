@@ -36,6 +36,9 @@ const compressImageDataUrl = async (dataUrl, options = {}) => {
     canvas.height = targetHeight;
 
     const context = canvas.getContext('2d');
+    if (!context) {
+        throw new Error('Unable to initialize image canvas.');
+    }
     context.drawImage(image, 0, 0, targetWidth, targetHeight);
 
     return canvas.toDataURL(outputType, quality);
@@ -155,7 +158,7 @@ const Settings = () => {
 
             <div className="card settings-card" style={{ marginTop: '1rem' }}>
                 <h2>Profile Information</h2>
-                <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr' }} onSubmit={handleProfileSubmit}>
+                <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr' }} onSubmit={handleProfileSubmit} aria-busy={savingProfile}>
                     <div className="profile-header" style={{ gridColumn: '1 / -1' }}>
                         {profileForm.profile_image ? (
                             <img src={profileForm.profile_image} alt="Profile" className="profile-avatar" style={{ objectFit: 'cover' }} />
@@ -164,7 +167,7 @@ const Settings = () => {
                         )}
                         <div>
                             <p className="profile-subtitle">Upload profile image, update details, and keep your account fresh.</p>
-                            <input type="file" accept="image/*" onChange={handleProfileImageSelect} />
+                            <input type="file" accept="image/*" onChange={handleProfileImageSelect} disabled={savingProfile} />
                         </div>
                     </div>
 
@@ -176,7 +179,13 @@ const Settings = () => {
                     <input className="input" name="bio" value={profileForm.bio} onChange={handleProfileChange} placeholder="Short bio" />
 
                     <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <p className={profileMessage.toLowerCase().includes('fail') ? 'dashboard-error' : 'muted'}>{profileMessage}</p>
+                        <p
+                            className={profileMessage.toLowerCase().includes('fail') ? 'dashboard-error' : 'muted'}
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {profileMessage}
+                        </p>
                         <Button type="submit" disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Save Profile'}</Button>
                     </div>
                 </form>
@@ -184,7 +193,7 @@ const Settings = () => {
 
             <div className="card settings-card" style={{ marginTop: '1rem' }}>
                 <h2>Change Password</h2>
-                <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }} onSubmit={handlePasswordSubmit}>
+                <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }} onSubmit={handlePasswordSubmit} aria-busy={savingPassword}>
                     <input
                         className="input"
                         type="password"
@@ -213,7 +222,12 @@ const Settings = () => {
                         required
                     />
                     <Button type="submit" disabled={savingPassword}>{savingPassword ? 'Updating...' : 'Change Password'}</Button>
-                    <p className={passwordMessage.toLowerCase().includes('fail') || passwordMessage.toLowerCase().includes('match') ? 'dashboard-error' : 'muted'} style={{ gridColumn: '1 / -1' }}>
+                    <p
+                        className={passwordMessage.toLowerCase().includes('fail') || passwordMessage.toLowerCase().includes('match') ? 'dashboard-error' : 'muted'}
+                        style={{ gridColumn: '1 / -1' }}
+                        role="status"
+                        aria-live="polite"
+                    >
                         {passwordMessage}
                     </p>
                 </form>

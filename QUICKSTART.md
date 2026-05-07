@@ -4,10 +4,10 @@
 
 I've generated a complete **Daily Routine & Workload Management System** following MVC architecture with:
 
-### ✅ Backend (Node.js + Express + MySQL)
+### ✅ Backend (Node.js + Express + MongoDB)
 - **MVC Architecture**: Models, Controllers, Routes
 - **Authentication**: JWT-based with bcrypt password hashing
-- **Database**: Complete MySQL schema with 6 tables
+- **Database**: MongoDB collections for users, tasks, categories, routines, and analytics
 - **Security**: Helmet, CORS, Rate limiting, Input validation
 - **API**: 30+ RESTful endpoints
 - **Features**: Tasks, Categories, Routines, Analytics
@@ -42,10 +42,9 @@ npm install
 
 ### Step 2: Setup Database
 
-1. Start XAMPP and MySQL
-2. Run the database schema:
+Start MongoDB locally (or use a hosted MongoDB/Atlas URI). Example using Docker:
 ```bash
-mysql -u root -p < c:\xampp\htdocs\DayMap\database\schema.sql
+docker run -d --name daymap-mongo -p 27017:27017 -v C:\data\daymap-mongo:/data/db mongo:6.0
 ```
 
 ### Step 3: Configure Environment Variables
@@ -55,14 +54,14 @@ mysql -u root -p < c:\xampp\htdocs\DayMap\database\schema.sql
 cd backend
 copy .env.example .env
 ```
-Edit `.env` and set your MySQL password and JWT secret.
+Edit `.env` and set your MongoDB URI and JWT secret.
 
 **Frontend** (`frontend/.env`):
 ```bash
 cd frontend
 copy .env.example .env
 ```
-(Default settings should work)
+(Default settings should work. Ensure `REACT_APP_API_URL` points to the backend port.)
 
 ### Step 4: Start Servers
 
@@ -116,8 +115,7 @@ DayMap/
 │   ├── .env.example
 │   └── package.json
 │
-├── database/
-│   └── schema.sql             # MySQL database schema
+├── database/                  # Legacy placeholder (no SQL schema required)
 │
 ├── docs/
 │   ├── API.md                 # API documentation
@@ -167,15 +165,14 @@ DayMap/
 ### Security
 - ✅ JWT authentication
 - ✅ Password hashing (bcrypt)
-- ✅ SQL injection protection
+- ✅ Input validation
 - ✅ CORS protection
 - ✅ Rate limiting
-- ✅ Input validation
 - ✅ Helmet security headers
 
 ## 📊 Database Schema
 
-**Tables Created:**
+**Collections Created:**
 1. `users` - User accounts
 2. `tasks` - Task management
 3. `categories` - Task categories
@@ -188,7 +185,7 @@ DayMap/
 ### Backend
 - Node.js 18+
 - Express.js (Web framework)
-- MySQL2 (Database driver)
+- MongoDB + Mongoose
 - JWT (Authentication)
 - Bcrypt (Password hashing)
 - Express Validator (Input validation)
@@ -233,26 +230,25 @@ npm install              # Install dependencies
 npm start               # Start development server
 npm run build           # Build for production
 
-# Database
-mysql -u root -p < database/schema.sql    # Create database
+# Database (Docker example)
+docker run -d --name daymap-mongo -p 27017:27017 -v C:\data\daymap-mongo:/data/db mongo:6.0
 ```
 
 ## 🐛 Troubleshooting
 
 **Issue: Backend won't start**
-- Check MySQL is running
+- Check MongoDB is running
 - Verify .env configuration
-- Check port 5000 is available
+- Check port 3010 is available
 
 **Issue: Frontend won't connect**
-- Verify backend is running on port 5000
+- Verify backend is running on port 3010
 - Check REACT_APP_API_URL in frontend/.env
 - Check browser console for errors
 
 **Issue: Database errors**
-- Verify database exists: `SHOW DATABASES;`
-- Check tables exist: `SHOW TABLES;`
-- Verify credentials in backend/.env
+- Verify MongoDB is running and accessible
+- Confirm `MONGODB_URI` in backend/.env
 
 ## 📞 Support
 

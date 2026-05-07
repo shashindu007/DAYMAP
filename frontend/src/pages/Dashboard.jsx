@@ -20,6 +20,20 @@ const toHm = (timeValue) => {
 
 const formatClock = (date) => date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+const DEFAULT_FOCUS_DURATION_MINUTES = 50;
+const MIN_FOCUS_DURATION_MINUTES = 1;
+const MAX_FOCUS_DURATION_MINUTES = 240;
+
+const normalizeFocusDurationMinutes = (value, fallback = DEFAULT_FOCUS_DURATION_MINUTES) => {
+    const parsed = parseInt(value, 10);
+    if (Number.isNaN(parsed)) return fallback;
+    return Math.min(MAX_FOCUS_DURATION_MINUTES, Math.max(MIN_FOCUS_DURATION_MINUTES, parsed));
+};
+
+const toHms = (date) => (
+    `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}:${`${date.getSeconds()}`.padStart(2, '0')}`
+);
+
 const formatElapsed = (seconds) => {
     const safe = Math.max(0, Number(seconds) || 0);
     const hh = Math.floor(safe / 3600);
@@ -44,7 +58,7 @@ const Dashboard = () => {
     const [dashboardError, setDashboardError] = useState('');
 
     const [focusEnabled, setFocusEnabled] = useState(false);
-    const [focusDurationMinutes, setFocusDurationMinutes] = useState(50);
+    const [focusDurationMinutes, setFocusDurationMinutes] = useState(DEFAULT_FOCUS_DURATION_MINUTES);
     const [focusStartedAt, setFocusStartedAt] = useState(null);
     const [elapsedFocusSeconds, setElapsedFocusSeconds] = useState(0);
     const [focusError, setFocusError] = useState('');
@@ -183,8 +197,20 @@ const Dashboard = () => {
     };
 
     const startFocusMode = () => {
+        if (!focusEnabled) {
+            setFocusError('Enable focus mode first.');
+            return;
+        }
+
+        if (focusStartedAt) {
+            return;
+        }
+
+        const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
+
         setFocusError('');
         setFocusMessage('');
+        setFocusDurationMinutes(normalizedDuration);
         setFocusStartedAt(Date.now());
         setElapsedFocusSeconds(0);
     };
@@ -197,7 +223,7 @@ const Dashboard = () => {
         }
 
         const durationSeconds = Math.max(0, Math.floor((Date.now() - focusStartedAt) / 1000));
-        const durationMinutes = Math.max(1, Math.round(durationSeconds / 60));
+        const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
         const start = new Date(focusStartedAt);
         const end = new Date();
 
@@ -207,29 +233,51 @@ const Dashboard = () => {
         try {
             await analyticsService.logFocusSession({
                 date: toYmd(start),
-                start_time: `${`${start.getHours()}`.padStart(2, '0')}:${`${start.getMinutes()}`.padStart(2, '0')}:${`${start.getSeconds()}`.padStart(2, '0')}`,
-                end_time: `${`${end.getHours()}`.padStart(2, '0')}:${`${end.getMinutes()}`.padStart(2, '0')}:${`${end.getSeconds()}`.padStart(2, '0')}`,
+                start_time: toHms(start),
+                end_time: toHms(end),
                 duration_minutes: durationMinutes
             });
             await loadFocusPatterns();
             setFocusMessage(`Great focus sprint! Logged ${durationMinutes} minute(s).`);
+            setFocusStartedAt(null);
+            setElapsedFocusSeconds(0);
         } catch (error) {
             setFocusError(error?.message || 'Could not save focus session.');
         } finally {
             setSavingFocusSession(false);
-            setFocusStartedAt(null);
-            setElapsedFocusSeconds(0);
         }
+    };
+
+    const handleFocusDurationChange = (event) => {
+        const value = event.target.value;
+
+        if (value === '') {
+            setFocusDurationMinutes('');
+            return;
+        }
+
+        if (!/^\d+$/.test(value)) {
+            return;
+        }
+
+        setFocusDurationMinutes(value);
+    };
+
+    const handleFocusDurationBlur = () => {
+        setFocusDurationMinutes(normalizeFocusDurationMinutes(focusDurationMinutes));
     };
 
     const toggleFocusEnabled = (event) => {
         const enabled = event.target.checked;
-        setFocusEnabled(enabled);
 
         if (!enabled && focusStartedAt) {
-            setFocusStartedAt(null);
-            setElapsedFocusSeconds(0);
+            setFocusError('Stop and save the active focus session before disabling Focus Mode.');
+            return;
         }
+
+        setFocusError('');
+        setFocusMessage('');
+        setFocusEnabled(enabled);
     };
 
     return (
@@ -333,7 +381,8 @@ const Dashboard = () => {
                                 min="1"
                                 max="240"
                                 value={focusDurationMinutes}
-                                onChange={(e) => setFocusDurationMinutes(e.target.value)}
+                                onChange={handleFocusDurationChange}
+                                onBlur={handleFocusDurationBlur}
                                 disabled={Boolean(focusStartedAt)}
                             />
                         </div>
@@ -368,11 +417,11 @@ const Dashboard = () => {
                             </div>
                             <div>
                                 <span className="profile-label">14-day Average</span>
-                                <p>{focusPatterns.avgDailyMinutes.toFixed(1)} min/day</p>
+                                <p>{Number(focusPatterns.avgDailyMinutes || 0).toFixed(1)} min/day</p>
                             </div>
                             <div>
                                 <span className="profile-label">Avg Sessions/Day</span>
-                                <p>{focusPatterns.avgSessionsPerDay.toFixed(2)}</p>
+                                <p>{Number(focusPatterns.avgSessionsPerDay || 0).toFixed(2)}</p>
                             </div>
                             <div>
                                 <span className="profile-label">Best Focus Day</span>

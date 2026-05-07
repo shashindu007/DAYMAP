@@ -1,5 +1,7 @@
 # Code Citations
 
+> **Note:** This file contains historical citations and excerpts from earlier planning that reference a MySQL stack. The current DayMap implementation uses **MongoDB + Mongoose**. Treat the content below as legacy reference only.
+
 ## License: GPL-2.0
 https://github.com/centreon/centreon-archived/blob/f9efb6dc76f20b4477bcc3705775775bf706e75a/www/install/steps/process/process_step5.php
 

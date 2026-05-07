@@ -1,7 +1,12 @@
 require('dotenv').config();
 
+const toInt = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isNaN(parsed) ? fallback : parsed;
+};
+
 module.exports = {
-    port: process.env.PORT || 3010,
+    port: toInt(process.env.PORT, 3010),
     nodeEnv: process.env.NODE_ENV || 'development',
     
     db: {
@@ -21,11 +26,11 @@ module.exports = {
     },
     
     rateLimit: {
-        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000, // 15 minutes
-        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100
+        windowMs: toInt(process.env.RATE_LIMIT_WINDOW_MS, 900000), // 15 minutes
+        max: toInt(process.env.RATE_LIMIT_MAX_REQUESTS, 100)
     },
     
     bcrypt: {
-        rounds: parseInt(process.env.BCRYPT_ROUNDS) || 10
+        rounds: toInt(process.env.BCRYPT_ROUNDS, 10)
     }
 };

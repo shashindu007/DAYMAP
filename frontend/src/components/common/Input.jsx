@@ -1,16 +1,17 @@
 import React from 'react';
 import './Input.css';
 
-const Input = ({ 
-    label, 
-    type = 'text', 
-    name, 
-    value, 
-    onChange, 
+const Input = ({
+    label,
+    type = 'text',
+    name,
+    value,
+    onChange,
     placeholder,
     required = false,
     error,
-    className = ''
+    className = '',
+    ...rest
 }) => {
     return (
         <div className={`input-group ${className}`}>
@@ -28,6 +29,7 @@ const Input = ({
                 placeholder={placeholder}
                 required={required}
                 className={`input ${error ? 'input-error' : ''}`}
+                {...rest}
             />
             {error && <span className="error-message">{error}</span>}
         </div>

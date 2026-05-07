@@ -10,6 +10,11 @@ const Tasks = () => {
     const [statusFilter, setStatusFilter] = useState('all');
     const [query, setQuery] = useState('');
 
+    const formatDisplayTime = (timeValue) => {
+        if (!timeValue) return '';
+        return timeValue.length >= 5 ? timeValue.slice(0, 5) : timeValue;
+    };
+
     useEffect(() => {
         const loadTasks = async () => {
             try {
@@ -39,6 +44,11 @@ const Tasks = () => {
         } catch (deleteError) {
             console.error('Failed to delete task:', deleteError);
         }
+    };
+
+    const handleClearFilters = () => {
+        setStatusFilter('all');
+        setQuery('');
     };
 
     const filteredTasks = useMemo(() => {
@@ -87,10 +97,17 @@ const Tasks = () => {
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                 </select>
+                <Button variant="outline" onClick={handleClearFilters}>
+                    Clear filters
+                </Button>
             </div>
 
             {loading && <p className="tasks-feedback">Loading tasks...</p>}
-            {error && <p className="tasks-feedback tasks-error">{error}</p>}
+            {error && (
+                <p className="tasks-feedback tasks-error" role="alert" aria-live="polite">
+                    {error}
+                </p>
+            )}
 
             {!loading && filteredTasks.length === 0 && (
                 <div className="tasks-empty">
@@ -113,7 +130,7 @@ const Tasks = () => {
 
                         <div className="tasks-meta-row">
                             {task.scheduled_date && <span>📅 {task.scheduled_date}</span>}
-                            {task.scheduled_time && <span>⏰ {task.scheduled_time}</span>}
+                            {task.scheduled_time && <span>⏰ {formatDisplayTime(task.scheduled_time)}</span>}
                             {task.duration_minutes && <span>⏱ {task.duration_minutes} min</span>}
                         </div>
 

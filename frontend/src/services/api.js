@@ -2,7 +2,7 @@ import axios from 'axios';
 import authService from './authService';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3010/api';
-const API_TIMEOUT = parseInt(process.env.REACT_APP_API_TIMEOUT) || 10000;
+const API_TIMEOUT = Number.parseInt(process.env.REACT_APP_API_TIMEOUT, 10) || 10000;
 
 // Create axios instance
 const api = axios.create({
@@ -37,7 +37,10 @@ api.interceptors.response.use(
             // Handle 401 Unauthorized
             if (error.response.status === 401) {
                 authService.clearSession();
-                window.location.href = '/login';
+                const path = window.location.pathname;
+                if (path !== '/login' && path !== '/register') {
+                    window.location.href = '/login';
+                }
             }
             
             // Return error message from server

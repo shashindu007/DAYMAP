@@ -20,8 +20,6 @@ const userSchema = new mongoose.Schema(
     }
 );
 
-userSchema.index({ email: 1 }, { unique: true });
-
 const UserDocument = mongoose.models.User || mongoose.model('User', userSchema);
 
 const toPlain = (doc) => (doc ? doc.toObject ? doc.toObject() : doc : null);

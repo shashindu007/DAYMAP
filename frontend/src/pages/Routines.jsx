@@ -32,6 +32,8 @@ const Routines = () => {
         loadRoutines();
     }, []);
 
+    const isBusy = loading || saving;
+
     const activeCount = useMemo(() => routines.filter((item) => item.is_active).length, [routines]);
 
     const handleField = (event) => {
@@ -145,7 +147,7 @@ const Routines = () => {
                 </label>
             </div>
 
-            <form className="card routine-form" onSubmit={createRoutine}>
+            <form className="card routine-form" onSubmit={createRoutine} aria-busy={saving}>
                 <h2>Create Routine</h2>
                 <input
                     className="input"
@@ -213,12 +215,20 @@ const Routines = () => {
                 ))}
 
                 <div className="routine-form-actions">
-                    <button className="btn btn-secondary" type="button" onClick={addTemplateTask}>Add Template Task</button>
-                    <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Create Routine'}</button>
+                    <button className="btn btn-secondary" type="button" onClick={addTemplateTask} disabled={saving}>
+                        Add Template Task
+                    </button>
+                    <button className="btn btn-primary" type="submit" disabled={saving}>
+                        {saving ? 'Saving...' : 'Create Routine'}
+                    </button>
                 </div>
             </form>
 
-            {error && <p className="dashboard-error">{error}</p>}
+            {error && (
+                <p className="dashboard-error" role="alert" aria-live="polite">
+                    {error}
+                </p>
+            )}
 
             <section className="routine-list">
                 {loading ? (
@@ -249,13 +259,13 @@ const Routines = () => {
                             </ul>
 
                             <div className="routine-item-actions">
-                                <button className="btn btn-secondary" type="button" onClick={() => applyRoutine(routine.id)}>
+                                <button className="btn btn-secondary" type="button" onClick={() => applyRoutine(routine.id)} disabled={isBusy}>
                                     Apply
                                 </button>
-                                <button className="btn btn-outline" type="button" onClick={() => toggleRoutine(routine.id)}>
+                                <button className="btn btn-outline" type="button" onClick={() => toggleRoutine(routine.id)} disabled={isBusy}>
                                     {routine.is_active ? 'Deactivate' : 'Activate'}
                                 </button>
-                                <button className="btn btn-danger" type="button" onClick={() => deleteRoutine(routine.id)}>
+                                <button className="btn btn-danger" type="button" onClick={() => deleteRoutine(routine.id)} disabled={isBusy}>
                                     Delete
                                 </button>
                             </div>

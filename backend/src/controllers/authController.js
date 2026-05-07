@@ -190,6 +190,13 @@ class AuthController {
             
             // Get user with password
             const user = await User.findByEmailWithPassword(req.user.email);
+
+            if (!user) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'User not found. Authorization denied.'
+                });
+            }
             
             // Verify current password
             const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);

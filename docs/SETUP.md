@@ -38,7 +38,7 @@ If successful, backend logs show MongoDB connection and server startup.
 3. Configure frontend `.env`:
 
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_API_URL=http://localhost:3010/api
 REACT_APP_API_TIMEOUT=10000
 ```
 
@@ -46,7 +46,7 @@ REACT_APP_API_TIMEOUT=10000
 
 ## 4) Verify
 
-- `http://localhost:5000/health` returns success JSON
+- `http://localhost:3010/health` returns success JSON
 - `http://localhost:3000` opens DayMap login/register
 
 ## 5) Common issues

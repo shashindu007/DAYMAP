@@ -5,157 +5,92 @@ const taskService = {
      * Get all tasks with optional filters
      */
     getAllTasks: async (filters = {}) => {
-        try {
-            const params = new URLSearchParams(filters).toString();
-            const response = await api.get(`/tasks?${params}`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        const params = new URLSearchParams(filters).toString();
+        return api.get(`/tasks?${params}`);
     },
 
     /**
      * Get single task by ID
      */
     getTask: async (id) => {
-        try {
-            const response = await api.get(`/tasks/${id}`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get(`/tasks/${id}`);
     },
 
     /**
      * Create a new task
      */
     createTask: async (taskData) => {
-        try {
-            const response = await api.post('/tasks', taskData);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.post('/tasks', taskData);
     },
 
     /**
      * Update task
      */
     updateTask: async (id, taskData) => {
-        try {
-            const response = await api.put(`/tasks/${id}`, taskData);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.put(`/tasks/${id}`, taskData);
     },
 
     /**
      * Delete task
      */
     deleteTask: async (id) => {
-        try {
-            const response = await api.delete(`/tasks/${id}`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.delete(`/tasks/${id}`);
     },
 
     /**
      * Mark task as complete
      */
     completeTask: async (id) => {
-        try {
-            const response = await api.patch(`/tasks/${id}/complete`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.patch(`/tasks/${id}/complete`);
     },
 
     /**
      * Update task status
      */
     updateStatus: async (id, status) => {
-        try {
-            const response = await api.patch(`/tasks/${id}/status`, { status });
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.patch(`/tasks/${id}/status`, { status });
     },
 
     /**
      * Get today's tasks
      */
     getTodayTasks: async () => {
-        try {
-            const response = await api.get('/tasks/today');
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get('/tasks/today');
     },
 
     /**
      * Get week's tasks
      */
     getWeekTasks: async () => {
-        try {
-            const response = await api.get('/tasks/week');
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get('/tasks/week');
     },
 
     /**
      * Get upcoming tasks
      */
     getUpcomingTasks: async () => {
-        try {
-            const response = await api.get('/tasks/upcoming');
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get('/tasks/upcoming');
     },
 
     /**
      * Get full-day schedule for a date
      */
     getDaySchedule: async (date) => {
-        try {
-            const response = await api.get(`/tasks/day-schedule/${date}`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get(`/tasks/day-schedule/${date}`);
     },
 
     /**
      * Create full-day schedule with multiple task slots
      */
     createDaySchedule: async (scheduleData) => {
-        try {
-            const response = await api.post('/tasks/day-schedule', scheduleData);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.post('/tasks/day-schedule', scheduleData);
     },
 
     /**
      * Bulk delete tasks
      */
     bulkDelete: async (ids) => {
-        try {
-            const response = await api.post('/tasks/bulk-delete', { ids });
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.post('/tasks/bulk-delete', { ids });
     }
 };
 

@@ -75,12 +75,12 @@ const Register = () => {
                 </div>
 
                 {error && (
-                    <div className="alert alert-error">
+                    <div className="alert alert-error" role="alert" aria-live="polite">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="auth-form">
+                <form onSubmit={handleSubmit} className="auth-form" aria-busy={loading}>
                     <Input
                         label="Full Name"
                         type="text"
@@ -88,6 +88,7 @@ const Register = () => {
                         value={formData.name}
                         onChange={handleChange}
                         placeholder="Enter your full name"
+                        autoComplete="name"
                         required
                     />
 
@@ -98,6 +99,7 @@ const Register = () => {
                         value={formData.email}
                         onChange={handleChange}
                         placeholder="Enter your email"
+                        autoComplete="email"
                         required
                     />
 
@@ -108,6 +110,7 @@ const Register = () => {
                         value={formData.password}
                         onChange={handleChange}
                         placeholder="Create a password"
+                        autoComplete="new-password"
                         required
                     />
 
@@ -118,6 +121,7 @@ const Register = () => {
                         value={formData.confirmPassword}
                         onChange={handleChange}
                         placeholder="Confirm your password"
+                        autoComplete="new-password"
                         required
                     />
 

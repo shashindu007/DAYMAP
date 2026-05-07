@@ -95,12 +95,16 @@ const Analytics = () => {
                     />
                 </label>
                 <div className="analytics-filter-actions">
-                    <button className="btn btn-secondary" type="button" onClick={handleApplyFilters}>Apply</button>
-                    <button className="btn btn-outline" type="button" onClick={handleRefresh}>Refresh</button>
+                    <button className="btn btn-secondary" type="button" onClick={handleApplyFilters} disabled={loading}>Apply</button>
+                    <button className="btn btn-outline" type="button" onClick={handleRefresh} disabled={loading}>Refresh</button>
                 </div>
             </section>
 
-            {error && <p className="dashboard-error">{error}</p>}
+            {error && (
+                <p className="dashboard-error" role="alert" aria-live="polite">
+                    {error}
+                </p>
+            )}
 
             {loading ? (
                 <p className="muted">Loading analytics...</p>

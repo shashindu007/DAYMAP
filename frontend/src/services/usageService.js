@@ -36,7 +36,11 @@ const readState = () => {
 };
 
 const writeState = (state) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (error) {
+        // Ignore storage write failures (private mode, quota exceeded, etc.)
+    }
 };
 
 const withActiveRouteTime = (state, now) => {

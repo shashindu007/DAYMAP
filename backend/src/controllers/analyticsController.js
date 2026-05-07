@@ -16,6 +16,14 @@ class AnalyticsController {
         return null;
     }
 
+    static clockToSeconds(value) {
+        const normalized = this.normalizeClock(value);
+        if (!normalized) return null;
+
+        const [h, m, s] = normalized.split(':').map((part) => parseInt(part, 10));
+        return (h * 3600) + (m * 60) + s;
+    }
+
     /**
      * Get daily analytics
      * @route GET /api/analytics/daily/:date
@@ -296,6 +304,44 @@ class AnalyticsController {
             const normalizedStart = this.normalizeClock(start_time);
             const normalizedEnd = this.normalizeClock(end_time);
             const minutes = Math.max(1, parseInt(duration_minutes, 10) || 0);
+
+            if (!normalizedStart) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: [{ field: 'start_time', message: 'start_time must be HH:MM or HH:MM:SS' }]
+                });
+            }
+
+            if (end_time && !normalizedEnd) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: [{ field: 'end_time', message: 'end_time must be HH:MM or HH:MM:SS' }]
+                });
+            }
+
+            if (minutes < 1 || minutes > 1440) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Validation failed',
+                    errors: [{ field: 'duration_minutes', message: 'duration_minutes must be between 1 and 1440' }]
+                });
+            }
+
+            if (normalizedEnd) {
+                const startSeconds = this.clockToSeconds(normalizedStart);
+                const endSeconds = this.clockToSeconds(normalizedEnd);
+
+                // For this endpoint, sessions are expected to end the same day.
+                if (startSeconds !== null && endSeconds !== null && endSeconds < startSeconds) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Validation failed',
+                        errors: [{ field: 'end_time', message: 'end_time cannot be earlier than start_time for the same date' }]
+                    });
+                }
+            }
 
             const analytics = await Analytics.recordFocusSession(req.user.id, normalizedDate, minutes);
 

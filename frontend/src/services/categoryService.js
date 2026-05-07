@@ -5,60 +5,35 @@ const categoryService = {
      * Get all categories
      */
     getAllCategories: async () => {
-        try {
-            const response = await api.get('/categories');
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get('/categories');
     },
 
     /**
      * Get single category
      */
     getCategory: async (id) => {
-        try {
-            const response = await api.get(`/categories/${id}`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.get(`/categories/${id}`);
     },
 
     /**
      * Create new category
      */
     createCategory: async (categoryData) => {
-        try {
-            const response = await api.post('/categories', categoryData);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.post('/categories', categoryData);
     },
 
     /**
      * Update category
      */
     updateCategory: async (id, categoryData) => {
-        try {
-            const response = await api.put(`/categories/${id}`, categoryData);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.put(`/categories/${id}`, categoryData);
     },
 
     /**
      * Delete category
      */
     deleteCategory: async (id) => {
-        try {
-            const response = await api.delete(`/categories/${id}`);
-            return response;
-        } catch (error) {
-            throw error;
-        }
+        return api.delete(`/categories/${id}`);
     }
 };
 

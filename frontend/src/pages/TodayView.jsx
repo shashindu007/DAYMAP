@@ -88,6 +88,11 @@ const TodayView = () => {
         return `${timeValue}:00`;
     };
 
+    const formatDisplayTime = (timeValue) => {
+        if (!timeValue) return '';
+        return timeValue.length >= 5 ? timeValue.slice(0, 5) : timeValue;
+    };
+
     const handleCreateTask = async (e) => {
         e.preventDefault();
         setFormError('');
@@ -187,7 +192,7 @@ const TodayView = () => {
                                 )}
                                 <div className="task-meta">
                                     {task.scheduled_time && (
-                                        <span className="task-time">⏰ {task.scheduled_time}</span>
+                                        <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>
                                     )}
                                     {task.duration_minutes && (
                                         <span className="task-duration">⏱ {task.duration_minutes} min</span>
@@ -293,7 +298,11 @@ const TodayView = () => {
                                 </div>
                             </div>
 
-                            {formError && <div className="task-form-error">{formError}</div>}
+                            {formError && (
+                                <div className="task-form-error" role="alert" aria-live="polite">
+                                    {formError}
+                                </div>
+                            )}
 
                             <div className="task-modal-actions">
                                 <Button variant="secondary" onClick={handleCloseAddTask} disabled={savingTask}>

@@ -145,9 +145,10 @@ const focusSessionValidation = [
     body('start_time')
         .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
     body('end_time')
-        .optional({ nullable: true })
+        .optional({ nullable: true, checkFalsy: true })
         .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
     body('duration_minutes')
+        .toInt()
         .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
     handleValidationErrors
 ];

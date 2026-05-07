@@ -13,6 +13,7 @@
     --secondary-gradient: linear-gradient(135deg, #34d399 0%, #10b981 100%);
     --danger: #f43f5e;
     --danger-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+    --danger-light: #fee2e2;
     --warning: #f59e0b;
     --dark: #1e293b;
     --light: #f8fafc;

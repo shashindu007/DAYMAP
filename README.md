@@ -143,8 +143,8 @@ Completed migration requirements:
 
 Default:
 - Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:5000`
-- Health: `http://localhost:5000/health`
+- Backend API: `http://localhost:3010`
+- Health: `http://localhost:3010/health`
 
 ---
 

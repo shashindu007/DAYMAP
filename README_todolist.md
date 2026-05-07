@@ -1,5 +1,7 @@
 # Daily Routine & Workload Management System
 
+> **Note:** This document includes legacy MySQL‑based planning notes. The current implementation uses **MongoDB + Mongoose** and the backend defaults to port **3010**. For the up‑to‑date setup, see `README.md` and `docs/SETUP.md`.
+
 A web-based to-do list application focused on tracking daily routines, managing time effectively, and balancing workload for improved productivity.
 
 ## 📋 Project Overview
@@ -781,7 +783,7 @@ cp .env.example .env
 Edit `.env` file:
 ```env
 # Server Configuration
-PORT=5000
+PORT=3010
 NODE_ENV=development
 
 # Database Configuration
@@ -826,7 +828,7 @@ npm run dev
 npm start
 ```
 
-Server should be running on `http://localhost:5000`
+Server should be running on `http://localhost:3010`
 
 ### Frontend Setup
 
@@ -847,7 +849,7 @@ cp .env.example .env
 
 Edit `.env` file:
 ```env
-REACT_APP_API_URL=http://localhost:5000/api
+REACT_APP_API_URL=http://localhost:3010/api
 REACT_APP_API_TIMEOUT=10000
 ```
 
