@@ -84,7 +84,10 @@ const TodayView = () => {
     };
 
     const formatScheduledTime = (timeValue) => {
-        if (!timeValue) return null;
+        if (!timeValue) return undefined;
+        if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(timeValue)) {
+            return timeValue;
+        }
         return `${timeValue}:00`;
     };
 
@@ -105,19 +108,26 @@ const TodayView = () => {
         try {
             setSavingTask(true);
 
+            const normalizedDuration = newTask.duration_minutes
+                ? parseInt(newTask.duration_minutes, 10)
+                : undefined;
+
             const payload = {
                 title: newTask.title.trim(),
                 description: newTask.description.trim() || null,
                 priority: newTask.priority,
                 scheduled_date: newTask.scheduled_date || today,
                 scheduled_time: formatScheduledTime(newTask.scheduled_time),
-                duration_minutes: newTask.duration_minutes
-                    ? parseInt(newTask.duration_minutes, 10)
-                    : null
+                duration_minutes: Number.isFinite(normalizedDuration) ? normalizedDuration : undefined
             };
 
             await createTask(payload);
-            await fetchTodayTasks();
+            try {
+                await fetchTodayTasks();
+            } catch (refreshError) {
+                // Non-blocking: task was created successfully, refresh can retry later.
+                console.warn('Task created but refresh failed:', refreshError);
+            }
             handleCloseAddTask();
         } catch (error) {
             const validationMessage = error?.errors?.[0]?.message;

@@ -8,6 +8,10 @@ export const TaskProvider = ({ children }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    const resolveErrorMessage = (error, fallback) => (
+        error?.errors?.[0]?.message || error?.message || fallback
+    );
+
     const fetchTasks = useCallback(async (filters = {}) => {
         try {
             setLoading(true);
@@ -16,7 +20,7 @@ export const TaskProvider = ({ children }) => {
             setTasks(response.data.tasks);
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to fetch tasks');
+            setError(resolveErrorMessage(error, 'Failed to fetch tasks'));
             throw error;
         } finally {
             setLoading(false);
@@ -31,7 +35,7 @@ export const TaskProvider = ({ children }) => {
             setTasks(response.data.tasks);
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to fetch today\'s tasks');
+            setError(resolveErrorMessage(error, 'Failed to fetch today\'s tasks'));
             throw error;
         } finally {
             setLoading(false);
@@ -46,7 +50,7 @@ export const TaskProvider = ({ children }) => {
             setTasks(response.data.tasks);
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to fetch week\'s tasks');
+            setError(resolveErrorMessage(error, 'Failed to fetch week\'s tasks'));
             throw error;
         } finally {
             setLoading(false);
@@ -60,7 +64,7 @@ export const TaskProvider = ({ children }) => {
             const response = await taskService.getDaySchedule(date);
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to fetch day schedule');
+            setError(resolveErrorMessage(error, 'Failed to fetch day schedule'));
             throw error;
         } finally {
             setLoading(false);
@@ -74,7 +78,7 @@ export const TaskProvider = ({ children }) => {
             await fetchTasks();
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to create day schedule');
+            setError(resolveErrorMessage(error, 'Failed to create day schedule'));
             throw error;
         }
     };
@@ -86,7 +90,7 @@ export const TaskProvider = ({ children }) => {
             setTasks(prev => [...prev, response.data]);
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to create task');
+            setError(resolveErrorMessage(error, 'Failed to create task'));
             throw error;
         }
     };
@@ -100,7 +104,7 @@ export const TaskProvider = ({ children }) => {
             ));
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to update task');
+            setError(resolveErrorMessage(error, 'Failed to update task'));
             throw error;
         }
     };
@@ -111,7 +115,7 @@ export const TaskProvider = ({ children }) => {
             await taskService.deleteTask(id);
             setTasks(prev => prev.filter(task => task.id !== id));
         } catch (error) {
-            setError(error.message || 'Failed to delete task');
+            setError(resolveErrorMessage(error, 'Failed to delete task'));
             throw error;
         }
     };
@@ -125,7 +129,7 @@ export const TaskProvider = ({ children }) => {
             ));
             return response;
         } catch (error) {
-            setError(error.message || 'Failed to complete task');
+            setError(resolveErrorMessage(error, 'Failed to complete task'));
             throw error;
         }
     };

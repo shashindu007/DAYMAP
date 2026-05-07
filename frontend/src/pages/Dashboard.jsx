@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { useTasks } from '../context/TaskContext';
+import { useAuth } from '../context/AuthContext';
 import taskService from '../services/taskService';
 import analyticsService from '../services/analyticsService';
 import './Dashboard.css';
@@ -23,6 +24,7 @@ const formatClock = (date) => date.toLocaleTimeString([], { hour: '2-digit', min
 const DEFAULT_FOCUS_DURATION_MINUTES = 50;
 const MIN_FOCUS_DURATION_MINUTES = 1;
 const MAX_FOCUS_DURATION_MINUTES = 240;
+const FOCUS_STORAGE_PREFIX = 'daymap.focus.session.v1';
 
 const normalizeFocusDurationMinutes = (value, fallback = DEFAULT_FOCUS_DURATION_MINUTES) => {
     const parsed = parseInt(value, 10);
@@ -47,8 +49,38 @@ const displayTaskDateTime = (task) => {
     return `${task.scheduled_date}${task.scheduled_time ? ` • ${toHm(task.scheduled_time)}` : ''}`;
 };
 
+const buildFocusStorageKey = (userId) => `${FOCUS_STORAGE_PREFIX}:${userId || 'anonymous'}`;
+
+const readFocusStorage = (userId) => {
+    try {
+        const raw = localStorage.getItem(buildFocusStorageKey(userId));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch {
+        return null;
+    }
+};
+
+const writeFocusStorage = (userId, payload) => {
+    try {
+        localStorage.setItem(buildFocusStorageKey(userId), JSON.stringify(payload));
+    } catch {
+        // Ignore storage write failures (private mode, quota exceeded, etc.)
+    }
+};
+
+const clearFocusStorage = (userId) => {
+    try {
+        localStorage.removeItem(buildFocusStorageKey(userId));
+    } catch {
+        // Ignore storage removal failures
+    }
+};
+
 const Dashboard = () => {
     const { tasks, fetchTasks, createDaySchedule } = useTasks();
+    const { user } = useAuth();
 
     const [now, setNow] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -60,10 +92,15 @@ const Dashboard = () => {
     const [focusEnabled, setFocusEnabled] = useState(false);
     const [focusDurationMinutes, setFocusDurationMinutes] = useState(DEFAULT_FOCUS_DURATION_MINUTES);
     const [focusStartedAt, setFocusStartedAt] = useState(null);
+    const [focusSessionId, setFocusSessionId] = useState(null);
+    const [focusCompletionAttempted, setFocusCompletionAttempted] = useState(false);
+    const [pendingFocusSession, setPendingFocusSession] = useState(null);
+    const [pendingSyncAttempted, setPendingSyncAttempted] = useState(false);
     const [elapsedFocusSeconds, setElapsedFocusSeconds] = useState(0);
     const [focusError, setFocusError] = useState('');
     const [focusMessage, setFocusMessage] = useState('');
     const [savingFocusSession, setSavingFocusSession] = useState(false);
+    const focusCompletingRef = useRef(false);
 
     const [focusPatterns, setFocusPatterns] = useState({
         todayMinutes: 0,
@@ -130,15 +167,185 @@ const Dashboard = () => {
         loadFocusPatterns();
     }, [loadDashboardData, loadFocusPatterns]);
 
+    const persistFocusState = useCallback((override = {}) => {
+        const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
+        const payload = {
+            enabled: focusEnabled,
+            durationMinutes: normalizedDuration,
+            startedAt: focusStartedAt,
+            sessionId: focusSessionId,
+            completionAttempted: focusCompletionAttempted,
+            pendingSession: pendingFocusSession,
+            ...override
+        };
+
+        if (!user?.id) return;
+
+        // Keep state when enabled or session is active. Otherwise clean up storage.
+        if (!payload.enabled && !payload.startedAt) {
+            clearFocusStorage(user.id);
+            return;
+        }
+
+        writeFocusStorage(user.id, payload);
+    }, [focusDurationMinutes, focusEnabled, focusSessionId, focusStartedAt, user?.id]);
+
+    const syncPendingFocusSession = useCallback(async (sessionPayload) => {
+        if (!sessionPayload || pendingSyncAttempted) return;
+
+        setPendingSyncAttempted(true);
+
+        try {
+            await analyticsService.logFocusSession(sessionPayload);
+            try {
+                await loadFocusPatterns();
+            } catch {
+                // Non-blocking: focus stats can refresh later.
+            }
+            setPendingFocusSession(null);
+            persistFocusState({ pendingSession: null });
+        } catch (error) {
+            if (!focusStartedAt) {
+                setFocusError(error?.message || 'Could not sync the last focus session.');
+            } else {
+                setFocusMessage(error?.message || 'Focus session sync will retry later.');
+            }
+        }
+    }, [focusStartedAt, loadFocusPatterns, pendingSyncAttempted, persistFocusState]);
+
+    // Complete and log a focus session. Auto-complete should only attempt once per session.
+    const completeFocusSession = useCallback(async (endTimestamp, reason = 'manual') => {
+        if (!focusStartedAt || savingFocusSession || focusCompletingRef.current) return;
+        if (reason === 'auto' && focusCompletionAttempted) return;
+
+        focusCompletingRef.current = true;
+        const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
+        const safeEndTimestamp = Number.isFinite(endTimestamp) ? endTimestamp : Date.now();
+        const durationSeconds = Math.max(0, Math.floor((safeEndTimestamp - focusStartedAt) / 1000));
+        const durationMinutes = Math.min(1440, Math.max(1, Math.ceil(durationSeconds / 60)));
+        const start = new Date(focusStartedAt);
+        const end = new Date(safeEndTimestamp);
+
+        setSavingFocusSession(true);
+        setFocusError('');
+
+        if (reason === 'auto') {
+            setFocusCompletionAttempted(true);
+            persistFocusState({ completionAttempted: true });
+        }
+
+        const sessionPayload = {
+            date: toYmd(start),
+            start_time: toHms(start),
+            end_time: toHms(end),
+            duration_minutes: Math.min(durationMinutes, normalizedDuration)
+        };
+
+        try {
+            await analyticsService.logFocusSession(sessionPayload);
+            try {
+                await loadFocusPatterns();
+            } catch {
+                // Non-blocking: focus stats can refresh later.
+            }
+            setFocusMessage(`Great focus sprint! Logged ${Math.min(durationMinutes, normalizedDuration)} minute(s).`);
+            setFocusStartedAt(null);
+            setElapsedFocusSeconds(0);
+            setFocusSessionId(null);
+            setFocusCompletionAttempted(false);
+            setPendingFocusSession(null);
+            setPendingSyncAttempted(false);
+            persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession: null, enabled: true });
+        } catch (error) {
+            setPendingFocusSession(sessionPayload);
+            setPendingSyncAttempted(false);
+            persistFocusState({ pendingSession: sessionPayload });
+            if (reason === 'auto') {
+                setFocusError(error?.message || 'Auto-save failed. Your session was ended and will retry on next load.');
+            } else {
+                setFocusError(error?.message || 'Could not save focus session. It will retry on next load.');
+            }
+            // End the session locally even if save fails.
+            setFocusStartedAt(null);
+            setElapsedFocusSeconds(0);
+            setFocusSessionId(null);
+            setFocusCompletionAttempted(false);
+        } finally {
+            setSavingFocusSession(false);
+            focusCompletingRef.current = false;
+        }
+    }, [focusCompletionAttempted, focusDurationMinutes, focusStartedAt, loadFocusPatterns, persistFocusState, savingFocusSession]);
+
+    // Restore focus session from storage on load/navigation.
     useEffect(() => {
-        if (!focusStartedAt) return undefined;
+        if (!user?.id) return;
+
+        const stored = readFocusStorage(user.id);
+        if (!stored) return;
+
+        const normalizedDuration = normalizeFocusDurationMinutes(stored.durationMinutes);
+        const nowTimestamp = Date.now();
+        const hasValidStart = Number.isFinite(stored.startedAt)
+            && stored.startedAt > 0
+            && stored.startedAt <= nowTimestamp + 60 * 1000;
+
+        if (stored.startedAt && !hasValidStart) {
+            // Invalid stored session (corrupted or from the future) -> reset safely.
+            clearFocusStorage(user.id);
+            setFocusDurationMinutes(normalizedDuration);
+            setFocusEnabled(Boolean(stored.enabled));
+            setFocusSessionId(null);
+            setFocusStartedAt(null);
+            setElapsedFocusSeconds(0);
+            setFocusCompletionAttempted(false);
+            setPendingFocusSession(null);
+            setPendingSyncAttempted(false);
+            return;
+        }
+
+        setFocusDurationMinutes(normalizedDuration);
+        setFocusEnabled(Boolean(stored.enabled || hasValidStart));
+        setFocusSessionId(hasValidStart ? stored.sessionId || `${stored.startedAt}` : null);
+        setFocusStartedAt(hasValidStart ? stored.startedAt : null);
+        setElapsedFocusSeconds(hasValidStart ? Math.max(0, Math.floor((Date.now() - stored.startedAt) / 1000)) : 0);
+        setFocusCompletionAttempted(Boolean(stored.completionAttempted));
+        setPendingFocusSession(stored.pendingSession || null);
+        setPendingSyncAttempted(false);
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!pendingFocusSession) return;
+        syncPendingFocusSession(pendingFocusSession);
+    }, [pendingFocusSession, syncPendingFocusSession]);
+
+    // Timer loop that keeps countdown in sync and auto-completes when target ends.
+    useEffect(() => {
+        persistFocusState();
+    }, [persistFocusState]);
+
+    useEffect(() => {
+        if (!focusStartedAt || !focusEnabled) return undefined;
+
+        const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
+        const endTimestamp = focusStartedAt + (normalizedDuration * 60 * 1000);
+
+        if (Date.now() >= endTimestamp) {
+            setElapsedFocusSeconds(normalizedDuration * 60);
+            completeFocusSession(endTimestamp, 'auto');
+            return undefined;
+        }
 
         const interval = setInterval(() => {
-            setElapsedFocusSeconds(Math.max(0, Math.floor((Date.now() - focusStartedAt) / 1000)));
+            const now = Date.now();
+            setElapsedFocusSeconds(Math.min(normalizedDuration * 60, Math.max(0, Math.floor((now - focusStartedAt) / 1000))));
+            if (now >= endTimestamp) {
+                clearInterval(interval);
+                completeFocusSession(endTimestamp, 'auto');
+            }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [focusStartedAt]);
+    }, [completeFocusSession, focusDurationMinutes, focusEnabled, focusStartedAt]);
 
     const selectedDateTaskCount = useMemo(() => (
         tasks.filter((task) => task.scheduled_date === selectedYmd).length
@@ -202,16 +409,20 @@ const Dashboard = () => {
             return;
         }
 
-        if (focusStartedAt) {
+        if (focusStartedAt || savingFocusSession) {
             return;
         }
 
         const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
+        const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
         setFocusError('');
         setFocusMessage('');
         setFocusDurationMinutes(normalizedDuration);
         setFocusStartedAt(Date.now());
+        setFocusSessionId(sessionId);
+        setFocusCompletionAttempted(false);
+        setPendingSyncAttempted(false);
         setElapsedFocusSeconds(0);
     };
 
@@ -219,33 +430,14 @@ const Dashboard = () => {
         if (!focusStartedAt) {
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
+            setFocusSessionId(null);
+            setFocusCompletionAttempted(false);
+            setPendingSyncAttempted(false);
+            persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false });
             return;
         }
 
-        const durationSeconds = Math.max(0, Math.floor((Date.now() - focusStartedAt) / 1000));
-        const durationMinutes = Math.max(1, Math.ceil(durationSeconds / 60));
-        const start = new Date(focusStartedAt);
-        const end = new Date();
-
-        setSavingFocusSession(true);
-        setFocusError('');
-
-        try {
-            await analyticsService.logFocusSession({
-                date: toYmd(start),
-                start_time: toHms(start),
-                end_time: toHms(end),
-                duration_minutes: durationMinutes
-            });
-            await loadFocusPatterns();
-            setFocusMessage(`Great focus sprint! Logged ${durationMinutes} minute(s).`);
-            setFocusStartedAt(null);
-            setElapsedFocusSeconds(0);
-        } catch (error) {
-            setFocusError(error?.message || 'Could not save focus session.');
-        } finally {
-            setSavingFocusSession(false);
-        }
+        await completeFocusSession(Date.now(), 'manual');
     };
 
     const handleFocusDurationChange = (event) => {
