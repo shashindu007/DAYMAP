@@ -130,7 +130,11 @@ const Dashboard = () => {
                 .slice(0, 3);
             setUpcomingTasks(normalizedUpcoming);
         } catch (error) {
-            setDashboardError(error?.message || 'Failed to load dashboard data');
+            const message = error?.message || 'Failed to load dashboard data';
+            if (process.env.NODE_ENV === 'development' && /too many requests/i.test(message)) {
+                return;
+            }
+            setDashboardError(message);
         } finally {
             setLoadingUpcoming(false);
         }
@@ -181,14 +185,14 @@ const Dashboard = () => {
 
         if (!user?.id) return;
 
-        // Keep state when enabled or session is active. Otherwise clean up storage.
-        if (!payload.enabled && !payload.startedAt) {
+        // Keep state when enabled, session is active, or a pending sync exists.
+        if (!payload.enabled && !payload.startedAt && !payload.pendingSession) {
             clearFocusStorage(user.id);
             return;
         }
 
         writeFocusStorage(user.id, payload);
-    }, [focusDurationMinutes, focusEnabled, focusSessionId, focusStartedAt, user?.id]);
+    }, [focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusSessionId, focusStartedAt, pendingFocusSession, user?.id]);
 
     const syncPendingFocusSession = useCallback(async (sessionPayload) => {
         if (!sessionPayload || pendingSyncAttempted) return;
@@ -203,13 +207,12 @@ const Dashboard = () => {
                 // Non-blocking: focus stats can refresh later.
             }
             setPendingFocusSession(null);
+            setFocusError('');
+            setFocusMessage('');
             persistFocusState({ pendingSession: null });
-        } catch (error) {
-            if (!focusStartedAt) {
-                setFocusError(error?.message || 'Could not sync the last focus session.');
-            } else {
-                setFocusMessage(error?.message || 'Focus session sync will retry later.');
-            }
+        } catch {
+            setFocusError('');
+            setFocusMessage('Session saved locally. Will sync when back online.');
         }
     }, [focusStartedAt, loadFocusPatterns, pendingSyncAttempted, persistFocusState]);
 
@@ -256,15 +259,12 @@ const Dashboard = () => {
             setPendingFocusSession(null);
             setPendingSyncAttempted(false);
             persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession: null, enabled: true });
-        } catch (error) {
+        } catch {
             setPendingFocusSession(sessionPayload);
             setPendingSyncAttempted(false);
             persistFocusState({ pendingSession: sessionPayload });
-            if (reason === 'auto') {
-                setFocusError(error?.message || 'Auto-save failed. Your session was ended and will retry on next load.');
-            } else {
-                setFocusError(error?.message || 'Could not save focus session. It will retry on next load.');
-            }
+            setFocusError('');
+            setFocusMessage('Session saved locally. Will sync when back online.');
             // End the session locally even if save fails.
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
@@ -288,27 +288,36 @@ const Dashboard = () => {
         const hasValidStart = Number.isFinite(stored.startedAt)
             && stored.startedAt > 0
             && stored.startedAt <= nowTimestamp + 60 * 1000;
+        const restoredSessionId = hasValidStart ? (stored.sessionId || `${stored.startedAt}`) : null;
 
         if (stored.startedAt && !hasValidStart) {
             // Invalid stored session (corrupted or from the future) -> reset safely.
-            clearFocusStorage(user.id);
+            const pendingSession = stored.pendingSession || null;
             setFocusDurationMinutes(normalizedDuration);
             setFocusEnabled(Boolean(stored.enabled));
             setFocusSessionId(null);
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
             setFocusCompletionAttempted(false);
-            setPendingFocusSession(null);
+            setPendingFocusSession(pendingSession);
             setPendingSyncAttempted(false);
+
+            if (pendingSession) {
+                persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession, enabled: Boolean(stored.enabled) });
+            } else {
+                clearFocusStorage(user.id);
+            }
             return;
         }
 
         setFocusDurationMinutes(normalizedDuration);
         setFocusEnabled(Boolean(stored.enabled || hasValidStart));
-        setFocusSessionId(hasValidStart ? stored.sessionId || `${stored.startedAt}` : null);
+        setFocusSessionId(restoredSessionId);
         setFocusStartedAt(hasValidStart ? stored.startedAt : null);
         setElapsedFocusSeconds(hasValidStart ? Math.max(0, Math.floor((Date.now() - stored.startedAt) / 1000)) : 0);
-        setFocusCompletionAttempted(Boolean(stored.completionAttempted));
+        setFocusCompletionAttempted(hasValidStart && stored.sessionId && stored.sessionId === restoredSessionId
+            ? Boolean(stored.completionAttempted)
+            : false);
         setPendingFocusSession(stored.pendingSession || null);
         setPendingSyncAttempted(false);
     }, [user?.id]);
@@ -422,6 +431,7 @@ const Dashboard = () => {
         setFocusStartedAt(Date.now());
         setFocusSessionId(sessionId);
         setFocusCompletionAttempted(false);
+        setPendingFocusSession(null);
         setPendingSyncAttempted(false);
         setElapsedFocusSeconds(0);
     };
@@ -432,8 +442,9 @@ const Dashboard = () => {
             setElapsedFocusSeconds(0);
             setFocusSessionId(null);
             setFocusCompletionAttempted(false);
+            setPendingFocusSession(null);
             setPendingSyncAttempted(false);
-            persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false });
+            persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession: null });
             return;
         }
 

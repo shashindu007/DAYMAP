@@ -70,7 +70,7 @@ class Task {
             parent_task_id
         });
 
-        return await this.findById(created.id);
+        return created?.toObject ? created.toObject() : created;
     }
     
     /**

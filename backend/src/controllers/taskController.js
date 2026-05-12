@@ -112,11 +112,15 @@ class TaskController {
             };
             
             const task = await Task.create(taskData);
-            
-            // Update analytics if task is scheduled for today
+
+            // Update analytics if task is scheduled for today (non-blocking)
             const today = new Date().toISOString().split('T')[0];
-            if (task.scheduled_date === today) {
-                await this.updateAnalytics(req.user.id, today);
+            if (task?.scheduled_date === today) {
+                try {
+                    await this.updateAnalytics(req.user.id, today);
+                } catch (analyticsError) {
+                    console.warn('Create task analytics update failed:', analyticsError?.message || analyticsError);
+                }
             }
             
             res.status(201).json({

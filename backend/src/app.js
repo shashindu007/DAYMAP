@@ -50,8 +50,10 @@ if (config.nodeEnv === 'development') {
     app.use(morgan('combined'));
 }
 
-// Rate limiting
-app.use('/api', generalLimiter);
+// Rate limiting (disabled in development for smoother local testing)
+if (config.nodeEnv !== 'development') {
+    app.use('/api', generalLimiter);
+}
 
 // Health check route
 app.get('/health', (req, res) => {

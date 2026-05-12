@@ -179,7 +179,13 @@ const taskValidation = [
         .isDate({ format: 'YYYY-MM-DD' }).withMessage('Date must be in YYYY-MM-DD format'),
     body('scheduled_time')
         .optional()
-        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/).withMessage('Time must be in HH:MM:SS format'),
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/).withMessage('Time must be in HH:MM:SS format')
+        .custom((value, { req }) => {
+            if (value && !req.body.scheduled_date) {
+                throw new Error('scheduled_date is required when scheduled_time is provided');
+            }
+            return true;
+        }),
     body('duration_minutes')
         .optional()
         .isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
