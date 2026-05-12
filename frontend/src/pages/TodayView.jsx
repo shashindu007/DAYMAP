@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTasks } from '../context/TaskContext';
 import Button from '../components/common/Button';
 import './TodayView.css';
 
 const TodayView = () => {
-    const navigate = useNavigate();
-    const { tasks, loading, fetchTodayTasks, completeTask, createTask } = useTasks();
+    const { tasks, loading, fetchTodayTasks, completeTask, createTask, deleteTask } = useTasks();
     const today = new Date().toISOString().split('T')[0];
+
+    const [now, setNow] = useState(new Date());
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [savingTask, setSavingTask] = useState(false);
@@ -40,6 +40,11 @@ const TodayView = () => {
     }, [fetchTodayTasks]);
 
     useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
         const completed = tasks.filter(t => t.status === 'completed').length;
         const total = tasks.length;
         setStats({
@@ -54,6 +59,14 @@ const TodayView = () => {
             await completeTask(taskId);
         } catch (error) {
             console.error('Error completing task:', error);
+        }
+    };
+
+    const handleDelete = async (taskId) => {
+        try {
+            await deleteTask(taskId);
+        } catch (error) {
+            console.error('Error deleting task:', error);
         }
     };
 
@@ -95,6 +108,72 @@ const TodayView = () => {
         if (!timeValue) return '';
         return timeValue.length >= 5 ? timeValue.slice(0, 5) : timeValue;
     };
+
+    const timeToMinutes = (timeValue) => {
+        if (!timeValue) return null;
+        const [hours, minutes] = timeValue.split(':').map(Number);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+        return (hours * 60) + minutes;
+    };
+
+    const getTaskStartMinutes = (task) => timeToMinutes(task?.scheduled_time);
+
+    const getTaskEndMinutes = (task) => {
+        const startMinutes = getTaskStartMinutes(task);
+        if (!Number.isFinite(startMinutes)) return null;
+        const duration = Number(task?.duration_minutes);
+        if (!Number.isFinite(duration) || duration <= 0) return null;
+        return startMinutes + duration;
+    };
+
+    const canDeleteTask = (task, currentMinutes) => {
+        if (task.status === 'completed') return false;
+        const startMinutes = getTaskStartMinutes(task);
+        if (!Number.isFinite(startMinutes)) return true;
+        return currentMinutes < startMinutes;
+    };
+
+    const canCompleteTask = (task, currentMinutes) => {
+        if (task.status === 'completed') return false;
+        const endMinutes = getTaskEndMinutes(task);
+        if (Number.isFinite(endMinutes)) return currentMinutes >= endMinutes;
+        const startMinutes = getTaskStartMinutes(task);
+        if (Number.isFinite(startMinutes)) return currentMinutes >= startMinutes;
+        return true;
+    };
+
+    const groupedTasks = useMemo(() => {
+        const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+
+        const completedTasks = tasks.filter(task => task.status === 'completed');
+        const pendingTasks = tasks.filter(task => task.status !== 'completed');
+        const timedPendingTasks = pendingTasks.filter(task => task.scheduled_time);
+        const anytimeTasks = pendingTasks.filter(task => !task.scheduled_time);
+
+        const pastTasks = timedPendingTasks.filter(task => {
+            const taskMinutes = timeToMinutes(task.scheduled_time);
+            return Number.isFinite(taskMinutes) && taskMinutes < currentMinutes;
+        });
+
+        const upcomingTasks = timedPendingTasks.filter(task => {
+            const taskMinutes = timeToMinutes(task.scheduled_time);
+            return Number.isFinite(taskMinutes) && taskMinutes >= currentMinutes;
+        });
+
+        const sortByTime = (a, b) => {
+            const aMinutes = timeToMinutes(a.scheduled_time);
+            const bMinutes = timeToMinutes(b.scheduled_time);
+            return (aMinutes ?? Number.POSITIVE_INFINITY) - (bMinutes ?? Number.POSITIVE_INFINITY);
+        };
+
+        return {
+            past: pastTasks.sort(sortByTime),
+            upcoming: upcomingTasks.sort(sortByTime),
+            anytime: anytimeTasks.sort((a, b) => a.title.localeCompare(b.title)),
+            completed: completedTasks.sort(sortByTime),
+            currentMinutes
+        };
+    }, [tasks, now]);
 
     const handleCreateTask = async (e) => {
         e.preventDefault();
@@ -149,14 +228,24 @@ const TodayView = () => {
         <div className="today-container">
             <div className="today-header">
                 <div className="today-header-top">
-                    <h1>Today's Tasks</h1>
+                    <div>
+                        <h1>Today's Tasks</h1>
+                        <p className="today-subtitle">Stay aligned with the time and keep tasks moving.</p>
+                    </div>
+                    <div className="today-live-clock">
+                        <p className="today-clock-date">
+                            {now.toLocaleDateString(undefined, {
+                                weekday: 'long',
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric'
+                            })}
+                        </p>
+                        <p className="today-clock-time">
+                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </p>
+                    </div>
                     <div className="today-actions">
-                        <Button variant="secondary" onClick={() => navigate('/dashboard')}>
-                            Dashboard
-                        </Button>
-                        <Button variant="secondary" onClick={() => navigate('/tasks')}>
-                            All Tasks
-                        </Button>
                         <Button variant="primary" onClick={handleOpenAddTask}>
                             Add Task
                         </Button>
@@ -183,39 +272,245 @@ const TodayView = () => {
                         <Button variant="primary" onClick={handleOpenAddTask}>Add Task</Button>
                     </div>
                 ) : (
-                    tasks.map(task => (
-                        <div 
-                            key={task.id} 
-                            className={`task-item ${task.status === 'completed' ? 'completed' : ''}`}
-                        >
-                            <div className="task-checkbox">
-                                <input
-                                    type="checkbox"
-                                    checked={task.status === 'completed'}
-                                    onChange={() => handleComplete(task.id)}
-                                />
-                            </div>
-                            <div className="task-content">
-                                <h3 className="task-title">{task.title}</h3>
-                                {task.description && (
-                                    <p className="task-description">{task.description}</p>
-                                )}
-                                <div className="task-meta">
-                                    {task.scheduled_time && (
-                                        <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>
-                                    )}
-                                    {task.duration_minutes && (
-                                        <span className="task-duration">⏱ {task.duration_minutes} min</span>
-                                    )}
-                                    {task.priority && (
-                                        <span className={`task-priority priority-${task.priority}`}>
-                                            {task.priority}
-                                        </span>
-                                    )}
+                    <>
+                        <div className="task-section">
+                            <div className="task-section-header">
+                                <div>
+                                    <h2>Past</h2>
+                                    <span>Earlier today</span>
                                 </div>
+                                <span className="task-section-count">{groupedTasks.past.length}</span>
+                            </div>
+                            <div className="task-section-body">
+                                {groupedTasks.past.length === 0 ? (
+                                    <div className="task-section-empty">No past tasks. You're on track!</div>
+                                ) : (
+                                    groupedTasks.past.map(task => (
+                                        <div
+                                            key={task.id}
+                                            className={`task-item task-item--past ${task.status === 'completed' ? 'completed' : ''}`}
+                                        >
+                                            <div className="task-content">
+                                                <div className="task-title-row">
+                                                    <h3 className="task-title">{task.title}</h3>
+                                                    <span className="task-status-badge status-past">Past</span>
+                                                </div>
+                                                {task.description && (
+                                                    <p className="task-description">{task.description}</p>
+                                                )}
+                                                <div className="task-meta">
+                                                    {task.scheduled_time && (
+                                                        <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>
+                                                    )}
+                                                    {task.duration_minutes && (
+                                                        <span className="task-duration">⏱ {task.duration_minutes} min</span>
+                                                    )}
+                                                    {task.priority && (
+                                                        <span className={`task-priority priority-${task.priority}`}>
+                                                            {task.priority}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="task-actions">
+                                                    {canCompleteTask(task, groupedTasks.currentMinutes) && (
+                                                        <Button
+                                                            variant="primary"
+                                                            className="task-action-btn"
+                                                            onClick={() => handleComplete(task.id)}
+                                                        >
+                                                            Complete
+                                                        </Button>
+                                                    )}
+                                                    {canDeleteTask(task, groupedTasks.currentMinutes) && (
+                                                        <Button
+                                                            variant="secondary"
+                                                            className="task-action-btn"
+                                                            onClick={() => handleDelete(task.id)}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
-                    ))
+
+                        <div className="task-section">
+                            <div className="task-section-header">
+                                <div>
+                                    <h2>Upcoming</h2>
+                                    <span>Next on your schedule</span>
+                                </div>
+                                <span className="task-section-count">{groupedTasks.upcoming.length}</span>
+                            </div>
+                            <div className="task-section-body">
+                                {groupedTasks.upcoming.length === 0 ? (
+                                    <div className="task-section-empty">No upcoming tasks scheduled.</div>
+                                ) : (
+                                    groupedTasks.upcoming.map(task => (
+                                        <div
+                                            key={task.id}
+                                            className={`task-item task-item--upcoming ${task.status === 'completed' ? 'completed' : ''}`}
+                                        >
+                                            <div className="task-content">
+                                                <div className="task-title-row">
+                                                    <h3 className="task-title">{task.title}</h3>
+                                                    <span className="task-status-badge status-upcoming">Upcoming</span>
+                                                </div>
+                                                {task.description && (
+                                                    <p className="task-description">{task.description}</p>
+                                                )}
+                                                <div className="task-meta">
+                                                    {task.scheduled_time && (
+                                                        <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>
+                                                    )}
+                                                    {task.duration_minutes && (
+                                                        <span className="task-duration">⏱ {task.duration_minutes} min</span>
+                                                    )}
+                                                    {task.priority && (
+                                                        <span className={`task-priority priority-${task.priority}`}>
+                                                            {task.priority}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="task-actions">
+                                                    {canCompleteTask(task, groupedTasks.currentMinutes) && (
+                                                        <Button
+                                                            variant="primary"
+                                                            className="task-action-btn"
+                                                            onClick={() => handleComplete(task.id)}
+                                                        >
+                                                            Complete
+                                                        </Button>
+                                                    )}
+                                                    {canDeleteTask(task, groupedTasks.currentMinutes) && (
+                                                        <Button
+                                                            variant="secondary"
+                                                            className="task-action-btn"
+                                                            onClick={() => handleDelete(task.id)}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="task-section">
+                            <div className="task-section-header">
+                                <div>
+                                    <h2>Anytime</h2>
+                                    <span>Flexible tasks without a fixed time</span>
+                                </div>
+                                <span className="task-section-count">{groupedTasks.anytime.length}</span>
+                            </div>
+                            <div className="task-section-body">
+                                {groupedTasks.anytime.length === 0 ? (
+                                    <div className="task-section-empty">Nothing flexible right now.</div>
+                                ) : (
+                                    groupedTasks.anytime.map(task => (
+                                        <div
+                                            key={task.id}
+                                            className={`task-item task-item--anytime ${task.status === 'completed' ? 'completed' : ''}`}
+                                        >
+                                            <div className="task-content">
+                                                <div className="task-title-row">
+                                                    <h3 className="task-title">{task.title}</h3>
+                                                    <span className="task-status-badge status-anytime">Anytime</span>
+                                                </div>
+                                                {task.description && (
+                                                    <p className="task-description">{task.description}</p>
+                                                )}
+                                                <div className="task-meta">
+                                                    <span className="task-time">🧭 Anytime</span>
+                                                    {task.duration_minutes && (
+                                                        <span className="task-duration">⏱ {task.duration_minutes} min</span>
+                                                    )}
+                                                    {task.priority && (
+                                                        <span className={`task-priority priority-${task.priority}`}>
+                                                            {task.priority}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="task-actions">
+                                                    {canCompleteTask(task, groupedTasks.currentMinutes) && (
+                                                        <Button
+                                                            variant="primary"
+                                                            className="task-action-btn"
+                                                            onClick={() => handleComplete(task.id)}
+                                                        >
+                                                            Complete
+                                                        </Button>
+                                                    )}
+                                                    {canDeleteTask(task, groupedTasks.currentMinutes) && (
+                                                        <Button
+                                                            variant="secondary"
+                                                            className="task-action-btn"
+                                                            onClick={() => handleDelete(task.id)}
+                                                        >
+                                                            Remove
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="task-section">
+                            <div className="task-section-header">
+                                <div>
+                                    <h2>Completed</h2>
+                                    <span>Nice work finishing these</span>
+                                </div>
+                                <span className="task-section-count">{groupedTasks.completed.length}</span>
+                            </div>
+                            <div className="task-section-body">
+                                {groupedTasks.completed.length === 0 ? (
+                                    <div className="task-section-empty">No completed tasks yet.</div>
+                                ) : (
+                                    groupedTasks.completed.map(task => (
+                                        <div
+                                            key={task.id}
+                                            className="task-item task-item--completed completed"
+                                        >
+                                            <div className="task-content">
+                                                <div className="task-title-row">
+                                                    <h3 className="task-title">{task.title}</h3>
+                                                    <span className="task-status-badge status-completed">Completed</span>
+                                                </div>
+                                                {task.description && (
+                                                    <p className="task-description">{task.description}</p>
+                                                )}
+                                                <div className="task-meta">
+                                                    {task.scheduled_time && (
+                                                        <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>
+                                                    )}
+                                                    {task.duration_minutes && (
+                                                        <span className="task-duration">⏱ {task.duration_minutes} min</span>
+                                                    )}
+                                                    {task.priority && (
+                                                        <span className={`task-priority priority-${task.priority}`}>
+                                                            {task.priority}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </>
                 )}
             </div>
 

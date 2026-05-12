@@ -14,12 +14,46 @@
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1rem;
+    flex-wrap: wrap;
 }
 
 .today-actions {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+}
+
+.today-subtitle {
+    margin: 0.35rem 0 0;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.today-live-clock {
+    min-width: 230px;
+    padding: 0.75rem 1rem;
+    border-radius: 0.9rem;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.12));
+    border: 1px solid rgba(59, 130, 246, 0.18);
+    text-align: right;
+}
+
+.dark .today-live-clock {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(148, 163, 184, 0.2);
+}
+
+.today-clock-date {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+}
+
+.today-clock-time {
+    margin: 0.25rem 0 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-dark);
 }
 
 .today-header h1 {
@@ -73,7 +107,64 @@
 .tasks-list {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 1.5rem;
+}
+
+.task-section {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(99, 102, 241, 0.05));
+    border: 1px solid rgba(59, 130, 246, 0.14);
+    border-radius: 1rem;
+    padding: 1.25rem;
+}
+
+.dark .task-section {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.8), rgba(30, 41, 59, 0.8));
+    border-color: rgba(148, 163, 184, 0.15);
+}
+
+.task-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.task-section-header h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.task-section-header span {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.task-section-count {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--primary);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-weight: 600;
+}
+
+.task-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.task-section-empty {
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px dashed rgba(148, 163, 184, 0.5);
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.8);
+}
+
+.dark .task-section-empty {
+    background: rgba(15, 23, 42, 0.6);
 }
 
 .task-item {
@@ -84,6 +175,8 @@
     display: flex;
     gap: 1rem;
     transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
 }
 
 .dark .task-item {
@@ -93,6 +186,23 @@
 
 .task-item:hover {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.task-item--past {
+    border-left: 4px solid #F97316;
+}
+
+.task-item--upcoming {
+    border-left: 4px solid #3B82F6;
+}
+
+.task-item--anytime {
+    border-left: 4px solid #8B5CF6;
+}
+
+.task-item--completed {
+    border-left: 4px solid #10B981;
 }
 
 .task-item.completed {
@@ -113,10 +223,29 @@
     flex: 1;
 }
 
+.task-actions {
+    margin-top: 0.85rem;
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.task-action-btn {
+    font-size: 0.82rem;
+    padding: 0.45rem 0.75rem;
+}
+
 .task-title {
     margin: 0 0 0.5rem 0;
     font-size: 1.125rem;
     color: var(--text-primary);
+}
+
+.task-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 
 .task-description {
@@ -130,6 +259,35 @@
     gap: 1rem;
     flex-wrap: wrap;
     font-size: 0.8125rem;
+}
+
+.task-status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.status-past {
+    background: rgba(249, 115, 22, 0.15);
+    color: #C2410C;
+}
+
+.status-upcoming {
+    background: rgba(59, 130, 246, 0.15);
+    color: #1D4ED8;
+}
+
+.status-anytime {
+    background: rgba(139, 92, 246, 0.15);
+    color: #6D28D9;
+}
+
+.status-completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: #047857;
 }
 
 .task-time, .task-duration {
@@ -291,6 +449,11 @@
     .today-header-top {
         flex-direction: column;
         align-items: flex-start;
+    }
+
+    .today-live-clock {
+        width: 100%;
+        text-align: left;
     }
 
     .today-actions {
