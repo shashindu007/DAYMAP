@@ -46,6 +46,13 @@ const readFocusStorage = (userId) => {
     }
 };
 
+const extractFocusPatternPayload = (response) => (
+    response?.data
+    || response?.data?.data
+    || response
+    || {}
+);
+
 const writeFocusStorage = (userId, payload) => {
     try {
         localStorage.setItem(buildFocusStorageKey(userId), JSON.stringify(payload));
@@ -113,7 +120,7 @@ const FocusDashboard = () => {
     const loadFocusPatterns = useCallback(async () => {
         try {
             const response = await analyticsService.getFocusPatterns(14);
-            const data = response?.data || {};
+            const data = extractFocusPatternPayload(response);
             const daily = data.daily || [];
             const today = daily.find((item) => item.date === todayYmd) || null;
 
@@ -135,13 +142,25 @@ const FocusDashboard = () => {
         }
     }, [todayYmd]);
 
+    const applyTodayFocusUpdate = useCallback((payload) => {
+        const data = extractFocusPatternPayload(payload);
+        if (!data || !data.date) return;
+
+        setFocusPatterns((prev) => ({
+            ...prev,
+            todayMinutes: data.focus_time_spent_minutes ?? prev.todayMinutes,
+            todaySessions: data.focus_sessions_count ?? prev.todaySessions
+        }));
+    }, []);
+
     const syncPendingFocusSession = useCallback(async (sessionPayload) => {
         if (!sessionPayload || pendingSyncAttempted) return;
 
         setPendingSyncAttempted(true);
 
         try {
-            await analyticsService.logFocusSession(sessionPayload);
+            const response = await analyticsService.logFocusSession(sessionPayload);
+            applyTodayFocusUpdate(response?.data || response);
             try {
                 await loadFocusPatterns();
             } catch {
@@ -185,7 +204,8 @@ const FocusDashboard = () => {
         };
 
         try {
-            await analyticsService.logFocusSession(sessionPayload);
+            const response = await analyticsService.logFocusSession(sessionPayload);
+            applyTodayFocusUpdate(response?.data || response);
             try {
                 await loadFocusPatterns();
             } catch {
