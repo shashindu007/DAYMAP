@@ -44,6 +44,59 @@
     font-weight: 600;
 }
 
+.focus-toggle-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.focus-toggle-track {
+    position: relative;
+    width: 46px;
+    height: 26px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.6);
+    transition: background 0.2s ease, border-color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    padding: 2px;
+    cursor: pointer;
+}
+
+.focus-toggle-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: white;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.25);
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+}
+
+.focus-toggle-input:checked + .focus-toggle-track {
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    border-color: rgba(99, 102, 241, 0.8);
+}
+
+.focus-toggle-input:checked + .focus-toggle-track .focus-toggle-thumb {
+    transform: translateX(20px);
+}
+
+.focus-toggle-input:focus-visible + .focus-toggle-track {
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.focus-toggle-input:disabled + .focus-toggle-track {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.focus-toggle-label {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 .focus-settings-row {
     display: flex;
     align-items: center;

@@ -240,7 +240,14 @@ const FocusDashboard = () => {
             setPendingSyncAttempted(false);
 
             if (pendingSession) {
-                persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession, enabled: Boolean(stored.enabled) });
+                writeFocusStorage(user.id, {
+                    enabled: Boolean(stored.enabled),
+                    durationMinutes: normalizedDuration,
+                    startedAt: null,
+                    sessionId: null,
+                    completionAttempted: false,
+                    pendingSession
+                });
             } else {
                 clearFocusStorage(user.id);
             }
@@ -257,7 +264,7 @@ const FocusDashboard = () => {
             : false);
         setPendingFocusSession(stored.pendingSession || null);
         setPendingSyncAttempted(false);
-    }, [persistFocusState, user?.id]);
+    }, [user?.id]);
 
     useEffect(() => {
         if (!pendingFocusSession) return;
@@ -321,19 +328,6 @@ const FocusDashboard = () => {
         setFocusDurationMinutes(normalizeFocusDurationMinutes(focusDurationMinutes));
     };
 
-    const toggleFocusEnabled = (event) => {
-        const enabled = event.target.checked;
-
-        if (!enabled && focusStartedAt) {
-            setFocusError('Stop and save the active focus session before disabling Focus Mode.');
-            return;
-        }
-
-        setFocusError('');
-        setFocusMessage('');
-        setFocusEnabled(enabled);
-    };
-
     const startFocusMode = () => {
         if (!focusEnabled) {
             setFocusError('Enable focus mode first.');
@@ -373,6 +367,23 @@ const FocusDashboard = () => {
         await completeFocusSession(Date.now(), 'manual');
     };
 
+    const toggleFocusEnabled = async (event) => {
+        const enabled = event.target.checked;
+
+        if (savingFocusSession) {
+            return;
+        }
+
+        setFocusError('');
+        setFocusMessage('');
+
+        if (!enabled && focusStartedAt) {
+            await stopFocusMode();
+        }
+
+        setFocusEnabled(enabled);
+    };
+
     return (
         <div className="focus-dashboard-container">
             <div className="focus-header">
@@ -381,8 +392,17 @@ const FocusDashboard = () => {
                     <p className="muted">Stay locked in with a dedicated focus dashboard and weekly insights.</p>
                 </div>
                 <label className="focus-toggle">
-                    <input type="checkbox" checked={focusEnabled} onChange={toggleFocusEnabled} />
-                    Enable
+                    <input
+                        className="focus-toggle-input"
+                        type="checkbox"
+                        checked={focusEnabled}
+                        onChange={toggleFocusEnabled}
+                        disabled={savingFocusSession}
+                    />
+                    <span className="focus-toggle-track">
+                        <span className="focus-toggle-thumb" />
+                    </span>
+                    <span className="focus-toggle-label">{focusEnabled ? 'Enabled' : 'Enable'}</span>
                 </label>
             </div>
 
