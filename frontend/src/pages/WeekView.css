@@ -1,0 +1,227 @@
+.week-container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+    background: radial-gradient(circle at 15% 0%, rgba(99, 102, 241, 0.06), transparent 35%),
+                radial-gradient(circle at 90% 10%, rgba(16, 185, 129, 0.06), transparent 28%);
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 320px;
+}
+
+.week-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.week-range {
+    min-width: 220px;
+    text-align: right;
+}
+
+.week-summary {
+    margin-bottom: 1.5rem;
+}
+
+.week-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.week-summary-grid p {
+    margin-top: 0.3rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.week-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 0.5rem;
+}
+
+.week-strip-item {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(255, 255, 255, 0.75);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.dark .week-strip-item {
+    background: rgba(17, 24, 39, 0.65);
+    border-color: #374151;
+}
+
+.week-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+}
+
+.week-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.week-category-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.week-category-card {
+    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.dark .week-category-card {
+    background: rgba(17, 24, 39, 0.7);
+    border-color: #374151;
+}
+
+.week-category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.75rem;
+}
+
+.week-category-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.week-task-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.75rem;
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.dark .week-task-item {
+    background: rgba(17, 24, 39, 0.6);
+    border-color: #374151;
+}
+
+.week-task-title {
+    margin: 0;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.week-task-meta {
+    display: grid;
+    gap: 0.4rem;
+    justify-items: end;
+}
+
+.status-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    text-transform: capitalize;
+    background: #E2E8F0;
+    color: #334155;
+}
+
+.status-completed {
+    background: #DCFCE7;
+    color: #166534;
+}
+
+.status-in_progress {
+    background: #DBEAFE;
+    color: #1D4ED8;
+}
+
+.status-pending {
+    background: #FEF3C7;
+    color: #B45309;
+}
+
+.status-active {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-paused {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.task-priority {
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.4rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    font-size: 0.75rem;
+}
+
+.priority-low {
+    background-color: #DBEAFE;
+    color: #1E40AF;
+}
+
+.priority-medium {
+    background-color: #FEF3C7;
+    color: #92400E;
+}
+
+.priority-high {
+    background-color: #FED7AA;
+    color: #9A3412;
+}
+
+.priority-urgent {
+    background-color: #FEE2E2;
+    color: #991B1B;
+}
+
+.muted {
+    color: var(--text-secondary);
+}
+
+.week-error {
+    color: #B91C1C;
+    margin-bottom: 0.75rem;
+}
+
+@media (max-width: 900px) {
+    .week-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .week-range {
+        text-align: left;
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .week-container {
+        padding: 1rem;
+    }
+}

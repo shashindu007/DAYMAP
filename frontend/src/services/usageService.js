@@ -4,6 +4,7 @@ const MAX_ROUTE_SESSION_MS = 30 * 60 * 1000;
 const ROUTE_LABELS = {
     '/dashboard': 'Dashboard',
     '/today': 'Today View',
+    '/focus': 'Focus Mode',
     '/tasks': 'Task Management',
     '/week': 'Week View',
     '/routines': 'Routines',

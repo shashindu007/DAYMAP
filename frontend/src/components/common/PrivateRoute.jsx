@@ -28,6 +28,7 @@ const PrivateRoute = ({ children }) => {
     const navLinks = [
         { path: '/dashboard', label: 'Dashboard' },
         { path: '/today', label: 'Today' },
+        { path: '/focus', label: 'Focus' },
         { path: '/week', label: 'Week' },
         { path: '/tasks', label: 'Tasks' },
         { path: '/routines', label: 'Routines' },

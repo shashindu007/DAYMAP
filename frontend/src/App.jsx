@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import TodayView from './pages/TodayView';
+import FocusDashboard from './pages/FocusDashboard';
 import WeekView from './pages/WeekView';
 import Tasks from './pages/Tasks';
 import Routines from './pages/Routines';
@@ -51,6 +52,11 @@ function App() {
                                 <Route path="/today" element={
                                     <PrivateRoute>
                                         <TodayView />
+                                    </PrivateRoute>
+                                } />
+                                <Route path="/focus" element={
+                                    <PrivateRoute>
+                                        <FocusDashboard />
                                     </PrivateRoute>
                                 } />
                                 <Route path="/week" element={
