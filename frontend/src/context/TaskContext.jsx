@@ -12,12 +12,28 @@ export const TaskProvider = ({ children }) => {
         error?.errors?.[0]?.message || error?.message || fallback
     );
 
+    const normalizeTasksResponse = (response) => {
+        const data = response?.data ?? response;
+        if (Array.isArray(data?.tasks)) return data.tasks;
+        if (Array.isArray(response?.tasks)) return response.tasks;
+        if (Array.isArray(data)) return data;
+        return [];
+    };
+
+    const normalizeTaskResponse = (response) => {
+        if (!response) return null;
+        if (response?.data?.data) return response.data.data;
+        if (response?.data) return response.data;
+        if (response?.task) return response.task;
+        return response;
+    };
+
     const fetchTasks = useCallback(async (filters = {}) => {
         try {
             setLoading(true);
             setError(null);
             const response = await taskService.getAllTasks(filters);
-            setTasks(response.data.tasks);
+            setTasks(normalizeTasksResponse(response));
             return response;
         } catch (error) {
             setError(resolveErrorMessage(error, 'Failed to fetch tasks'));
@@ -32,7 +48,7 @@ export const TaskProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const response = await taskService.getTodayTasks();
-            setTasks(response.data.tasks);
+            setTasks(normalizeTasksResponse(response));
             return response;
         } catch (error) {
             setError(resolveErrorMessage(error, 'Failed to fetch today\'s tasks'));
@@ -47,7 +63,7 @@ export const TaskProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const response = await taskService.getWeekTasks();
-            setTasks(response.data.tasks);
+            setTasks(normalizeTasksResponse(response));
             return response;
         } catch (error) {
             setError(resolveErrorMessage(error, 'Failed to fetch week\'s tasks'));
@@ -87,7 +103,10 @@ export const TaskProvider = ({ children }) => {
         try {
             setError(null);
             const response = await taskService.createTask(taskData);
-            setTasks(prev => [...prev, response.data]);
+            const createdTask = normalizeTaskResponse(response);
+            if (createdTask) {
+                setTasks(prev => [...prev, createdTask]);
+            }
             return response;
         } catch (error) {
             setError(resolveErrorMessage(error, 'Failed to create task'));
@@ -96,25 +115,36 @@ export const TaskProvider = ({ children }) => {
     };
 
     const updateTask = async (id, taskData) => {
+        const previousTasks = tasks;
         try {
             setError(null);
+            setTasks(prev => prev.map(task => (
+                task.id === id ? { ...task, ...taskData } : task
+            )));
             const response = await taskService.updateTask(id, taskData);
-            setTasks(prev => prev.map(task => 
-                task.id === id ? response.data : task
-            ));
+            const updatedTask = normalizeTaskResponse(response);
+            if (updatedTask) {
+                setTasks(prev => prev.map(task => 
+                    task.id === id ? updatedTask : task
+                ));
+            }
             return response;
         } catch (error) {
+            setTasks(previousTasks);
             setError(resolveErrorMessage(error, 'Failed to update task'));
             throw error;
         }
     };
 
     const deleteTask = async (id) => {
+        const previousTasks = tasks;
         try {
             setError(null);
-            await taskService.deleteTask(id);
             setTasks(prev => prev.filter(task => task.id !== id));
+            await taskService.deleteTask(id);
+            return true;
         } catch (error) {
+            setTasks(previousTasks);
             setError(resolveErrorMessage(error, 'Failed to delete task'));
             throw error;
         }
@@ -123,10 +153,16 @@ export const TaskProvider = ({ children }) => {
     const completeTask = async (id) => {
         try {
             setError(null);
-            const response = await taskService.completeTask(id);
-            setTasks(prev => prev.map(task => 
-                task.id === id ? response.data : task
+            setTasks(prev => prev.map(task =>
+                task.id === id ? { ...task, status: 'completed' } : task
             ));
+            const response = await taskService.completeTask(id);
+            const updatedTask = normalizeTaskResponse(response);
+            if (updatedTask) {
+                setTasks(prev => prev.map(task => 
+                    task.id === id ? updatedTask : task
+                ));
+            }
             return response;
         } catch (error) {
             setError(resolveErrorMessage(error, 'Failed to complete task'));

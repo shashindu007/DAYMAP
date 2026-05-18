@@ -113,6 +113,25 @@ const Dashboard = () => {
     const todayYmd = useMemo(() => toYmd(new Date()), []);
     const selectedYmd = useMemo(() => toYmd(selectedDate), [selectedDate]);
 
+    const upcomingFromTasks = useMemo(() => {
+        const end = new Date();
+        end.setDate(end.getDate() + 7);
+        const endYmd = toYmd(end);
+
+        return tasks
+            .filter((task) => {
+                if (!['pending', 'in_progress'].includes(task.status)) return false;
+                if (!task.scheduled_date) return false;
+                return task.scheduled_date >= todayYmd && task.scheduled_date <= endYmd;
+            })
+            .sort((a, b) => {
+                const dateCompare = (a.scheduled_date || '').localeCompare(b.scheduled_date || '');
+                if (dateCompare !== 0) return dateCompare;
+                return (a.scheduled_time || '').localeCompare(b.scheduled_time || '');
+            })
+            .slice(0, 3);
+    }, [tasks, todayYmd]);
+
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(interval);
@@ -139,6 +158,12 @@ const Dashboard = () => {
             setLoadingUpcoming(false);
         }
     }, [fetchTasks]);
+
+    useEffect(() => {
+        if (upcomingFromTasks.length > 0) {
+            setUpcomingTasks(upcomingFromTasks);
+        }
+    }, [upcomingFromTasks]);
 
     const loadFocusPatterns = useCallback(async () => {
         try {
@@ -541,7 +566,7 @@ const Dashboard = () => {
                     <span className="muted">Next 2–3 tasks</span>
                 </div>
 
-                {loadingUpcoming ? (
+                {loadingUpcoming && upcomingTasks.length === 0 ? (
                     <p className="muted">Loading upcoming tasks...</p>
                 ) : upcomingTasks.length === 0 ? (
                     <p className="muted">No upcoming tasks found for the next week.</p>
