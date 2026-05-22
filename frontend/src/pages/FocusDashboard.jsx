@@ -53,6 +53,12 @@ const extractFocusPatternPayload = (response) => (
     || {}
 );
 
+const resolveFocusErrorMessage = (error, fallback) => (
+    error?.errors?.[0]?.message
+    || error?.message
+    || fallback
+);
+
 const writeFocusStorage = (userId, payload) => {
     try {
         localStorage.setItem(buildFocusStorageKey(userId), JSON.stringify(payload));
@@ -170,9 +176,15 @@ const FocusDashboard = () => {
             setFocusError('');
             setFocusMessage('');
             persistFocusState({ pendingSession: null });
-        } catch {
-            setFocusError('');
-            setFocusMessage('Session saved locally. Will sync when back online.');
+        } catch (error) {
+            const message = resolveFocusErrorMessage(error, 'Failed to sync focus session.');
+            if (/no response from server/i.test(message)) {
+                setFocusError('');
+                setFocusMessage('Session saved locally. Will sync when back online.');
+            } else {
+                setFocusError(message);
+                setFocusMessage('');
+            }
         }
     }, [loadFocusPatterns, pendingSyncAttempted, persistFocusState]);
 
@@ -219,12 +231,18 @@ const FocusDashboard = () => {
             setPendingFocusSession(null);
             setPendingSyncAttempted(false);
             persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession: null, enabled: true });
-        } catch {
-            setPendingFocusSession(sessionPayload);
-            setPendingSyncAttempted(false);
-            persistFocusState({ pendingSession: sessionPayload });
-            setFocusError('');
-            setFocusMessage('Session saved locally. Will sync when back online.');
+        } catch (error) {
+            const message = resolveFocusErrorMessage(error, 'Failed to save focus session.');
+            if (/no response from server/i.test(message)) {
+                setPendingFocusSession(sessionPayload);
+                setPendingSyncAttempted(false);
+                persistFocusState({ pendingSession: sessionPayload });
+                setFocusError('');
+                setFocusMessage('Session saved locally. Will sync when back online.');
+            } else {
+                setFocusError(message);
+                setFocusMessage('');
+            }
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
             setFocusSessionId(null);
