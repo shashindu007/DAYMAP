@@ -73,6 +73,7 @@ const extractFocusPatternPayload = (response) => (
 
 const resolveFocusErrorMessage = (error, fallback) => (
     error?.errors?.[0]?.message
+    || error?.error
     || error?.message
     || fallback
 );

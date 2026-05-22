@@ -332,12 +332,12 @@ class AnalyticsController {
                 tags
             } = req.body;
 
-            const normalizedDate = this.normalizeDate(date);
-            const normalizedStart = this.normalizeClock(start_time);
-            const normalizedEnd = this.normalizeClock(end_time);
+            const normalizedDate = AnalyticsController.normalizeDate(date);
+            const normalizedStart = AnalyticsController.normalizeClock(start_time);
+            const normalizedEnd = AnalyticsController.normalizeClock(end_time);
             const minutes = Math.max(1, parseInt(duration_minutes, 10) || 0);
             const normalizedCategory = typeof category === 'string' ? category.trim() : '';
-            const normalizedTags = this.normalizeTags(tags);
+            const normalizedTags = AnalyticsController.normalizeTags(tags);
 
             if (!normalizedStart) {
                 return res.status(400).json({
