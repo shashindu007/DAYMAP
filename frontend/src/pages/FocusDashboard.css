@@ -16,8 +16,16 @@
 
 .focus-layout {
     display: grid;
-    grid-template-columns: minmax(320px, 1.1fr) 1fr;
+    grid-template-columns: 1fr;
     gap: 1.5rem;
+}
+
+.focus-layout-stacked {
+    grid-template-columns: 1fr;
+}
+
+.focus-section {
+    width: 100%;
 }
 
 .focus-hero {
@@ -149,9 +157,16 @@
 
 .focus-insights-grid > div {
     border: 1px solid var(--border);
-    border-radius: 0.65rem;
-    padding: 0.6rem;
-    background: rgba(255, 255, 255, 0.65);
+    border-radius: 0.9rem;
+    padding: 0.85rem 0.9rem;
+    background: rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.focus-insights-grid > div:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
 }
 
 .dark .focus-insights-grid > div {
@@ -167,24 +182,26 @@
 }
 
 .focus-insights-grid p {
-    margin-top: 0.25rem;
+    margin-top: 0.4rem;
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 1.05rem;
 }
 
 .focus-chart-grid {
     margin-top: 1.25rem;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1rem;
+    gap: 1.15rem;
 }
 
 .focus-chart-card {
     border: 1px solid var(--border);
-    border-radius: 0.85rem;
-    padding: 0.9rem;
-    background: rgba(255, 255, 255, 0.8);
-    min-height: 240px;
+    border-radius: 1rem;
+    padding: 1rem 1.1rem;
+    background: rgba(255, 255, 255, 0.92);
+    min-height: 260px;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .dark .focus-chart-card {
@@ -195,12 +212,13 @@
 .focus-chart-card h3 {
     margin-top: 0;
     margin-bottom: 0.75rem;
-    font-size: 1rem;
+    font-size: 1.02rem;
+    font-weight: 700;
 }
 
 .focus-chart {
     position: relative;
-    min-height: 200px;
+    min-height: 220px;
 }
 
 .focus-chart-empty {
@@ -210,9 +228,10 @@
 
 .focus-insights-list {
     margin-top: 1.25rem;
-    border: 1px dashed var(--border);
-    border-radius: 0.75rem;
-    padding: 0.85rem;
+    border: 1px dashed rgba(99, 102, 241, 0.35);
+    border-radius: 0.9rem;
+    padding: 0.95rem 1.1rem;
+    background: rgba(99, 102, 241, 0.05);
 }
 
 .focus-insights-list ul {

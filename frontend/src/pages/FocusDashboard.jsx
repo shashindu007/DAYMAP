@@ -625,8 +625,8 @@ const FocusDashboard = () => {
                 </label>
             </div>
 
-            <div className="focus-layout">
-                <section className="card focus-hero">
+            <div className="focus-layout focus-layout-stacked">
+                <section className="card focus-hero focus-section">
                     <div className="focus-hero-header">
                         <h2>Focus Session</h2>
                         <span className="muted">Set your target and hit start.</span>
@@ -702,7 +702,7 @@ const FocusDashboard = () => {
                     )}
                 </section>
 
-                <section className="card focus-stats">
+                <section className="card focus-stats focus-section">
                     <h2>Focus Metrics</h2>
                     <p className="muted">Track your momentum across the last two weeks.</p>
 
