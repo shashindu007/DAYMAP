@@ -116,6 +116,19 @@
     background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(56, 189, 248, 0.08));
 }
 
+.focus-metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.focus-metadata-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
 .focus-timer {
     margin: 0;
     color: var(--text-primary);
@@ -157,6 +170,55 @@
     margin-top: 0.25rem;
     color: var(--text-primary);
     font-weight: 600;
+}
+
+.focus-chart-grid {
+    margin-top: 1.25rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+}
+
+.focus-chart-card {
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    padding: 0.9rem;
+    background: rgba(255, 255, 255, 0.8);
+    min-height: 240px;
+}
+
+.dark .focus-chart-card {
+    background: rgba(17, 24, 39, 0.7);
+    border-color: #374151;
+}
+
+.focus-chart-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+
+.focus-chart {
+    position: relative;
+    min-height: 200px;
+}
+
+.focus-chart-empty {
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.focus-insights-list {
+    margin-top: 1.25rem;
+    border: 1px dashed var(--border);
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+}
+
+.focus-insights-list ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.1rem;
+    color: var(--text-primary);
 }
 
 .muted {

@@ -116,6 +116,14 @@ const Analytics = () => {
                             <p className="analytics-value">{summary?.avg_completion_rate || 0}%</p>
                         </article>
                         <article className="card">
+                            <h3>Total Focus Time</h3>
+                            <p className="analytics-value">{summary?.focus_time_spent_minutes || 0} min</p>
+                        </article>
+                        <article className="card">
+                            <h3>Focus Sessions</h3>
+                            <p className="analytics-value">{summary?.focus_sessions_count || 0}</p>
+                        </article>
+                        <article className="card">
                             <h3>Total Scheduled Time</h3>
                             <p className="analytics-value">{summary?.total_time_scheduled_minutes || 0} min</p>
                         </article>

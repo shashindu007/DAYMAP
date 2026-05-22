@@ -1,7 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Bar, Pie } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    ArcElement,
+    Tooltip,
+    Legend
+} from 'chart.js';
 import { useAuth } from '../context/AuthContext';
 import analyticsService from '../services/analyticsService';
 import './FocusDashboard.css';
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 const DEFAULT_FOCUS_DURATION_MINUTES = 50;
 const MIN_FOCUS_DURATION_MINUTES = 1;
@@ -32,6 +44,12 @@ const normalizeFocusDurationMinutes = (value, fallback = DEFAULT_FOCUS_DURATION_
     if (Number.isNaN(parsed)) return fallback;
     return Math.min(MAX_FOCUS_DURATION_MINUTES, Math.max(MIN_FOCUS_DURATION_MINUTES, parsed));
 };
+
+const parseFocusTags = (value) => (
+    typeof value === 'string'
+        ? value.split(',').map((tag) => tag.trim()).filter(Boolean)
+        : []
+);
 
 const buildFocusStorageKey = (userId) => `${FOCUS_STORAGE_PREFIX}:${userId || 'anonymous'}`;
 
@@ -90,6 +108,8 @@ const FocusDashboard = () => {
     const [focusMessage, setFocusMessage] = useState('');
     const [savingFocusSession, setSavingFocusSession] = useState(false);
     const focusCompletingRef = useRef(false);
+    const [focusCategory, setFocusCategory] = useState('');
+    const [focusTags, setFocusTags] = useState('');
 
     const [focusPatterns, setFocusPatterns] = useState({
         todayMinutes: 0,
@@ -98,6 +118,17 @@ const FocusDashboard = () => {
         avgSessionsPerDay: 0,
         bestDay: null
     });
+
+    const [focusInsights, setFocusInsights] = useState({
+        totals: { focus_time_spent_minutes: 0, focus_sessions_count: 0 },
+        daily: [],
+        weekly: [],
+        byCategory: [],
+        byTag: [],
+        insights: []
+    });
+    const [focusInsightsLoading, setFocusInsightsLoading] = useState(false);
+    const [focusInsightsError, setFocusInsightsError] = useState('');
 
     const todayYmd = useMemo(() => toYmd(new Date()), []);
 
@@ -110,6 +141,8 @@ const FocusDashboard = () => {
             sessionId: focusSessionId,
             completionAttempted: focusCompletionAttempted,
             pendingSession: pendingFocusSession,
+            category: focusCategory,
+            tags: focusTags,
             ...override
         };
 
@@ -121,11 +154,13 @@ const FocusDashboard = () => {
         }
 
         writeFocusStorage(user.id, payload);
-    }, [focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusSessionId, focusStartedAt, pendingFocusSession, user?.id]);
+    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusSessionId, focusStartedAt, focusTags, pendingFocusSession, user?.id]);
 
-    const loadFocusPatterns = useCallback(async () => {
+    const loadFocusInsights = useCallback(async () => {
         try {
-            const response = await analyticsService.getFocusPatterns(14);
+            setFocusInsightsLoading(true);
+            setFocusInsightsError('');
+            const response = await analyticsService.getFocusInsights(14);
             const data = extractFocusPatternPayload(response);
             const daily = data.daily || [];
             const today = daily.find((item) => item.date === todayYmd) || null;
@@ -137,7 +172,17 @@ const FocusDashboard = () => {
                 avgSessionsPerDay: data.avg_sessions_per_day || 0,
                 bestDay: data.best_focus_day?.date ? data.best_focus_day : null
             });
-        } catch {
+
+            setFocusInsights({
+                totals: data.totals || { focus_time_spent_minutes: 0, focus_sessions_count: 0 },
+                daily,
+                weekly: data.weekly || [],
+                byCategory: data.by_category || [],
+                byTag: data.by_tag || [],
+                insights: data.insights || []
+            });
+        } catch (error) {
+            setFocusInsightsError(resolveFocusErrorMessage(error, 'Failed to load focus insights.'));
             setFocusPatterns({
                 todayMinutes: 0,
                 todaySessions: 0,
@@ -145,6 +190,16 @@ const FocusDashboard = () => {
                 avgSessionsPerDay: 0,
                 bestDay: null
             });
+            setFocusInsights({
+                totals: { focus_time_spent_minutes: 0, focus_sessions_count: 0 },
+                daily: [],
+                weekly: [],
+                byCategory: [],
+                byTag: [],
+                insights: []
+            });
+        } finally {
+            setFocusInsightsLoading(false);
         }
     }, [todayYmd]);
 
@@ -157,6 +212,37 @@ const FocusDashboard = () => {
             todayMinutes: data.focus_time_spent_minutes ?? prev.todayMinutes,
             todaySessions: data.focus_sessions_count ?? prev.todaySessions
         }));
+
+        setFocusInsights((prev) => {
+            if (!prev || !Array.isArray(prev.daily)) return prev;
+            const updatedDaily = prev.daily.some((item) => item.date === data.date)
+                ? prev.daily.map((item) => (
+                    item.date === data.date
+                        ? {
+                            ...item,
+                            focus_time_spent_minutes: data.focus_time_spent_minutes ?? item.focus_time_spent_minutes,
+                            focus_sessions_count: data.focus_sessions_count ?? item.focus_sessions_count
+                        }
+                        : item
+                ))
+                : [...prev.daily, {
+                    date: data.date,
+                    focus_time_spent_minutes: data.focus_time_spent_minutes || 0,
+                    focus_sessions_count: data.focus_sessions_count || 0
+                }].sort((a, b) => a.date.localeCompare(b.date));
+
+            const totals = updatedDaily.reduce((acc, item) => {
+                acc.focus_time_spent_minutes += item.focus_time_spent_minutes || 0;
+                acc.focus_sessions_count += item.focus_sessions_count || 0;
+                return acc;
+            }, { focus_time_spent_minutes: 0, focus_sessions_count: 0 });
+
+            return {
+                ...prev,
+                daily: updatedDaily,
+                totals
+            };
+        });
     }, []);
 
     const syncPendingFocusSession = useCallback(async (sessionPayload) => {
@@ -168,7 +254,7 @@ const FocusDashboard = () => {
             const response = await analyticsService.logFocusSession(sessionPayload);
             applyTodayFocusUpdate(response?.data || response);
             try {
-                await loadFocusPatterns();
+                await loadFocusInsights();
             } catch {
                 // Non-blocking: focus stats can refresh later.
             }
@@ -186,7 +272,7 @@ const FocusDashboard = () => {
                 setFocusMessage('');
             }
         }
-    }, [loadFocusPatterns, pendingSyncAttempted, persistFocusState]);
+    }, [loadFocusInsights, pendingSyncAttempted, persistFocusState]);
 
     const completeFocusSession = useCallback(async (endTimestamp, reason = 'manual') => {
         if (!focusStartedAt || savingFocusSession || focusCompletingRef.current) return;
@@ -212,14 +298,16 @@ const FocusDashboard = () => {
             date: toYmd(start),
             start_time: toHms(start),
             end_time: toHms(end),
-            duration_minutes: Math.min(durationMinutes, normalizedDuration)
+            duration_minutes: Math.min(durationMinutes, normalizedDuration),
+            category: focusCategory.trim(),
+            tags: parseFocusTags(focusTags)
         };
 
         try {
             const response = await analyticsService.logFocusSession(sessionPayload);
             applyTodayFocusUpdate(response?.data || response);
             try {
-                await loadFocusPatterns();
+                await loadFocusInsights();
             } catch {
                 // Non-blocking: focus stats can refresh later.
             }
@@ -251,7 +339,7 @@ const FocusDashboard = () => {
             setSavingFocusSession(false);
             focusCompletingRef.current = false;
         }
-    }, [focusCompletionAttempted, focusDurationMinutes, focusStartedAt, loadFocusPatterns, persistFocusState, savingFocusSession]);
+    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusStartedAt, focusTags, loadFocusInsights, persistFocusState, savingFocusSession]);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -276,6 +364,8 @@ const FocusDashboard = () => {
             setFocusCompletionAttempted(false);
             setPendingFocusSession(pendingSession);
             setPendingSyncAttempted(false);
+            setFocusCategory(typeof stored.category === 'string' ? stored.category : '');
+            setFocusTags(typeof stored.tags === 'string' ? stored.tags : '');
 
             if (pendingSession) {
                 writeFocusStorage(user.id, {
@@ -284,7 +374,9 @@ const FocusDashboard = () => {
                     startedAt: null,
                     sessionId: null,
                     completionAttempted: false,
-                    pendingSession
+                    pendingSession,
+                    category: typeof stored.category === 'string' ? stored.category : '',
+                    tags: typeof stored.tags === 'string' ? stored.tags : ''
                 });
             } else {
                 clearFocusStorage(user.id);
@@ -302,6 +394,8 @@ const FocusDashboard = () => {
             : false);
         setPendingFocusSession(stored.pendingSession || null);
         setPendingSyncAttempted(false);
+        setFocusCategory(typeof stored.category === 'string' ? stored.category : '');
+        setFocusTags(typeof stored.tags === 'string' ? stored.tags : '');
     }, [user?.id]);
 
     useEffect(() => {
@@ -310,8 +404,8 @@ const FocusDashboard = () => {
     }, [pendingFocusSession, syncPendingFocusSession]);
 
     useEffect(() => {
-        loadFocusPatterns();
-    }, [loadFocusPatterns]);
+        loadFocusInsights();
+    }, [loadFocusInsights]);
 
     useEffect(() => {
         persistFocusState();
@@ -346,6 +440,92 @@ const FocusDashboard = () => {
         const endTimestamp = focusStartedAt + (Math.max(1, Number(focusDurationMinutes) || 1) * 60 * 1000);
         return new Date(endTimestamp);
     }, [focusDurationMinutes, focusEnabled, focusStartedAt]);
+
+    const chartColors = [
+        '#6366F1',
+        '#22C55E',
+        '#F97316',
+        '#06B6D4',
+        '#A855F7',
+        '#F43F5E',
+        '#EAB308',
+        '#14B8A6'
+    ];
+
+    const dailyChartData = useMemo(() => {
+        if (!focusInsights.daily?.length) return null;
+        return {
+            labels: focusInsights.daily.map((item) => item.date.slice(5)),
+            datasets: [
+                {
+                    label: 'Focus minutes',
+                    data: focusInsights.daily.map((item) => item.focus_time_spent_minutes || 0),
+                    backgroundColor: 'rgba(99, 102, 241, 0.6)'
+                }
+            ]
+        };
+    }, [focusInsights.daily]);
+
+    const weeklyChartData = useMemo(() => {
+        if (!focusInsights.weekly?.length) return null;
+        return {
+            labels: focusInsights.weekly.map((item) => item.week_start.slice(5)),
+            datasets: [
+                {
+                    label: 'Weekly focus minutes',
+                    data: focusInsights.weekly.map((item) => item.focus_time_spent_minutes || 0),
+                    backgroundColor: 'rgba(34, 197, 94, 0.6)'
+                }
+            ]
+        };
+    }, [focusInsights.weekly]);
+
+    const categoryChartData = useMemo(() => {
+        if (!focusInsights.byCategory?.length) return null;
+        return {
+            labels: focusInsights.byCategory.map((item) => item.label),
+            datasets: [
+                {
+                    label: 'Category distribution',
+                    data: focusInsights.byCategory.map((item) => item.minutes || 0),
+                    backgroundColor: focusInsights.byCategory.map((_, index) => chartColors[index % chartColors.length])
+                }
+            ]
+        };
+    }, [chartColors, focusInsights.byCategory]);
+
+    const tagChartData = useMemo(() => {
+        if (!focusInsights.byTag?.length) return null;
+        return {
+            labels: focusInsights.byTag.map((item) => item.label),
+            datasets: [
+                {
+                    label: 'Tag distribution',
+                    data: focusInsights.byTag.map((item) => item.minutes || 0),
+                    backgroundColor: focusInsights.byTag.map((_, index) => chartColors[(index + 3) % chartColors.length])
+                }
+            ]
+        };
+    }, [chartColors, focusInsights.byTag]);
+
+    const barOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false }
+        },
+        scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+    }), []);
+
+    const pieOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'bottom' }
+        }
+    }), []);
 
     const handleFocusDurationChange = (event) => {
         const value = event.target.value;
@@ -470,6 +650,31 @@ const FocusDashboard = () => {
                                 />
                             </div>
 
+                            <div className="focus-metadata-grid">
+                                <label className="focus-metadata-field">
+                                    <span className="muted">Category</span>
+                                    <input
+                                        className="input"
+                                        type="text"
+                                        placeholder="e.g. Deep work"
+                                        value={focusCategory}
+                                        onChange={(event) => setFocusCategory(event.target.value)}
+                                        disabled={Boolean(focusStartedAt)}
+                                    />
+                                </label>
+                                <label className="focus-metadata-field">
+                                    <span className="muted">Tags (comma-separated)</span>
+                                    <input
+                                        className="input"
+                                        type="text"
+                                        placeholder="research, reading"
+                                        value={focusTags}
+                                        onChange={(event) => setFocusTags(event.target.value)}
+                                        disabled={Boolean(focusStartedAt)}
+                                    />
+                                </label>
+                            </div>
+
                             <div className="focus-live-box">
                                 <p className="focus-timer">{formatElapsed(elapsedFocusSeconds)}</p>
                                 <p className="muted">
@@ -500,6 +705,12 @@ const FocusDashboard = () => {
                     <h2>Focus Metrics</h2>
                     <p className="muted">Track your momentum across the last two weeks.</p>
 
+                    {focusInsightsError && <p className="dashboard-error">{focusInsightsError}</p>}
+
+                    {focusInsightsLoading && !focusInsights.daily.length ? (
+                        <p className="muted">Loading focus insights...</p>
+                    ) : null}
+
                     <div className="focus-insights-grid">
                         <div>
                             <span className="profile-label">Today Focus</span>
@@ -521,6 +732,70 @@ const FocusDashboard = () => {
                                     : 'No data yet'}
                             </p>
                         </div>
+                        <div>
+                            <span className="profile-label">Total Focus Time</span>
+                            <p>{focusInsights.totals.focus_time_spent_minutes || 0} min</p>
+                        </div>
+                        <div>
+                            <span className="profile-label">Completed Sessions</span>
+                            <p>{focusInsights.totals.focus_sessions_count || 0}</p>
+                        </div>
+                    </div>
+
+                    <div className="focus-chart-grid">
+                        <div className="focus-chart-card">
+                            <h3>Daily Focus Minutes</h3>
+                            {dailyChartData ? (
+                                <div className="focus-chart">
+                                    <Bar data={dailyChartData} options={barOptions} />
+                                </div>
+                            ) : (
+                                <p className="muted focus-chart-empty">No daily focus data yet.</p>
+                            )}
+                        </div>
+                        <div className="focus-chart-card">
+                            <h3>Weekly Focus Minutes</h3>
+                            {weeklyChartData ? (
+                                <div className="focus-chart">
+                                    <Bar data={weeklyChartData} options={barOptions} />
+                                </div>
+                            ) : (
+                                <p className="muted focus-chart-empty">No weekly focus data yet.</p>
+                            )}
+                        </div>
+                        <div className="focus-chart-card">
+                            <h3>Category Distribution</h3>
+                            {categoryChartData ? (
+                                <div className="focus-chart">
+                                    <Pie data={categoryChartData} options={pieOptions} />
+                                </div>
+                            ) : (
+                                <p className="muted focus-chart-empty">Add categories to see distribution.</p>
+                            )}
+                        </div>
+                        <div className="focus-chart-card">
+                            <h3>Tag Distribution</h3>
+                            {tagChartData ? (
+                                <div className="focus-chart">
+                                    <Pie data={tagChartData} options={pieOptions} />
+                                </div>
+                            ) : (
+                                <p className="muted focus-chart-empty">Add tags to see distribution.</p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="focus-insights-list">
+                        <h3>Productivity Insights</h3>
+                        {focusInsights.insights.length === 0 ? (
+                            <p className="muted">Complete a focus session to unlock insights.</p>
+                        ) : (
+                            <ul>
+                                {focusInsights.insights.map((insight) => (
+                                    <li key={insight}>{insight}</li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
                 </section>
             </div>

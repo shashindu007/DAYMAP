@@ -52,6 +52,25 @@ const analyticsService = {
      */
     getFocusPatterns: async (days = 14) => {
         return api.get(`/analytics/focus-patterns?days=${days}`);
+    },
+
+    /**
+     * Get focus insights for last N days
+     */
+    getFocusInsights: async (days = 14) => {
+        return api.get(`/analytics/focus-insights?days=${days}`);
+    },
+
+    /**
+     * Get focus sessions list
+     */
+    getFocusSessions: async ({ startDate, endDate, limit = 200 } = {}) => {
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        if (limit) params.append('limit', limit);
+        const query = params.toString();
+        return api.get(`/analytics/focus-sessions${query ? `?${query}` : ''}`);
     }
 };
 

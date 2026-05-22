@@ -139,6 +139,32 @@ const analyticsFocusPatternsQueryValidation = [
     handleValidationErrors
 ];
 
+const analyticsFocusInsightsQueryValidation = [
+    query('days')
+        .optional()
+        .isInt({ min: 1, max: 365 }).withMessage('days must be between 1 and 365'),
+    query('start_date')
+        .optional()
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
+    query('end_date')
+        .optional()
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('end_date must be in YYYY-MM-DD format'),
+    handleValidationErrors
+];
+
+const analyticsFocusSessionsQueryValidation = [
+    query('start_date')
+        .optional()
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
+    query('end_date')
+        .optional()
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('end_date must be in YYYY-MM-DD format'),
+    query('limit')
+        .optional()
+        .isInt({ min: 1, max: 500 }).withMessage('limit must be between 1 and 500'),
+    handleValidationErrors
+];
+
 const focusSessionValidation = [
     body('date')
         .isDate({ format: 'YYYY-MM-DD' }).withMessage('date must be in YYYY-MM-DD format'),
@@ -150,6 +176,13 @@ const focusSessionValidation = [
     body('duration_minutes')
         .toInt()
         .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
+    body('category')
+        .optional({ nullable: true })
+        .isString().withMessage('category must be a string')
+        .isLength({ max: 80 }).withMessage('category must not exceed 80 characters'),
+    body('tags')
+        .optional({ nullable: true })
+        .custom((value) => Array.isArray(value) || typeof value === 'string').withMessage('tags must be a list or comma-separated string'),
     handleValidationErrors
 ];
 
@@ -309,5 +342,7 @@ module.exports = {
     analyticsMonthlyQueryValidation,
     analyticsTrendsQueryValidation,
     analyticsFocusPatternsQueryValidation,
+    analyticsFocusInsightsQueryValidation,
+    analyticsFocusSessionsQueryValidation,
     focusSessionValidation
 };

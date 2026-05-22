@@ -8,6 +8,8 @@ const {
     analyticsMonthlyQueryValidation,
     analyticsTrendsQueryValidation,
     analyticsFocusPatternsQueryValidation,
+    analyticsFocusInsightsQueryValidation,
+    analyticsFocusSessionsQueryValidation,
     focusSessionValidation
 } = require('../middleware/validator');
 
@@ -21,6 +23,8 @@ router.get('/monthly', analyticsMonthlyQueryValidation, AnalyticsController.getM
 router.get('/summary', AnalyticsController.getSummary);
 router.get('/trends', analyticsTrendsQueryValidation, AnalyticsController.getTrends);
 router.get('/focus-patterns', analyticsFocusPatternsQueryValidation, AnalyticsController.getFocusPatterns);
+router.get('/focus-insights', analyticsFocusInsightsQueryValidation, AnalyticsController.getFocusInsights);
+router.get('/focus-sessions', analyticsFocusSessionsQueryValidation, AnalyticsController.getFocusSessions);
 router.post('/focus-session', focusSessionValidation, AnalyticsController.logFocusSession);
 
 module.exports = router;
