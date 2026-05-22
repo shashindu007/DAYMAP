@@ -137,6 +137,68 @@
     gap: 0.35rem;
 }
 
+.focus-category-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.focus-category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.08);
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.focus-category-chip.is-selected {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(99, 102, 241, 0.2);
+    font-weight: 600;
+}
+
+.focus-category-chip:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.focus-category-custom {
+    margin-top: 0.6rem;
+}
+
+.focus-goal-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.6rem;
+}
+
+.focus-goal-chip {
+    border-radius: 999px;
+    border: 1px dashed rgba(99, 102, 241, 0.45);
+    padding: 0.35rem 0.75rem;
+    background: rgba(99, 102, 241, 0.06);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.focus-goal-chip:hover {
+    background: rgba(99, 102, 241, 0.16);
+}
+
+.focus-goal-chip:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .focus-timer {
     margin: 0;
     color: var(--text-primary);
@@ -219,6 +281,22 @@
 .focus-chart {
     position: relative;
     min-height: 220px;
+}
+
+.focus-goal-card {
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    color: var(--text-primary);
+    min-height: 120px;
+    display: flex;
+    align-items: center;
+}
+
+.focus-goal-card p {
+    margin: 0;
+    font-weight: 600;
 }
 
 .focus-chart-empty {

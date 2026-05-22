@@ -19,6 +19,24 @@ const DEFAULT_FOCUS_DURATION_MINUTES = 50;
 const MIN_FOCUS_DURATION_MINUTES = 1;
 const MAX_FOCUS_DURATION_MINUTES = 240;
 const FOCUS_STORAGE_PREFIX = 'daymap.focus.session.v1';
+const FOCUS_CATEGORY_OPTIONS = [
+    'Deep Work',
+    'Learning',
+    'Reading',
+    'Writing',
+    'Coding',
+    'Planning',
+    'Admin',
+    'Meetings',
+    'Custom'
+];
+const FOCUS_GOAL_PRESETS = [
+    'Finish a focused 25-min sprint',
+    'Complete one chapter / section',
+    'Clear priority inbox tasks',
+    'Write 300 words',
+    'Solve one tough problem'
+];
 
 const toYmd = (date) => {
     const year = date.getFullYear();
@@ -44,12 +62,6 @@ const normalizeFocusDurationMinutes = (value, fallback = DEFAULT_FOCUS_DURATION_
     if (Number.isNaN(parsed)) return fallback;
     return Math.min(MAX_FOCUS_DURATION_MINUTES, Math.max(MIN_FOCUS_DURATION_MINUTES, parsed));
 };
-
-const parseFocusTags = (value) => (
-    typeof value === 'string'
-        ? value.split(',').map((tag) => tag.trim()).filter(Boolean)
-        : []
-);
 
 const buildFocusStorageKey = (userId) => `${FOCUS_STORAGE_PREFIX}:${userId || 'anonymous'}`;
 
@@ -110,7 +122,8 @@ const FocusDashboard = () => {
     const [savingFocusSession, setSavingFocusSession] = useState(false);
     const focusCompletingRef = useRef(false);
     const [focusCategory, setFocusCategory] = useState('');
-    const [focusTags, setFocusTags] = useState('');
+    const [focusGoal, setFocusGoal] = useState('');
+    const [customCategory, setCustomCategory] = useState('');
 
     const [focusPatterns, setFocusPatterns] = useState({
         todayMinutes: 0,
@@ -143,7 +156,7 @@ const FocusDashboard = () => {
             completionAttempted: focusCompletionAttempted,
             pendingSession: pendingFocusSession,
             category: focusCategory,
-            tags: focusTags,
+            goal: focusGoal,
             ...override
         };
 
@@ -155,7 +168,7 @@ const FocusDashboard = () => {
         }
 
         writeFocusStorage(user.id, payload);
-    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusSessionId, focusStartedAt, focusTags, pendingFocusSession, user?.id]);
+    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusGoal, focusSessionId, focusStartedAt, pendingFocusSession, user?.id]);
 
     const loadFocusInsights = useCallback(async () => {
         try {
@@ -300,8 +313,7 @@ const FocusDashboard = () => {
             start_time: toHms(start),
             end_time: toHms(end),
             duration_minutes: Math.min(durationMinutes, normalizedDuration),
-            category: focusCategory.trim(),
-            tags: parseFocusTags(focusTags)
+            category: focusCategory.trim()
         };
 
         try {
@@ -340,7 +352,7 @@ const FocusDashboard = () => {
             setSavingFocusSession(false);
             focusCompletingRef.current = false;
         }
-    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusStartedAt, focusTags, loadFocusInsights, persistFocusState, savingFocusSession]);
+    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusStartedAt, loadFocusInsights, persistFocusState, savingFocusSession]);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -365,8 +377,10 @@ const FocusDashboard = () => {
             setFocusCompletionAttempted(false);
             setPendingFocusSession(pendingSession);
             setPendingSyncAttempted(false);
-            setFocusCategory(typeof stored.category === 'string' ? stored.category : '');
-            setFocusTags(typeof stored.tags === 'string' ? stored.tags : '');
+            const storedCategory = typeof stored.category === 'string' ? stored.category : '';
+            setFocusCategory(storedCategory);
+            setCustomCategory(storedCategory && !FOCUS_CATEGORY_OPTIONS.includes(storedCategory) ? storedCategory : '');
+            setFocusGoal(typeof stored.goal === 'string' ? stored.goal : '');
 
             if (pendingSession) {
                 writeFocusStorage(user.id, {
@@ -377,7 +391,7 @@ const FocusDashboard = () => {
                     completionAttempted: false,
                     pendingSession,
                     category: typeof stored.category === 'string' ? stored.category : '',
-                    tags: typeof stored.tags === 'string' ? stored.tags : ''
+                    goal: typeof stored.goal === 'string' ? stored.goal : ''
                 });
             } else {
                 clearFocusStorage(user.id);
@@ -395,8 +409,10 @@ const FocusDashboard = () => {
             : false);
         setPendingFocusSession(stored.pendingSession || null);
         setPendingSyncAttempted(false);
-        setFocusCategory(typeof stored.category === 'string' ? stored.category : '');
-        setFocusTags(typeof stored.tags === 'string' ? stored.tags : '');
+        const storedCategory = typeof stored.category === 'string' ? stored.category : '';
+        setFocusCategory(storedCategory);
+        setCustomCategory(storedCategory && !FOCUS_CATEGORY_OPTIONS.includes(storedCategory) ? storedCategory : '');
+        setFocusGoal(typeof stored.goal === 'string' ? stored.goal : '');
     }, [user?.id]);
 
     useEffect(() => {
@@ -494,20 +510,6 @@ const FocusDashboard = () => {
             ]
         };
     }, [chartColors, focusInsights.byCategory]);
-
-    const tagChartData = useMemo(() => {
-        if (!focusInsights.byTag?.length) return null;
-        return {
-            labels: focusInsights.byTag.map((item) => item.label),
-            datasets: [
-                {
-                    label: 'Tag distribution',
-                    data: focusInsights.byTag.map((item) => item.minutes || 0),
-                    backgroundColor: focusInsights.byTag.map((_, index) => chartColors[(index + 3) % chartColors.length])
-                }
-            ]
-        };
-    }, [chartColors, focusInsights.byTag]);
 
     const barOptions = useMemo(() => ({
         responsive: true,
@@ -654,25 +656,74 @@ const FocusDashboard = () => {
                             <div className="focus-metadata-grid">
                                 <label className="focus-metadata-field">
                                     <span className="muted">Category</span>
-                                    <input
-                                        className="input"
-                                        type="text"
-                                        placeholder="e.g. Deep work"
-                                        value={focusCategory}
-                                        onChange={(event) => setFocusCategory(event.target.value)}
-                                        disabled={Boolean(focusStartedAt)}
-                                    />
+                                    <div className="focus-category-grid" aria-label="Focus category">
+                                        {FOCUS_CATEGORY_OPTIONS.map((option) => {
+                                            const isCustom = option === 'Custom';
+                                            const selected = isCustom
+                                                ? Boolean(customCategory)
+                                                : focusCategory === option;
+                                            return (
+                                                <button
+                                                    key={option}
+                                                    type="button"
+                                                    className={`focus-category-chip ${selected ? 'is-selected' : ''}`}
+                                                    onClick={() => {
+                                                        if (focusStartedAt) return;
+                                                        if (isCustom) {
+                                                            setFocusCategory(customCategory || '');
+                                                        } else {
+                                                            setCustomCategory('');
+                                                            setFocusCategory(selected ? '' : option);
+                                                        }
+                                                    }}
+                                                    disabled={Boolean(focusStartedAt)}
+                                                >
+                                                    {option}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    {(customCategory || (!FOCUS_CATEGORY_OPTIONS.includes(focusCategory) && focusCategory)) && (
+                                        <input
+                                            className="input focus-category-custom"
+                                            type="text"
+                                            placeholder="Type a custom category"
+                                            value={customCategory}
+                                            onChange={(event) => {
+                                                const value = event.target.value;
+                                                setCustomCategory(value);
+                                                setFocusCategory(value);
+                                            }}
+                                            disabled={Boolean(focusStartedAt)}
+                                        />
+                                    )}
                                 </label>
                                 <label className="focus-metadata-field">
-                                    <span className="muted">Tags (comma-separated)</span>
+                                    <span className="muted">Set your focus goal</span>
                                     <input
                                         className="input"
                                         type="text"
-                                        placeholder="research, reading"
-                                        value={focusTags}
-                                        onChange={(event) => setFocusTags(event.target.value)}
+                                        placeholder="Finish chapter 4, close inbox, etc."
+                                        value={focusGoal}
+                                        onChange={(event) => setFocusGoal(event.target.value)}
                                         disabled={Boolean(focusStartedAt)}
                                     />
+                                    <div className="focus-goal-presets" aria-label="Focus goal presets">
+                                        {FOCUS_GOAL_PRESETS.map((preset) => (
+                                            <button
+                                                key={preset}
+                                                type="button"
+                                                className="focus-goal-chip"
+                                                onClick={() => {
+                                                    if (focusStartedAt) return;
+                                                    setFocusGoal(preset);
+                                                }}
+                                                disabled={Boolean(focusStartedAt)}
+                                            >
+                                                {preset}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </label>
                             </div>
 
@@ -775,13 +826,13 @@ const FocusDashboard = () => {
                             )}
                         </div>
                         <div className="focus-chart-card">
-                            <h3>Tag Distribution</h3>
-                            {tagChartData ? (
-                                <div className="focus-chart">
-                                    <Pie data={tagChartData} options={pieOptions} />
+                            <h3>Set your focus goal</h3>
+                            {focusGoal ? (
+                                <div className="focus-goal-card">
+                                    <p>{focusGoal}</p>
                                 </div>
                             ) : (
-                                <p className="muted focus-chart-empty">Add tags to see distribution.</p>
+                                <p className="muted focus-chart-empty">Add a goal above to keep your session aligned.</p>
                             )}
                         </div>
                     </div>
