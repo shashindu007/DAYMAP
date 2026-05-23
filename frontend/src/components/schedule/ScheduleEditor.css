@@ -110,6 +110,10 @@
     border-top: 1px solid var(--border);
 }
 
+.schedule-editor-actions .schedule-slot-clear {
+    margin-right: auto;
+}
+
 @media (max-width: 900px) {
     .schedule-slot-row {
         grid-template-columns: 1fr;

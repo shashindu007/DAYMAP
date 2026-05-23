@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../common/Button';
 import './ScheduleEditor.css';
 
@@ -50,10 +50,25 @@ const ScheduleEditor = ({
 }) => {
     const slots = useMemo(() => buildSlots(), []);
     const [slotValues, setSlotValues] = useState({});
+    const [isDirty, setIsDirty] = useState(false);
+    const lastDateRef = useRef(date);
+
+    const resetFromTasks = (taskList) => {
+        setSlotValues(tasksToSlotMap(taskList));
+        setIsDirty(false);
+    };
 
     useEffect(() => {
-        setSlotValues(tasksToSlotMap(tasks));
-    }, [tasks, date]);
+        if (lastDateRef.current !== date) {
+            lastDateRef.current = date;
+            resetFromTasks(tasks);
+            return;
+        }
+
+        if (!isDirty) {
+            resetFromTasks(tasks);
+        }
+    }, [tasks, date, isDirty]);
 
     const handleSlotChange = (slotStart, field, value) => {
         setSlotValues((prev) => ({
@@ -63,6 +78,7 @@ const ScheduleEditor = ({
                 [field]: value
             }
         }));
+        setIsDirty(true);
     };
 
     const handleClearSlot = (slotStart) => {
@@ -71,6 +87,7 @@ const ScheduleEditor = ({
             delete next[slotStart];
             return next;
         });
+        setIsDirty(true);
     };
 
     const buildPayload = () => (
@@ -164,6 +181,16 @@ const ScheduleEditor = ({
                 </div>
 
                 <div className="schedule-editor-actions">
+                    {isDirty && (
+                        <button
+                            type="button"
+                            className="schedule-slot-clear"
+                            onClick={() => resetFromTasks(tasks)}
+                            disabled={saving}
+                        >
+                            Reset changes
+                        </button>
+                    )}
                     <Button variant="secondary" onClick={onClose} disabled={saving}>
                         Close
                     </Button>
