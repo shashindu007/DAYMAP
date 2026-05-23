@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
-import { useTasks } from '../context/TaskContext';
-import taskService from '../services/taskService';
+import { useSchedule } from '../context/ScheduleContext';
+import ScheduleEditor from '../components/schedule/ScheduleEditor';
 import './Dashboard.css';
 
 const toYmd = (date) => {
@@ -21,11 +21,11 @@ const formatClock = (date) => date.toLocaleTimeString([], { hour: '2-digit', min
 
 const displayTaskDateTime = (task) => {
     if (!task?.scheduled_date) return 'Unscheduled';
-    return `${task.scheduled_date}${task.scheduled_time ? ` • ${toHm(task.scheduled_time)}` : ''}`;
+    return `${task.scheduled_date}${task.slot_start_time ? ` • ${toHm(task.slot_start_time)}` : ''}`;
 };
 
 const Dashboard = () => {
-    const { tasks, fetchTasks, createDaySchedule } = useTasks();
+    const { scheduleByDate, fetchSchedule, saveSchedule, fetchScheduleRange } = useSchedule();
 
     const [now, setNow] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -33,112 +33,90 @@ const Dashboard = () => {
     const [upcomingTasks, setUpcomingTasks] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(false);
     const [dashboardError, setDashboardError] = useState('');
+    const [editingDate, setEditingDate] = useState(null);
+    const [savingSchedule, setSavingSchedule] = useState(false);
 
-    const todayYmd = useMemo(() => toYmd(new Date()), []);
     const selectedYmd = useMemo(() => toYmd(selectedDate), [selectedDate]);
 
-    const upcomingFromTasks = useMemo(() => {
-        const end = new Date();
-        end.setDate(end.getDate() + 7);
-        const endYmd = toYmd(end);
-
-        return tasks
-            .filter((task) => {
-                if (!['pending', 'in_progress'].includes(task.status)) return false;
-                if (!task.scheduled_date) return false;
-                return task.scheduled_date >= todayYmd && task.scheduled_date <= endYmd;
-            })
-            .sort((a, b) => {
-                const dateCompare = (a.scheduled_date || '').localeCompare(b.scheduled_date || '');
-                if (dateCompare !== 0) return dateCompare;
-                return (a.scheduled_time || '').localeCompare(b.scheduled_time || '');
-            })
-            .slice(0, 3);
-    }, [tasks, todayYmd]);
+    const scheduleForSelectedDate = scheduleByDate[selectedYmd]?.tasks || [];
 
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(interval);
     }, []);
 
-    const loadDashboardData = useCallback(async () => {
-        try {
-            setDashboardError('');
-            await fetchTasks();
+    const loadUpcomingSchedules = useCallback(async () => {
+        const today = new Date();
+        const end = new Date();
+        end.setDate(end.getDate() + 7);
+        const startYmd = toYmd(today);
+        const endYmd = toYmd(end);
 
+        try {
             setLoadingUpcoming(true);
-            const upcomingResponse = await taskService.getUpcomingTasks();
-            const normalizedUpcoming = (upcomingResponse?.data?.tasks || [])
+            const upcoming = await fetchScheduleRange(startYmd, endYmd);
+            const normalizedUpcoming = upcoming
                 .filter((task) => ['pending', 'in_progress'].includes(task.status))
                 .slice(0, 3);
             setUpcomingTasks(normalizedUpcoming);
         } catch (error) {
-            const message = error?.message || 'Failed to load dashboard data';
-            if (process.env.NODE_ENV === 'development' && /too many requests/i.test(message)) {
-                return;
-            }
+            const message = error?.message || 'Failed to load upcoming schedules';
             setDashboardError(message);
         } finally {
             setLoadingUpcoming(false);
         }
-    }, [fetchTasks]);
+    }, [fetchScheduleRange]);
 
     useEffect(() => {
-        if (upcomingFromTasks.length > 0) {
-            setUpcomingTasks(upcomingFromTasks);
+        fetchSchedule(selectedYmd).catch(() => null);
+    }, [fetchSchedule, selectedYmd]);
+
+    useEffect(() => {
+        if (editingDate) {
+            fetchSchedule(editingDate).catch(() => null);
         }
-    }, [upcomingFromTasks]);
+    }, [editingDate, fetchSchedule]);
 
     useEffect(() => {
-        loadDashboardData();
-    }, [loadDashboardData]);
+        loadUpcomingSchedules();
+    }, [loadUpcomingSchedules]);
 
     const selectedDateTaskCount = useMemo(() => (
-        tasks.filter((task) => task.scheduled_date === selectedYmd).length
-    ), [selectedYmd, tasks]);
+        scheduleForSelectedDate.length
+    ), [scheduleForSelectedDate]);
 
     const selectedDateTaskPreview = useMemo(() => (
-        tasks
-            .filter((task) => task.scheduled_date === selectedYmd)
-            .sort((a, b) => (a.scheduled_time || '').localeCompare(b.scheduled_time || ''))
+        scheduleForSelectedDate
+            .slice()
+            .sort((a, b) => (a.slot_start_time || '').localeCompare(b.slot_start_time || ''))
             .slice(0, 3)
-    ), [selectedYmd, tasks]);
+    ), [scheduleForSelectedDate]);
 
-    const handleScheduleTomorrow = async () => {
-        setDashboardError('');
-
+    const handleScheduleTomorrow = () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowYmd = toYmd(tomorrow);
+        setEditingDate(tomorrowYmd);
+    };
 
-        const sourceTasks = tasks
-            .filter((task) => task.scheduled_date === todayYmd && ['pending', 'in_progress'].includes(task.status));
+    const handleEditSelectedDate = () => {
+        setEditingDate(selectedYmd);
+    };
 
-        if (sourceTasks.length === 0) {
-            setDashboardError('No pending or in-progress tasks from today to schedule for tomorrow.');
-            return;
-        }
-
-        const slots = sourceTasks.map((task) => ({
-            title: task.title,
-            start_time: toHm(task.scheduled_time),
-            priority: task.priority || 'medium',
-            category: task.category || '',
-            description: task.description || '',
-            duration_minutes: task.duration_minutes || null
-        }));
-
+    const handleSaveSchedule = async (slots) => {
+        if (!editingDate) return;
+        setDashboardError('');
         try {
-            await createDaySchedule({
-                date: tomorrowYmd,
-                slots,
-                replaceExisting: false
-            });
-            await loadDashboardData();
-            setDashboardError('');
+            setSavingSchedule(true);
+            await saveSchedule(editingDate, slots, true);
+            await fetchSchedule(editingDate);
+            await loadUpcomingSchedules();
+            setEditingDate(null);
         } catch (error) {
             const validationMessage = error?.errors?.[0]?.message;
-            setDashboardError(validationMessage || error?.message || 'Failed to schedule tasks for tomorrow.');
+            setDashboardError(validationMessage || error?.message || 'Failed to save schedule.');
+        } finally {
+            setSavingSchedule(false);
         }
     };
 
@@ -178,6 +156,10 @@ const Dashboard = () => {
                         <p className="calendar-selected-date">Selected: <strong>{selectedYmd}</strong></p>
                         <p className="muted">Tasks planned: <strong>{selectedDateTaskCount}</strong></p>
 
+                        <button className="btn btn-outline" type="button" onClick={handleEditSelectedDate}>
+                            Edit Schedule
+                        </button>
+
                         <div className="calendar-task-preview">
                             {selectedDateTaskPreview.length === 0 ? (
                                 <p className="muted">No tasks on this date.</p>
@@ -185,7 +167,7 @@ const Dashboard = () => {
                                 selectedDateTaskPreview.map((task) => (
                                     <div key={task.id} className="calendar-task-preview-item">
                                         <span>{task.title}</span>
-                                        <small>{toHm(task.scheduled_time) || 'Any time'}</small>
+                                        <small>{toHm(task.slot_start_time) || 'Any time'}</small>
                                     </div>
                                 ))
                             )}
@@ -220,6 +202,16 @@ const Dashboard = () => {
                     </ul>
                 )}
             </section>
+
+            {editingDate && (
+                <ScheduleEditor
+                    date={editingDate}
+                    tasks={scheduleByDate[editingDate]?.tasks || []}
+                    onSave={handleSaveSchedule}
+                    onClose={() => setEditingDate(null)}
+                    saving={savingSchedule}
+                />
+            )}
         </div>
     );
 };

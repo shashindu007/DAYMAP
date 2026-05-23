@@ -61,6 +61,11 @@
     color: var(--text-primary);
 }
 
+.today-error {
+    color: #B91C1C;
+    margin-bottom: 0.75rem;
+}
+
 .stats {
     background-color: white;
     border: 1px solid var(--border);

@@ -73,31 +73,6 @@ export const TaskProvider = ({ children }) => {
         }
     }, []);
 
-    const fetchDaySchedule = useCallback(async (date) => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await taskService.getDaySchedule(date);
-            return response;
-        } catch (error) {
-            setError(resolveErrorMessage(error, 'Failed to fetch day schedule'));
-            throw error;
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    const createDaySchedule = async (scheduleData) => {
-        try {
-            setError(null);
-            const response = await taskService.createDaySchedule(scheduleData);
-            await fetchTasks();
-            return response;
-        } catch (error) {
-            setError(resolveErrorMessage(error, 'Failed to create day schedule'));
-            throw error;
-        }
-    };
 
     const createTask = async (taskData) => {
         try {
@@ -177,9 +152,7 @@ export const TaskProvider = ({ children }) => {
         fetchTasks,
         fetchTodayTasks,
         fetchWeekTasks,
-        fetchDaySchedule,
         createTask,
-        createDaySchedule,
         updateTask,
         deleteTask,
         completeTask

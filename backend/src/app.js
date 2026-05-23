@@ -12,6 +12,7 @@ const taskRoutes = require('./routes/taskRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const routineRoutes = require('./routes/routineRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const scheduleRoutes = require('./routes/scheduleRoutes');
 
 // Initialize express app
 const app = express();
@@ -70,6 +71,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/routines', routineRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/schedules', scheduleRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -83,7 +85,8 @@ app.get('/', (req, res) => {
             tasks: '/api/tasks',
             categories: '/api/categories',
             routines: '/api/routines',
-            analytics: '/api/analytics'
+            analytics: '/api/analytics',
+            schedules: '/api/schedules'
         }
     });
 });

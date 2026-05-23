@@ -263,6 +263,109 @@ const dayScheduleValidation = [
 ];
 
 /**
+ * Validation rules for schedule creation
+ */
+const scheduleValidation = [
+    body('date')
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('date must be in YYYY-MM-DD format'),
+    body('replaceExisting')
+        .optional()
+        .isBoolean().withMessage('replaceExisting must be a boolean'),
+    body('slots')
+        .isArray().withMessage('slots must be an array'),
+    body('slots.*.title')
+        .trim()
+        .notEmpty().withMessage('Each slot requires a title')
+        .isLength({ max: 255 }).withMessage('Slot title must not exceed 255 characters'),
+    body('slots.*.start_time')
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('slots.*.end_time')
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('slots.*.priority')
+        .optional()
+        .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid slot priority value'),
+    body('slots.*.status')
+        .optional()
+        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid slot status value'),
+    body('slots.*.category')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 50 }).withMessage('Category must not exceed 50 characters'),
+    body('slots.*.description')
+        .optional({ nullable: true })
+        .trim(),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for schedule update (slots only)
+ */
+const scheduleSlotsValidation = [
+    body('slots')
+        .isArray().withMessage('slots must be an array'),
+    body('slots.*.title')
+        .trim()
+        .notEmpty().withMessage('Each slot requires a title')
+        .isLength({ max: 255 }).withMessage('Slot title must not exceed 255 characters'),
+    body('slots.*.start_time')
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('slots.*.end_time')
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('slots.*.priority')
+        .optional()
+        .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid slot priority value'),
+    body('slots.*.status')
+        .optional()
+        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid slot status value'),
+    body('slots.*.category')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 50 }).withMessage('Category must not exceed 50 characters'),
+    body('slots.*.description')
+        .optional({ nullable: true })
+        .trim(),
+    handleValidationErrors
+];
+
+const scheduleTaskStatusValidation = [
+    body('status')
+        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid status value'),
+    handleValidationErrors
+];
+
+const scheduleTaskUpdateValidation = [
+    body('title')
+        .optional()
+        .trim()
+        .isLength({ max: 255 }).withMessage('Title must not exceed 255 characters'),
+    body('description')
+        .optional({ nullable: true })
+        .trim(),
+    body('category')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 50 }).withMessage('Category must not exceed 50 characters'),
+    body('priority')
+        .optional()
+        .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority value'),
+    body('status')
+        .optional()
+        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid status value'),
+    body('actual_duration_minutes')
+        .optional()
+        .isInt({ min: 1 }).withMessage('actual_duration_minutes must be a positive integer'),
+    handleValidationErrors
+];
+
+const scheduleRangeQueryValidation = [
+    query('start_date')
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
+    query('end_date')
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('end_date must be in YYYY-MM-DD format'),
+    handleValidationErrors
+];
+
+/**
  * Validation rules for creating/updating categories
  */
 const categoryValidation = [
@@ -334,10 +437,15 @@ module.exports = {
     changePasswordValidation,
     taskValidation,
     dayScheduleValidation,
+    scheduleValidation,
+    scheduleSlotsValidation,
+    scheduleTaskStatusValidation,
+    scheduleTaskUpdateValidation,
     categoryValidation,
     routineValidation,
     uuidParamValidation,
     dateParamValidation,
+    scheduleRangeQueryValidation,
     analyticsWeeklyQueryValidation,
     analyticsMonthlyQueryValidation,
     analyticsTrendsQueryValidation,

@@ -5,9 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { taskCreationLimiter } = require('../middleware/rateLimiter');
 const {
     taskValidation,
-    uuidParamValidation,
-    dateParamValidation,
-    dayScheduleValidation
+    uuidParamValidation
 } = require('../middleware/validator');
 
 // All routes require authentication
@@ -18,8 +16,6 @@ router.get('/', TaskController.getAllTasks);
 router.get('/today', TaskController.getTodayTasks);
 router.get('/week', TaskController.getWeekTasks);
 router.get('/upcoming', TaskController.getUpcomingTasks);
-router.get('/day-schedule/:date', dateParamValidation, TaskController.getDaySchedule);
-router.post('/day-schedule', dayScheduleValidation, TaskController.createDaySchedule);
 router.get('/:id', uuidParamValidation, TaskController.getTask);
 router.post('/', taskCreationLimiter, taskValidation, TaskController.createTask);
 router.put('/:id', uuidParamValidation, taskValidation, TaskController.updateTask);

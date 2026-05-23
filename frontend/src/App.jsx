@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { TaskProvider } from './context/TaskContext';
+import { ScheduleProvider } from './context/ScheduleContext';
 import { ThemeProvider } from './context/ThemeContext';
 import PrivateRoute from './components/common/PrivateRoute';
 import usageService from './services/usageService';
@@ -35,10 +36,11 @@ function App() {
         <ThemeProvider>
             <AuthProvider>
                 <TaskProvider>
-                    <Router>
-                        <div className="App">
-                            <RouteUsageTracker />
-                            <Routes>
+                    <ScheduleProvider>
+                        <Router>
+                            <div className="App">
+                                <RouteUsageTracker />
+                                <Routes>
                                 {/* Public routes */}
                                 <Route path="/login" element={<Login />} />
                                 <Route path="/register" element={<Register />} />
@@ -86,11 +88,12 @@ function App() {
                                 } />
                                 
                                 {/* Default redirect */}
-                                <Route path="/" element={<Navigate to="/today" replace />} />
-                                <Route path="*" element={<Navigate to="/today" replace />} />
+                                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                                <Route path="*" element={<Navigate to="/dashboard" replace />} />
                             </Routes>
                         </div>
                     </Router>
+                    </ScheduleProvider>
                 </TaskProvider>
             </AuthProvider>
         </ThemeProvider>

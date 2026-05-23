@@ -73,20 +73,6 @@ const taskService = {
     },
 
     /**
-     * Get full-day schedule for a date
-     */
-    getDaySchedule: async (date) => {
-        return api.get(`/tasks/day-schedule/${date}`);
-    },
-
-    /**
-     * Create full-day schedule with multiple task slots
-     */
-    createDaySchedule: async (scheduleData) => {
-        return api.post('/tasks/day-schedule', scheduleData);
-    },
-
-    /**
      * Bulk delete tasks
      */
     bulkDelete: async (ids) => {
