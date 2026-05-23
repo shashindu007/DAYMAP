@@ -22,30 +22,33 @@ const toMinutes = (value) => {
     return (hours * 60) + minutes;
 };
 
+const resolveEndMinutes = (startMinutes, endMinutes) => {
+    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) return null;
+    if (endMinutes === 0 && startMinutes > 0) return 1440;
+    return endMinutes;
+};
+
 const validateSlotTimes = (startTime, endTime) => {
     const startMinutes = toMinutes(startTime);
     const endMinutes = toMinutes(endTime);
-    const adjustedEndMinutes = (endMinutes === 0 && startMinutes === 1410)
-        ? 1440
-        : endMinutes;
+    const adjustedEndMinutes = resolveEndMinutes(startMinutes, endMinutes);
 
-    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+    if (!Number.isFinite(startMinutes) || !Number.isFinite(adjustedEndMinutes)) {
         return { valid: false, message: 'Invalid slot start or end time.' };
-    }
-
-    if (adjustedEndMinutes - startMinutes !== 30) {
-        return { valid: false, message: 'Each slot must be exactly 30 minutes.' };
     }
 
     if (startMinutes < 0 || adjustedEndMinutes > 1440) {
         return { valid: false, message: 'Slot time must be within a single day.' };
     }
 
-    return { valid: true };
+    if (adjustedEndMinutes <= startMinutes) {
+        return { valid: false, message: 'Slot end time must be after the start time.' };
+    }
+
+    return { valid: true, startMinutes, endMinutes: adjustedEndMinutes };
 };
 
 const normalizeSlots = (slots) => {
-    const seen = new Set();
     const normalized = [];
 
     for (const slot of slots) {
@@ -56,22 +59,28 @@ const normalizeSlots = (slots) => {
             throw new Error('Slot start and end times must be in HH:MM or HH:MM:SS format.');
         }
 
-        const { valid, message } = validateSlotTimes(normalizedStart, normalizedEnd);
+        const { valid, message, startMinutes, endMinutes } = validateSlotTimes(normalizedStart, normalizedEnd);
         if (!valid) {
             throw new Error(message);
         }
 
-        if (seen.has(normalizedStart)) {
-            throw new Error('Duplicate slot start times are not allowed.');
-        }
-
-        seen.add(normalizedStart);
-
         normalized.push({
             ...slot,
             start_time: normalizedStart,
-            end_time: normalizedEnd
+            end_time: normalizedEnd,
+            startMinutes,
+            endMinutes,
+            duration_minutes: endMinutes - startMinutes
         });
+    }
+
+    const sorted = normalized.slice().sort((a, b) => a.startMinutes - b.startMinutes);
+    for (let i = 1; i < sorted.length; i += 1) {
+        const prev = sorted[i - 1];
+        const next = sorted[i];
+        if (next.startMinutes < prev.endMinutes) {
+            throw new Error('Schedule slots cannot overlap.');
+        }
     }
 
     return normalized;
@@ -113,7 +122,7 @@ const createOrReplaceSchedule = async (userId, date, slots, replaceExisting) => 
         category: slot.category || null,
         priority: slot.priority || 'medium',
         status: slot.status || 'pending',
-        duration_minutes: 30
+        duration_minutes: slot.duration_minutes
     }));
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);
@@ -140,7 +149,7 @@ const replaceScheduleForDate = async (userId, date, slots) => {
         category: slot.category || null,
         priority: slot.priority || 'medium',
         status: slot.status || 'pending',
-        duration_minutes: 30
+        duration_minutes: slot.duration_minutes
     }));
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);

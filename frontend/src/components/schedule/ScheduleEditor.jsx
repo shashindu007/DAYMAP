@@ -2,43 +2,31 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../common/Button';
 import './ScheduleEditor.css';
 
-const buildSlots = () => {
-    const slots = [];
-    for (let hour = 0; hour < 24; hour += 1) {
-        for (let minute = 0; minute < 60; minute += 30) {
-            const startHour = `${hour}`.padStart(2, '0');
-            const startMinute = `${minute}`.padStart(2, '0');
-            const start = `${startHour}:${startMinute}`;
-            const endMinutes = (hour * 60) + minute + 30;
-            const normalizedEndMinutes = endMinutes % 1440;
-            const endHour = `${Math.floor(normalizedEndMinutes / 60)}`.padStart(2, '0');
-            const endMinute = `${normalizedEndMinutes % 60}`.padStart(2, '0');
-            const end = `${endHour}:${endMinute}`;
-            slots.push({
-                start,
-                end,
-                label: `${start} - ${end}`
-            });
-        }
-    }
-    return slots;
-};
+const toHm = (value) => (value ? value.slice(0, 5) : '');
 
-const tasksToSlotMap = (tasks = []) => {
-    const map = {};
-    tasks.forEach((task) => {
-        const key = task.slot_start_time?.slice(0, 5);
-        if (!key) return;
-        map[key] = {
+const tasksToSlots = (tasks = []) => (
+    tasks
+        .map((task) => ({
             id: task.id,
+            start_time: toHm(task.slot_start_time),
+            end_time: toHm(task.slot_end_time),
             title: task.title || '',
             description: task.description || '',
             priority: task.priority || 'medium',
             status: task.status || 'pending'
-        };
-    });
-    return map;
-};
+        }))
+        .filter((task) => task.start_time && task.end_time)
+        .sort((a, b) => a.start_time.localeCompare(b.start_time))
+);
+
+const buildDefaultSlot = (start = '09:00', end = '09:30') => ({
+    start_time: start,
+    end_time: end,
+    title: '',
+    description: '',
+    priority: 'medium',
+    status: 'pending'
+});
 
 const ScheduleEditor = ({
     date,
@@ -48,13 +36,13 @@ const ScheduleEditor = ({
     saving,
     allowStatusEdit = true
 }) => {
-    const slots = useMemo(() => buildSlots(), []);
-    const [slotValues, setSlotValues] = useState({});
+    const [slotValues, setSlotValues] = useState([]);
     const [isDirty, setIsDirty] = useState(false);
     const lastDateRef = useRef(date);
 
     const resetFromTasks = (taskList) => {
-        setSlotValues(tasksToSlotMap(taskList));
+        const nextSlots = tasksToSlots(taskList);
+        setSlotValues(nextSlots.length ? nextSlots : [buildDefaultSlot()]);
         setIsDirty(false);
     };
 
@@ -70,38 +58,46 @@ const ScheduleEditor = ({
         }
     }, [tasks, date, isDirty]);
 
-    const handleSlotChange = (slotStart, field, value) => {
-        setSlotValues((prev) => ({
-            ...prev,
-            [slotStart]: {
-                ...(prev[slotStart] || { title: '', description: '', priority: 'medium', status: 'pending' }),
-                [field]: value
-            }
-        }));
+    const handleSlotChange = (index, field, value) => {
+        setSlotValues((prev) => prev.map((slot, slotIndex) => (
+            slotIndex === index
+                ? { ...slot, [field]: value }
+                : slot
+        )));
         setIsDirty(true);
     };
 
-    const handleClearSlot = (slotStart) => {
+    const handleClearSlot = (index) => {
+        setSlotValues((prev) => prev.filter((_, slotIndex) => slotIndex !== index));
+        setIsDirty(true);
+    };
+
+    const handleAddSlot = () => {
         setSlotValues((prev) => {
-            const next = { ...prev };
-            delete next[slotStart];
-            return next;
+            if (!prev.length) return [buildDefaultSlot()];
+            const last = prev[prev.length - 1];
+            const nextStart = last.end_time || '09:00';
+            const [hour, minute] = nextStart.split(':').map(Number);
+            const total = ((hour || 0) * 60) + (minute || 0) + 30;
+            const endHour = `${Math.floor((total % 1440) / 60)}`.padStart(2, '0');
+            const endMinute = `${(total % 60)}`.padStart(2, '0');
+            const nextEnd = `${endHour}:${endMinute}`;
+            return [...prev, buildDefaultSlot(nextStart, nextEnd)];
         });
         setIsDirty(true);
     };
 
     const buildPayload = () => (
-        slots
-            .map((slot) => {
-                const entry = slotValues[slot.start];
+        slotValues
+            .map((entry) => {
                 if (!entry?.title?.trim()) return null;
                 return {
                     title: entry.title.trim(),
                     description: entry.description?.trim() || null,
                     priority: entry.priority || 'medium',
                     status: entry.status || 'pending',
-                    start_time: slot.start,
-                    end_time: slot.end
+                    start_time: entry.start_time,
+                    end_time: entry.end_time
                 };
             })
             .filter(Boolean)
@@ -112,7 +108,7 @@ const ScheduleEditor = ({
         onSave(payload);
     };
 
-    const scheduledCount = Object.values(slotValues).filter((slot) => slot?.title?.trim()).length;
+    const scheduledCount = slotValues.filter((slot) => slot?.title?.trim()).length;
 
     return (
         <div className="schedule-editor-overlay" onClick={onClose}>
@@ -128,56 +124,65 @@ const ScheduleEditor = ({
                 </div>
 
                 <div className="schedule-editor-list">
-                    {slots.map((slot) => {
-                        const entry = slotValues[slot.start] || {};
-                        return (
-                            <div key={slot.start} className="schedule-slot-row">
-                                <div className="schedule-slot-time">{slot.label}</div>
-                                <div className="schedule-slot-fields">
-                                    <input
-                                        type="text"
-                                        value={entry.title || ''}
-                                        onChange={(event) => handleSlotChange(slot.start, 'title', event.target.value)}
-                                        placeholder="Task title"
-                                        maxLength={255}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={entry.description || ''}
-                                        onChange={(event) => handleSlotChange(slot.start, 'description', event.target.value)}
-                                        placeholder="Notes (optional)"
-                                    />
-                                    <select
-                                        value={entry.priority || 'medium'}
-                                        onChange={(event) => handleSlotChange(slot.start, 'priority', event.target.value)}
-                                    >
-                                        <option value="low">Low</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="high">High</option>
-                                        <option value="urgent">Urgent</option>
-                                    </select>
-                                    {allowStatusEdit && (
-                                        <select
-                                            value={entry.status || 'pending'}
-                                            onChange={(event) => handleSlotChange(slot.start, 'status', event.target.value)}
-                                        >
-                                            <option value="pending">Pending</option>
-                                            <option value="in_progress">In Progress</option>
-                                            <option value="completed">Completed</option>
-                                            <option value="cancelled">Cancelled</option>
-                                        </select>
-                                    )}
-                                </div>
-                                <button
-                                    type="button"
-                                    className="schedule-slot-clear"
-                                    onClick={() => handleClearSlot(slot.start)}
-                                >
-                                    Clear
-                                </button>
+                    {slotValues.map((entry, index) => (
+                        <div key={`${entry.start_time}-${index}`} className="schedule-slot-row">
+                            <div className="schedule-slot-time">
+                                <input
+                                    type="time"
+                                    value={entry.start_time}
+                                    onChange={(event) => handleSlotChange(index, 'start_time', event.target.value)}
+                                />
+                                <span>→</span>
+                                <input
+                                    type="time"
+                                    value={entry.end_time}
+                                    onChange={(event) => handleSlotChange(index, 'end_time', event.target.value)}
+                                />
                             </div>
-                        );
-                    })}
+                            <div className="schedule-slot-fields">
+                                <input
+                                    type="text"
+                                    value={entry.title || ''}
+                                    onChange={(event) => handleSlotChange(index, 'title', event.target.value)}
+                                    placeholder="Task title"
+                                    maxLength={255}
+                                />
+                                <input
+                                    type="text"
+                                    value={entry.description || ''}
+                                    onChange={(event) => handleSlotChange(index, 'description', event.target.value)}
+                                    placeholder="Notes (optional)"
+                                />
+                                <select
+                                    value={entry.priority || 'medium'}
+                                    onChange={(event) => handleSlotChange(index, 'priority', event.target.value)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="medium">Medium</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                                {allowStatusEdit && (
+                                    <select
+                                        value={entry.status || 'pending'}
+                                        onChange={(event) => handleSlotChange(index, 'status', event.target.value)}
+                                    >
+                                        <option value="pending">Pending</option>
+                                        <option value="in_progress">In Progress</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                className="schedule-slot-clear"
+                                onClick={() => handleClearSlot(index)}
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    ))}
                 </div>
 
                 <div className="schedule-editor-actions">
@@ -191,6 +196,9 @@ const ScheduleEditor = ({
                             Reset changes
                         </button>
                     )}
+                    <Button variant="outline" onClick={handleAddSlot} disabled={saving}>
+                        Add slot
+                    </Button>
                     <Button variant="secondary" onClick={onClose} disabled={saving}>
                         Close
                     </Button>

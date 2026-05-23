@@ -96,6 +96,7 @@ const Dashboard = () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         const tomorrowYmd = toYmd(tomorrow);
+        setSelectedDate(tomorrow);
         setEditingDate(tomorrowYmd);
     };
 
