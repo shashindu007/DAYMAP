@@ -24,7 +24,7 @@ export const ScheduleProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const response = await scheduleService.getScheduleByDate(date);
-            const data = response?.data?.data;
+            const data = response?.data || response?.data?.data || response;
             if (data) {
                 upsertScheduleState(date, data);
             }
@@ -46,7 +46,7 @@ export const ScheduleProvider = ({ children }) => {
                 slots,
                 replaceExisting
             });
-            const data = response?.data?.data;
+            const data = response?.data || response?.data?.data || response;
             if (data) {
                 upsertScheduleState(date, data);
             }
@@ -64,7 +64,7 @@ export const ScheduleProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const response = await scheduleService.replaceSchedule(date, { slots });
-            const data = response?.data?.data;
+            const data = response?.data || response?.data?.data || response;
             if (data) {
                 upsertScheduleState(date, data);
             }
@@ -81,7 +81,7 @@ export const ScheduleProvider = ({ children }) => {
         try {
             setError(null);
             const response = await scheduleService.updateScheduleTaskStatus(taskId, status);
-            const updated = response?.data?.data;
+            const updated = response?.data || response?.data?.data || response;
             if (updated) {
                 setScheduleByDate((prev) => {
                     const next = { ...prev };
@@ -106,7 +106,7 @@ export const ScheduleProvider = ({ children }) => {
         try {
             setError(null);
             const response = await scheduleService.updateScheduleTask(taskId, updates);
-            const updated = response?.data?.data;
+            const updated = response?.data || response?.data?.data || response;
             if (updated) {
                 setScheduleByDate((prev) => {
                     const next = { ...prev };
@@ -152,7 +152,8 @@ export const ScheduleProvider = ({ children }) => {
         try {
             setError(null);
             const response = await scheduleService.getScheduleRange(startDate, endDate);
-            return response?.data?.data?.tasks || [];
+            const data = response?.data || response?.data?.data || response;
+            return data?.tasks || [];
         } catch (err) {
             setError(resolveErrorMessage(err, 'Failed to fetch schedule range'));
             throw err;
