@@ -78,6 +78,12 @@ const Dashboard = () => {
     }, [editingDate, fetchSchedule]);
 
     useEffect(() => {
+        if (editingDate) {
+            setSelectedDate(new Date(`${editingDate}T00:00:00`));
+        }
+    }, [editingDate]);
+
+    useEffect(() => {
         loadUpcomingSchedules();
     }, [loadUpcomingSchedules]);
 
@@ -112,6 +118,7 @@ const Dashboard = () => {
             await saveSchedule(editingDate, slots, true);
             await fetchSchedule(editingDate);
             await loadUpcomingSchedules();
+            setSelectedDate(new Date(`${editingDate}T00:00:00`));
             setEditingDate(null);
         } catch (error) {
             const validationMessage = error?.errors?.[0]?.message;

@@ -19,14 +19,42 @@ const tasksToSlots = (tasks = []) => (
         .sort((a, b) => a.start_time.localeCompare(b.start_time))
 );
 
-const buildDefaultSlot = (start = '09:00', end = '09:30') => ({
-    start_time: start,
-    end_time: end,
-    title: '',
-    description: '',
-    priority: 'medium',
-    status: 'pending'
-});
+const formatHm = (minutes) => {
+    const normalized = ((minutes % 1440) + 1440) % 1440;
+    const hours = `${Math.floor(normalized / 60)}`.padStart(2, '0');
+    const mins = `${normalized % 60}`.padStart(2, '0');
+    return `${hours}:${mins}`;
+};
+
+const roundToNextSlot = (minutes, increment = 30) => (
+    Math.ceil(minutes / increment) * increment
+);
+
+const getDefaultStartTime = (date, hasExistingSlots) => {
+    if (hasExistingSlots) return null;
+    const today = new Date();
+    const todayYmd = today.toISOString().split('T')[0];
+    if (date === todayYmd) {
+        const nowMinutes = (today.getHours() * 60) + today.getMinutes();
+        return formatHm(roundToNextSlot(nowMinutes));
+    }
+    return '00:00';
+};
+
+const buildDefaultSlot = (start = '09:00', durationMinutes = 30) => {
+    const [hour, minute] = start.split(':').map(Number);
+    const startMinutes = ((hour || 0) * 60) + (minute || 0);
+    const endMinutes = startMinutes + durationMinutes;
+    const end = formatHm(endMinutes);
+    return {
+        start_time: start,
+        end_time: end,
+        title: '',
+        description: '',
+        priority: 'medium',
+        status: 'pending'
+    };
+};
 
 const ScheduleEditor = ({
     date,
@@ -42,7 +70,12 @@ const ScheduleEditor = ({
 
     const resetFromTasks = (taskList) => {
         const nextSlots = tasksToSlots(taskList);
-        setSlotValues(nextSlots.length ? nextSlots : [buildDefaultSlot()]);
+        if (nextSlots.length) {
+            setSlotValues(nextSlots);
+        } else {
+            const start = getDefaultStartTime(date, false) || '09:00';
+            setSlotValues([buildDefaultSlot(start)]);
+        }
         setIsDirty(false);
     };
 
@@ -74,15 +107,13 @@ const ScheduleEditor = ({
 
     const handleAddSlot = () => {
         setSlotValues((prev) => {
-            if (!prev.length) return [buildDefaultSlot()];
+            if (!prev.length) {
+                const start = getDefaultStartTime(date, false) || '09:00';
+                return [buildDefaultSlot(start)];
+            }
             const last = prev[prev.length - 1];
-            const nextStart = last.end_time || '09:00';
-            const [hour, minute] = nextStart.split(':').map(Number);
-            const total = ((hour || 0) * 60) + (minute || 0) + 30;
-            const endHour = `${Math.floor((total % 1440) / 60)}`.padStart(2, '0');
-            const endMinute = `${(total % 60)}`.padStart(2, '0');
-            const nextEnd = `${endHour}:${endMinute}`;
-            return [...prev, buildDefaultSlot(nextStart, nextEnd)];
+            const nextStart = last.end_time || getDefaultStartTime(date, true) || '09:00';
+            return [...prev, buildDefaultSlot(nextStart)];
         });
         setIsDirty(true);
     };
@@ -116,7 +147,7 @@ const ScheduleEditor = ({
                 <div className="schedule-editor-header">
                     <div>
                         <h2>Schedule for {date}</h2>
-                        <p className="muted">Fill each 30-minute slot with a task or leave it blank.</p>
+                        <p className="muted">Add tasks and adjust slot times as needed.</p>
                     </div>
                     <div className="schedule-editor-summary">
                         <span>{scheduledCount} slots planned</span>
