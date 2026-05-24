@@ -169,7 +169,7 @@ const TodayView = () => {
                         </p>
                     </div>
                     <div className="today-actions">
-                        <Button variant="secondary" onClick={() => navigate('/dashboard')}>
+                        <Button variant="secondary" onClick={() => navigate(`/dashboard?edit=${todayYmd}`)}>
                             Edit Schedule
                         </Button>
                     </div>

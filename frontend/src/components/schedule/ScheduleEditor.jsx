@@ -30,6 +30,19 @@ const roundToNextSlot = (minutes, increment = 30) => (
     Math.ceil(minutes / increment) * increment
 );
 
+const timeToMinutes = (value) => {
+    if (!value) return null;
+    const [hours, minutes] = value.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return (hours * 60) + minutes;
+};
+
+const getNowRoundedTime = () => {
+    const now = new Date();
+    const nowMinutes = (now.getHours() * 60) + now.getMinutes();
+    return formatHm(roundToNextSlot(nowMinutes));
+};
+
 const getDefaultStartTime = (date, hasExistingSlots) => {
     if (hasExistingSlots) return null;
     const today = new Date();
@@ -73,7 +86,8 @@ const ScheduleEditor = ({
         if (nextSlots.length) {
             setSlotValues(nextSlots);
         } else {
-            const start = getDefaultStartTime(date, false) || '09:00';
+            const isToday = date === new Date().toISOString().split('T')[0];
+            const start = (isToday ? getNowRoundedTime() : getDefaultStartTime(date, false)) || '09:00';
             setSlotValues([buildDefaultSlot(start)]);
         }
         setIsDirty(false);
@@ -107,12 +121,23 @@ const ScheduleEditor = ({
 
     const handleAddSlot = () => {
         setSlotValues((prev) => {
+            const isToday = date === new Date().toISOString().split('T')[0];
+            const nowStart = isToday ? getNowRoundedTime() : null;
             if (!prev.length) {
-                const start = getDefaultStartTime(date, false) || '09:00';
+                const start = (nowStart || getDefaultStartTime(date, false)) || '09:00';
                 return [buildDefaultSlot(start)];
             }
             const last = prev[prev.length - 1];
-            const nextStart = last.end_time || getDefaultStartTime(date, true) || '09:00';
+            let nextStart = last.end_time || getDefaultStartTime(date, true) || '09:00';
+            if (isToday && nowStart) {
+                const lastEndMinutes = timeToMinutes(last.end_time);
+                const nowMinutes = timeToMinutes(nowStart);
+                if (Number.isFinite(lastEndMinutes) && Number.isFinite(nowMinutes)) {
+                    nextStart = lastEndMinutes > nowMinutes ? last.end_time : nowStart;
+                } else if (Number.isFinite(nowMinutes)) {
+                    nextStart = nowStart;
+                }
+            }
             return [...prev, buildDefaultSlot(nextStart)];
         });
         setIsDirty(true);

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { useSchedule } from '../context/ScheduleContext';
@@ -26,6 +27,8 @@ const displayTaskDateTime = (task) => {
 
 const Dashboard = () => {
     const { scheduleByDate, fetchSchedule, saveSchedule, fetchScheduleRange } = useSchedule();
+
+    const [searchParams, setSearchParams] = useSearchParams();
 
     const [now, setNow] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -84,6 +87,13 @@ const Dashboard = () => {
     }, [editingDate]);
 
     useEffect(() => {
+        const editDate = searchParams.get('edit');
+        if (!editDate) return;
+        setEditingDate(editDate);
+        setSelectedDate(new Date(`${editDate}T00:00:00`));
+    }, [searchParams]);
+
+    useEffect(() => {
         loadUpcomingSchedules();
     }, [loadUpcomingSchedules]);
 
@@ -108,6 +118,15 @@ const Dashboard = () => {
 
     const handleEditSelectedDate = () => {
         setEditingDate(selectedYmd);
+    };
+
+    const handleCloseEditor = () => {
+        setEditingDate(null);
+        if (searchParams.get('edit')) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('edit');
+            setSearchParams(nextParams);
+        }
     };
 
     const handleSaveSchedule = async (slots) => {
@@ -216,7 +235,7 @@ const Dashboard = () => {
                     date={editingDate}
                     tasks={scheduleByDate[editingDate]?.tasks || []}
                     onSave={handleSaveSchedule}
-                    onClose={() => setEditingDate(null)}
+                    onClose={handleCloseEditor}
                     saving={savingSchedule}
                 />
             )}
