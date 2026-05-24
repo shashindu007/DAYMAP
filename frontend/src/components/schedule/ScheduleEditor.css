@@ -60,6 +60,11 @@
     background: rgba(255, 255, 255, 0.8);
 }
 
+.schedule-slot-row.has-error {
+    border-color: rgba(220, 38, 38, 0.5);
+    background: rgba(254, 226, 226, 0.25);
+}
+
 .dark .schedule-slot-row {
     background: rgba(31, 41, 55, 0.8);
     border-color: #374151;
@@ -117,6 +122,13 @@
     color: #DC2626;
     font-weight: 600;
     cursor: pointer;
+}
+
+.schedule-slot-error {
+    grid-column: 1 / -1;
+    color: #B91C1C;
+    font-size: 0.82rem;
+    margin-top: 0.25rem;
 }
 
 .schedule-editor-actions {

@@ -43,6 +43,18 @@ const getNowRoundedTime = () => {
     return formatHm(roundToNextSlot(nowMinutes));
 };
 
+const getSlotTimeError = (slot) => {
+    const startMinutes = timeToMinutes(slot?.start_time);
+    const endMinutes = timeToMinutes(slot?.end_time);
+    if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) {
+        return 'Start and end time are required.';
+    }
+    if (endMinutes <= startMinutes) {
+        return 'End time must be after start time (same-day only).';
+    }
+    return '';
+};
+
 const getDefaultStartTime = (date, hasExistingSlots) => {
     if (hasExistingSlots) return null;
     const today = new Date();
@@ -164,6 +176,13 @@ const ScheduleEditor = ({
         onSave(payload);
     };
 
+    const slotErrors = useMemo(
+        () => slotValues.map((slot) => getSlotTimeError(slot)),
+        [slotValues]
+    );
+
+    const hasValidationErrors = slotErrors.some(Boolean);
+
     const scheduledCount = slotValues.filter((slot) => slot?.title?.trim()).length;
 
     return (
@@ -181,17 +200,24 @@ const ScheduleEditor = ({
 
                 <div className="schedule-editor-list">
                     {slotValues.map((entry, index) => (
-                        <div key={`${entry.start_time}-${index}`} className="schedule-slot-row">
+                        <div
+                            key={`${entry.start_time}-${index}`}
+                            className={`schedule-slot-row ${slotErrors[index] ? 'has-error' : ''}`}
+                        >
                             <div className="schedule-slot-time">
                                 <input
                                     type="time"
                                     value={entry.start_time}
+                                    lang="en-GB"
+                                    step="60"
                                     onChange={(event) => handleSlotChange(index, 'start_time', event.target.value)}
                                 />
                                 <span>→</span>
                                 <input
                                     type="time"
                                     value={entry.end_time}
+                                    lang="en-GB"
+                                    step="60"
                                     onChange={(event) => handleSlotChange(index, 'end_time', event.target.value)}
                                 />
                             </div>
@@ -237,6 +263,9 @@ const ScheduleEditor = ({
                             >
                                 Remove
                             </button>
+                            {slotErrors[index] && (
+                                <div className="schedule-slot-error">{slotErrors[index]}</div>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -258,7 +287,7 @@ const ScheduleEditor = ({
                     <Button variant="secondary" onClick={onClose} disabled={saving}>
                         Close
                     </Button>
-                    <Button variant="primary" onClick={handleSave} loading={saving}>
+                    <Button variant="primary" onClick={handleSave} loading={saving} disabled={hasValidationErrors}>
                         Save Schedule
                     </Button>
                 </div>
