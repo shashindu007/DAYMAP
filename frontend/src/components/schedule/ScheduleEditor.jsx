@@ -70,7 +70,7 @@ const buildDefaultSlot = (start = '09:00', durationMinutes = 30) => {
     const [hour, minute] = start.split(':').map(Number);
     const startMinutes = ((hour || 0) * 60) + (minute || 0);
     const endMinutes = startMinutes + durationMinutes;
-    const end = formatHm(endMinutes);
+    const end = formatHm(Math.min(endMinutes, 1440));
     return {
         start_time: start,
         end_time: end,
@@ -91,6 +91,7 @@ const ScheduleEditor = ({
 }) => {
     const [slotValues, setSlotValues] = useState([]);
     const [isDirty, setIsDirty] = useState(false);
+    const [addSlotError, setAddSlotError] = useState('');
     const lastDateRef = useRef(date);
 
     const resetFromTasks = (taskList) => {
@@ -118,6 +119,9 @@ const ScheduleEditor = ({
     }, [tasks, date, isDirty]);
 
     const handleSlotChange = (index, field, value) => {
+        if (addSlotError) {
+            setAddSlotError('');
+        }
         setSlotValues((prev) => prev.map((slot, slotIndex) => (
             slotIndex === index
                 ? { ...slot, [field]: value }
@@ -137,6 +141,11 @@ const ScheduleEditor = ({
             const nowStart = isToday ? getNowRoundedTime() : null;
             if (!prev.length) {
                 const start = (nowStart || getDefaultStartTime(date, false)) || '09:00';
+                const startMinutes = timeToMinutes(start) ?? 0;
+                if (startMinutes + 30 > 1440) {
+                    setAddSlotError('Cannot add a new slot beyond 11:59 PM.');
+                    return prev;
+                }
                 return [buildDefaultSlot(start)];
             }
             const last = prev[prev.length - 1];
@@ -149,6 +158,15 @@ const ScheduleEditor = ({
                 } else if (Number.isFinite(nowMinutes)) {
                     nextStart = nowStart;
                 }
+            }
+            const nextStartMinutes = timeToMinutes(nextStart);
+            if (!Number.isFinite(nextStartMinutes)) {
+                setAddSlotError('Please set a valid time before adding another slot.');
+                return prev;
+            }
+            if (nextStartMinutes + 30 > 1440) {
+                setAddSlotError('Cannot add a new slot beyond 11:59 PM.');
+                return prev;
             }
             return [...prev, buildDefaultSlot(nextStart)];
         });
@@ -281,7 +299,10 @@ const ScheduleEditor = ({
                             Reset changes
                         </button>
                     )}
-                    <Button variant="outline" onClick={handleAddSlot} disabled={saving}>
+                    {addSlotError && (
+                        <span className="schedule-slot-error">{addSlotError}</span>
+                    )}
+                    <Button variant="outline" onClick={handleAddSlot} disabled={saving || hasValidationErrors}>
                         Add slot
                     </Button>
                     <Button variant="secondary" onClick={onClose} disabled={saving}>
