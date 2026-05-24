@@ -113,6 +113,18 @@
     margin-top: 0.5rem;
 }
 
+.calendar-insight-card .btn-outline {
+    background: var(--secondary-gradient);
+    color: white;
+    border: none;
+    box-shadow: 0 6px 14px rgba(6, 182, 212, 0.25);
+}
+
+.calendar-insight-card .btn-outline:hover:not(:disabled) {
+    background: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
+    box-shadow: 0 10px 18px rgba(6, 182, 212, 0.35);
+}
+
 .calendar-task-preview-item {
     display: flex;
     justify-content: space-between;

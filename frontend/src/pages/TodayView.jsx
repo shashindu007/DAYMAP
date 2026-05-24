@@ -17,7 +17,8 @@ const TodayView = () => {
 
     const [now, setNow] = useState(new Date());
     const todayYmd = useMemo(() => toYmd(now), [now]);
-    const scheduleTasks = scheduleByDate[todayYmd]?.tasks || [];
+    const cachedSchedule = scheduleByDate[todayYmd];
+    const scheduleTasks = cachedSchedule?.tasks || [];
 
     const [stats, setStats] = useState({
         total: 0,
@@ -27,8 +28,10 @@ const TodayView = () => {
     });
 
     useEffect(() => {
-        fetchSchedule(todayYmd).catch(() => null);
-    }, [fetchSchedule, todayYmd]);
+        if (!cachedSchedule) {
+            fetchSchedule(todayYmd).catch(() => null);
+        }
+    }, [fetchSchedule, todayYmd, cachedSchedule]);
 
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000);
@@ -139,13 +142,7 @@ const TodayView = () => {
         };
     }, [groupedTasks]);
 
-    if (loading) {
-        return (
-            <div className="loading-container">
-                <div className="spinner"></div>
-            </div>
-        );
-    }
+    const isInitialLoading = loading && !cachedSchedule;
 
     return (
         <div className="today-container">
@@ -238,7 +235,11 @@ const TodayView = () => {
             {error && <p className="today-error">{error}</p>}
 
             <div className="tasks-list">
-                {scheduleTasks.length === 0 ? (
+                {isInitialLoading ? (
+                    <div className="loading-container">
+                        <div className="spinner"></div>
+                    </div>
+                ) : scheduleTasks.length === 0 ? (
                     <div className="empty-state">
                         <p>No scheduled slots for today yet.</p>
                         <Button variant="primary" onClick={() => navigate('/dashboard')}>Schedule Today</Button>
