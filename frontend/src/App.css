@@ -5,24 +5,24 @@
 }
 
 :root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #e0e7ff;
-    --primary-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-    --secondary: #10b981;
-    --secondary-gradient: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+    --primary: #7c3aed;
+    --primary-dark: #6d28d9;
+    --primary-light: #ede9fe;
+    --primary-gradient: linear-gradient(135deg, #7c3aed 0%, #6366f1 55%, #3b82f6 100%);
+    --secondary: #06b6d4;
+    --secondary-gradient: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
     --danger: #f43f5e;
     --danger-gradient: linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
     --danger-light: #fee2e2;
     --warning: #f59e0b;
     --dark: #1e293b;
     --light: #f8fafc;
-    --background: transparent;
+    --background: #f8fafc;
     --border: #e2e8f0;
     --text-primary: #1e293b;
     --text-secondary: #64748b;
-    --card-bg: rgba(255, 255, 255, 0.95);
-    --header-bg: rgba(255, 255, 255, 0.85);
+    --card-bg: rgba(255, 255, 255, 0.92);
+    --header-bg: rgba(255, 255, 255, 0.9);
 }
 
 body {
@@ -84,18 +84,18 @@ code {
 .btn-primary {
     background: var(--primary-gradient);
     color: white;
-    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25);
 }
 
 .btn-primary:hover {
-    background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%);
-    box-shadow: 0 8px 16px rgba(99, 102, 241, 0.35);
+    background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 60%, #2563eb 100%);
+    box-shadow: 0 10px 22px rgba(99, 102, 241, 0.35);
 }
 
 .btn-secondary {
     background: var(--secondary-gradient);
     color: white;
-    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+    box-shadow: 0 6px 16px rgba(6, 182, 212, 0.25);
 }
 
 .btn-danger {
@@ -104,10 +104,11 @@ code {
 }
 
 .btn-outline {
-    background-color: transparent;
-    border: 1px solid var(--border);
+    background-color: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(124, 58, 237, 0.2);
     color: var(--text-primary);
     box-shadow: none;
+    backdrop-filter: blur(8px);
 }
 
 .btn-outline:hover {
@@ -141,13 +142,13 @@ code {
 
 /* Common card styles */
 .card {
-    background-color: var(--card-bg);
-    border: 1px solid rgba(226, 232, 240, 0.8);
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 255, 0.9));
+    border: 1px solid rgba(226, 232, 240, 0.75);
     border-radius: 1.25rem;
     padding: 1.5rem;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+    box-shadow: 0 12px 26px -6px rgba(15, 23, 42, 0.08), 0 10px 14px -8px rgba(15, 23, 42, 0.05);
     transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
 }
 
 .card:hover {

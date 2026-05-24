@@ -11,9 +11,11 @@ body {
         sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: radial-gradient(circle at 10% 20%, rgba(59,130,246,0.06), transparent 35%),
-                radial-gradient(circle at 90% 80%, rgba(16,185,129,0.05), transparent 45%);
-    background-color: #f1f5f9;
+    background: radial-gradient(circle at 10% 15%, rgba(124, 58, 237, 0.12), transparent 35%),
+                radial-gradient(circle at 85% 20%, rgba(14, 165, 233, 0.12), transparent 40%),
+                radial-gradient(circle at 30% 85%, rgba(16, 185, 129, 0.1), transparent 45%),
+                radial-gradient(circle at 90% 85%, rgba(248, 113, 113, 0.08), transparent 40%);
+    background-color: #f8fafc;
 }
 
 code {
