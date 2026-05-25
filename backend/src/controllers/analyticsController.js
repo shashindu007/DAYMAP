@@ -75,6 +75,8 @@ class AnalyticsController {
                         total_time_spent_minutes: 0,
                         focus_time_spent_minutes: 0,
                         focus_sessions_count: 0,
+                        focus_sessions_total: 0,
+                        focus_sessions_completed: 0,
                         completion_rate: 0
                     }
                 });
@@ -84,11 +86,16 @@ class AnalyticsController {
                 ? (analytics.total_tasks_completed / analytics.total_tasks_scheduled) * 100
                 : 0;
 
+            const focus_success_rate = analytics.focus_sessions_total > 0
+                ? (analytics.focus_sessions_completed / analytics.focus_sessions_total) * 100
+                : 0;
+
             res.json({
                 success: true,
                 data: {
                     ...analytics,
-                    completion_rate: parseFloat(completion_rate.toFixed(2))
+                    completion_rate: parseFloat(completion_rate.toFixed(2)),
+                    focus_success_rate: parseFloat(focus_success_rate.toFixed(2))
                 }
             });
         } catch (error) {
@@ -137,6 +144,8 @@ class AnalyticsController {
                 acc.total_time_spent_minutes += day.total_time_spent_minutes;
                 acc.focus_time_spent_minutes += day.focus_time_spent_minutes || 0;
                 acc.focus_sessions_count += day.focus_sessions_count || 0;
+                acc.focus_sessions_total += day.focus_sessions_total || day.focus_sessions_count || 0;
+                acc.focus_sessions_completed += day.focus_sessions_completed || 0;
                 return acc;
             }, {
                 total_tasks_scheduled: 0,
@@ -144,11 +153,17 @@ class AnalyticsController {
                 total_time_scheduled_minutes: 0,
                 total_time_spent_minutes: 0,
                 focus_time_spent_minutes: 0,
-                focus_sessions_count: 0
+                focus_sessions_count: 0,
+                focus_sessions_total: 0,
+                focus_sessions_completed: 0
             });
 
             const completion_rate = totals.total_tasks_scheduled > 0
                 ? (totals.total_tasks_completed / totals.total_tasks_scheduled) * 100
+                : 0;
+
+            const focus_success_rate = totals.focus_sessions_total > 0
+                ? (totals.focus_sessions_completed / totals.focus_sessions_total) * 100
                 : 0;
 
             res.json({
@@ -159,7 +174,8 @@ class AnalyticsController {
                     daily: analytics,
                     totals: {
                         ...totals,
-                        completion_rate: parseFloat(completion_rate.toFixed(2))
+                        completion_rate: parseFloat(completion_rate.toFixed(2)),
+                        focus_success_rate: parseFloat(focus_success_rate.toFixed(2))
                     }
                 }
             });
@@ -204,6 +220,8 @@ class AnalyticsController {
                 acc.total_time_spent_minutes += day.total_time_spent_minutes;
                 acc.focus_time_spent_minutes += day.focus_time_spent_minutes || 0;
                 acc.focus_sessions_count += day.focus_sessions_count || 0;
+                acc.focus_sessions_total += day.focus_sessions_total || day.focus_sessions_count || 0;
+                acc.focus_sessions_completed += day.focus_sessions_completed || 0;
                 return acc;
             }, {
                 total_tasks_scheduled: 0,
@@ -211,11 +229,17 @@ class AnalyticsController {
                 total_time_scheduled_minutes: 0,
                 total_time_spent_minutes: 0,
                 focus_time_spent_minutes: 0,
-                focus_sessions_count: 0
+                focus_sessions_count: 0,
+                focus_sessions_total: 0,
+                focus_sessions_completed: 0
             });
 
             const completion_rate = totals.total_tasks_scheduled > 0
                 ? (totals.total_tasks_completed / totals.total_tasks_scheduled) * 100
+                : 0;
+
+            const focus_success_rate = totals.focus_sessions_total > 0
+                ? (totals.focus_sessions_completed / totals.focus_sessions_total) * 100
                 : 0;
 
             const avg_daily_tasks = analytics.length > 0
@@ -231,6 +255,7 @@ class AnalyticsController {
                     totals: {
                         ...totals,
                         completion_rate: parseFloat(completion_rate.toFixed(2)),
+                        focus_success_rate: parseFloat(focus_success_rate.toFixed(2)),
                         avg_daily_tasks: parseFloat(avg_daily_tasks.toFixed(2))
                     }
                 }
@@ -295,7 +320,10 @@ class AnalyticsController {
                     : 0,
                 total_tasks: day.total_tasks_scheduled,
                 completed_tasks: day.total_tasks_completed,
-                time_spent_hours: (day.total_time_spent_minutes / 60).toFixed(2)
+                time_spent_hours: (day.total_time_spent_minutes / 60).toFixed(2),
+                focus_success_rate: day.focus_sessions_total > 0
+                    ? (day.focus_sessions_completed / day.focus_sessions_total) * 100
+                    : 0
             }));
 
             res.json({
@@ -328,6 +356,11 @@ class AnalyticsController {
                 start_time,
                 end_time,
                 duration_minutes,
+                status,
+                schedule_task_id,
+                task_id,
+                target_minutes,
+                actual_minutes,
                 category,
                 tags
             } = req.body;
@@ -336,6 +369,13 @@ class AnalyticsController {
             const normalizedStart = AnalyticsController.normalizeClock(start_time);
             const normalizedEnd = AnalyticsController.normalizeClock(end_time);
             const minutes = Math.max(1, parseInt(duration_minutes, 10) || 0);
+            const normalizedTarget = Number.isFinite(parseInt(target_minutes, 10))
+                ? Math.max(1, parseInt(target_minutes, 10) || 0)
+                : null;
+            const normalizedActual = Number.isFinite(parseInt(actual_minutes, 10))
+                ? Math.max(1, parseInt(actual_minutes, 10) || 0)
+                : null;
+            const normalizedStatus = status === 'partial' ? 'partial' : 'completed';
             const normalizedCategory = typeof category === 'string' ? category.trim() : '';
             const normalizedTags = AnalyticsController.normalizeTags(tags);
 
@@ -387,9 +427,14 @@ class AnalyticsController {
             }
 
             await FocusSession.createSession(req.user.id, {
+                schedule_task_id: schedule_task_id || null,
+                task_id: task_id || null,
+                status: normalizedStatus,
                 date: normalizedDate,
                 start_time: normalizedStart,
                 end_time: resolvedEndTime,
+                target_minutes: normalizedTarget,
+                actual_minutes: normalizedActual,
                 duration_minutes: minutes,
                 category: normalizedCategory,
                 tags: normalizedTags,
@@ -397,7 +442,11 @@ class AnalyticsController {
                 ended_at: endDateTime
             });
 
-            const analytics = await Analytics.recordFocusSession(req.user.id, normalizedDate, minutes);
+            const analytics = await Analytics.recordFocusSession(req.user.id, normalizedDate, minutes, normalizedStatus);
+
+            const focus_success_rate = analytics.focus_sessions_total > 0
+                ? (analytics.focus_sessions_completed / analytics.focus_sessions_total) * 100
+                : 0;
 
             res.status(201).json({
                 success: true,
@@ -408,8 +457,16 @@ class AnalyticsController {
                     end_time: resolvedEndTime,
                     end_date: resolvedEndDate,
                     duration_minutes: minutes,
+                    status: normalizedStatus,
+                    schedule_task_id: schedule_task_id || null,
+                    task_id: task_id || null,
+                    target_minutes: normalizedTarget,
+                    actual_minutes: normalizedActual,
                     focus_time_spent_minutes: analytics?.focus_time_spent_minutes || 0,
                     focus_sessions_count: analytics?.focus_sessions_count || 0,
+                    focus_sessions_total: analytics?.focus_sessions_total || 0,
+                    focus_sessions_completed: analytics?.focus_sessions_completed || 0,
+                    focus_success_rate: parseFloat(focus_success_rate.toFixed(2)),
                     category: normalizedCategory,
                     tags: normalizedTags
                 }
@@ -450,7 +507,9 @@ class AnalyticsController {
                 daily.push({
                     date: key,
                     focus_time_spent_minutes: row?.focus_time_spent_minutes || 0,
-                    focus_sessions_count: row?.focus_sessions_count || 0
+                    focus_sessions_count: row?.focus_sessions_count || 0,
+                    focus_sessions_total: row?.focus_sessions_total || row?.focus_sessions_count || 0,
+                    focus_sessions_completed: row?.focus_sessions_completed || 0
                 });
                 walker.setDate(walker.getDate() + 1);
             }
@@ -458,10 +517,14 @@ class AnalyticsController {
             const totals = daily.reduce((acc, item) => {
                 acc.focus_time_spent_minutes += item.focus_time_spent_minutes;
                 acc.focus_sessions_count += item.focus_sessions_count;
+                acc.focus_sessions_total += item.focus_sessions_total;
+                acc.focus_sessions_completed += item.focus_sessions_completed;
                 return acc;
             }, {
                 focus_time_spent_minutes: 0,
-                focus_sessions_count: 0
+                focus_sessions_count: 0,
+                focus_sessions_total: 0,
+                focus_sessions_completed: 0
             });
 
             const avgDailyFocusMinutes = daily.length > 0
@@ -533,7 +596,9 @@ class AnalyticsController {
                 daily.push({
                     date: key,
                     focus_time_spent_minutes: row?.focus_time_spent_minutes || 0,
-                    focus_sessions_count: row?.focus_sessions_count || 0
+                    focus_sessions_count: row?.focus_sessions_count || 0,
+                    focus_sessions_total: row?.focus_sessions_total || row?.focus_sessions_count || 0,
+                    focus_sessions_completed: row?.focus_sessions_completed || 0
                 });
                 walker.setDate(walker.getDate() + 1);
             }
@@ -541,10 +606,14 @@ class AnalyticsController {
             const totals = daily.reduce((acc, item) => {
                 acc.focus_time_spent_minutes += item.focus_time_spent_minutes;
                 acc.focus_sessions_count += item.focus_sessions_count;
+                acc.focus_sessions_total += item.focus_sessions_total;
+                acc.focus_sessions_completed += item.focus_sessions_completed;
                 return acc;
             }, {
                 focus_time_spent_minutes: 0,
-                focus_sessions_count: 0
+                focus_sessions_count: 0,
+                focus_sessions_total: 0,
+                focus_sessions_completed: 0
             });
 
             const avgDailyFocusMinutes = daily.length > 0

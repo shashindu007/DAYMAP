@@ -176,6 +176,21 @@ const focusSessionValidation = [
     body('duration_minutes')
         .toInt()
         .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
+    body('status')
+        .optional({ nullable: true })
+        .isIn(['completed', 'partial']).withMessage('status must be completed or partial'),
+    body('schedule_task_id')
+        .optional({ nullable: true })
+        .isString().withMessage('schedule_task_id must be a string'),
+    body('task_id')
+        .optional({ nullable: true })
+        .isString().withMessage('task_id must be a string'),
+    body('target_minutes')
+        .optional({ nullable: true })
+        .isInt({ min: 1, max: 1440 }).withMessage('target_minutes must be between 1 and 1440'),
+    body('actual_minutes')
+        .optional({ nullable: true })
+        .isInt({ min: 1, max: 1440 }).withMessage('actual_minutes must be between 1 and 1440'),
     body('category')
         .optional({ nullable: true })
         .isString().withMessage('category must be a string')

@@ -12,7 +12,9 @@ const analyticsSchema = new mongoose.Schema(
         total_time_scheduled_minutes: { type: Number, default: 0 },
         total_time_spent_minutes: { type: Number, default: 0 },
         focus_time_spent_minutes: { type: Number, default: 0 },
-        focus_sessions_count: { type: Number, default: 0 }
+        focus_sessions_count: { type: Number, default: 0 },
+        focus_sessions_total: { type: Number, default: 0 },
+        focus_sessions_completed: { type: Number, default: 0 }
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: false },
@@ -39,7 +41,9 @@ class Analytics {
             total_time_scheduled_minutes = 0,
             total_time_spent_minutes = 0,
             focus_time_spent_minutes = 0,
-            focus_sessions_count = 0
+            focus_sessions_count = 0,
+            focus_sessions_total = 0,
+            focus_sessions_completed = 0
         } = stats;
         
         await AnalyticsDocument.updateOne(
@@ -51,7 +55,9 @@ class Analytics {
                     total_time_scheduled_minutes,
                     total_time_spent_minutes,
                     focus_time_spent_minutes,
-                    focus_sessions_count
+                    focus_sessions_count,
+                    focus_sessions_total,
+                    focus_sessions_completed
                 },
                 $setOnInsert: {
                     id: uuidv4(),
@@ -72,15 +78,18 @@ class Analytics {
      * @param {Number} durationMinutes
      * @returns {Object}
      */
-    static async recordFocusSession(userId, date, durationMinutes) {
+    static async recordFocusSession(userId, date, durationMinutes, status = 'completed') {
         const normalizedDuration = Math.max(1, parseInt(durationMinutes, 10) || 0);
+        const isCompleted = status === 'completed';
 
         await AnalyticsDocument.updateOne(
             { user_id: userId, date },
             {
                 $inc: {
                     focus_time_spent_minutes: normalizedDuration,
-                    focus_sessions_count: 1
+                    focus_sessions_count: 1,
+                    focus_sessions_total: 1,
+                    focus_sessions_completed: isCompleted ? 1 : 0
                 },
                 $setOnInsert: {
                     id: uuidv4(),
@@ -89,7 +98,9 @@ class Analytics {
                     total_tasks_scheduled: 0,
                     total_tasks_completed: 0,
                     total_time_scheduled_minutes: 0,
-                    total_time_spent_minutes: 0
+                    total_time_spent_minutes: 0,
+                    focus_sessions_total: 0,
+                    focus_sessions_completed: 0
                 }
             },
             { upsert: true }
@@ -115,7 +126,9 @@ class Analytics {
                 _id: 0,
                 date: 1,
                 focus_time_spent_minutes: 1,
-                focus_sessions_count: 1
+                focus_sessions_count: 1,
+                focus_sessions_total: 1,
+                focus_sessions_completed: 1
             })
             .lean();
     }
@@ -182,6 +195,8 @@ class Analytics {
                     total_time_spent_minutes: 1,
                     focus_time_spent_minutes: 1,
                     focus_sessions_count: 1,
+                    focus_sessions_total: 1,
+                    focus_sessions_completed: 1,
                     completion_rate: {
                         $cond: [
                             { $gt: ['$total_tasks_scheduled', 0] },
@@ -205,6 +220,8 @@ class Analytics {
                     total_time_spent_minutes: { $sum: '$total_time_spent_minutes' },
                     focus_time_spent_minutes: { $sum: '$focus_time_spent_minutes' },
                     focus_sessions_count: { $sum: '$focus_sessions_count' },
+                    focus_sessions_total: { $sum: '$focus_sessions_total' },
+                    focus_sessions_completed: { $sum: '$focus_sessions_completed' },
                     avg_completion_rate: { $avg: '$completion_rate' }
                 }
             }
@@ -218,6 +235,8 @@ class Analytics {
                 total_time_spent_minutes: 0,
                 focus_time_spent_minutes: 0,
                 focus_sessions_count: 0,
+                focus_sessions_total: 0,
+                focus_sessions_completed: 0,
                 avg_completion_rate: 0
             };
         }

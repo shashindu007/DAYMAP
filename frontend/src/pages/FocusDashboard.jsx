@@ -10,6 +10,7 @@ import {
     Legend
 } from 'chart.js';
 import { useAuth } from '../context/AuthContext';
+import { useSchedule } from '../context/ScheduleContext';
 import analyticsService from '../services/analyticsService';
 import './FocusDashboard.css';
 
@@ -55,6 +56,13 @@ const formatElapsed = (seconds) => {
     const mm = Math.floor((safe % 3600) / 60);
     const ss = safe % 60;
     return `${`${hh}`.padStart(2, '0')}:${`${mm}`.padStart(2, '0')}:${`${ss}`.padStart(2, '0')}`;
+};
+
+const timeToMinutes = (value) => {
+    if (!value) return null;
+    const [hours, minutes] = value.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return (hours * 60) + minutes;
 };
 
 const normalizeFocusDurationMinutes = (value, fallback = DEFAULT_FOCUS_DURATION_MINUTES) => {
@@ -108,15 +116,23 @@ const clearFocusStorage = (userId) => {
 
 const FocusDashboard = () => {
     const { user } = useAuth();
+    const { scheduleByDate, fetchSchedule, updateScheduleTaskStatus } = useSchedule();
+
+    const [now, setNow] = useState(new Date());
 
     const [focusEnabled, setFocusEnabled] = useState(false);
     const [focusDurationMinutes, setFocusDurationMinutes] = useState(DEFAULT_FOCUS_DURATION_MINUTES);
     const [focusStartedAt, setFocusStartedAt] = useState(null);
     const [focusSessionId, setFocusSessionId] = useState(null);
+    const [focusStatus, setFocusStatus] = useState('idle');
+    const [focusPausedAt, setFocusPausedAt] = useState(null);
+    const [totalPausedSeconds, setTotalPausedSeconds] = useState(0);
     const [focusCompletionAttempted, setFocusCompletionAttempted] = useState(false);
     const [pendingFocusSession, setPendingFocusSession] = useState(null);
     const [pendingSyncAttempted, setPendingSyncAttempted] = useState(false);
     const [elapsedFocusSeconds, setElapsedFocusSeconds] = useState(0);
+    const [selectedTaskId, setSelectedTaskId] = useState(null);
+    const [focusTaskSnapshot, setFocusTaskSnapshot] = useState(null);
     const [focusError, setFocusError] = useState('');
     const [focusMessage, setFocusMessage] = useState('');
     const [savingFocusSession, setSavingFocusSession] = useState(false);
@@ -134,7 +150,12 @@ const FocusDashboard = () => {
     });
 
     const [focusInsights, setFocusInsights] = useState({
-        totals: { focus_time_spent_minutes: 0, focus_sessions_count: 0 },
+        totals: {
+            focus_time_spent_minutes: 0,
+            focus_sessions_count: 0,
+            focus_sessions_total: 0,
+            focus_sessions_completed: 0
+        },
         daily: [],
         weekly: [],
         byCategory: [],
@@ -144,7 +165,46 @@ const FocusDashboard = () => {
     const [focusInsightsLoading, setFocusInsightsLoading] = useState(false);
     const [focusInsightsError, setFocusInsightsError] = useState('');
 
-    const todayYmd = useMemo(() => toYmd(new Date()), []);
+    const todayYmd = useMemo(() => toYmd(now), [now]);
+
+    const scheduleTasks = scheduleByDate[todayYmd]?.tasks || [];
+
+    const currentTasks = useMemo(() => {
+        const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+        return scheduleTasks.filter((task) => {
+            if (['completed', 'cancelled'].includes(task.status)) return false;
+            const startMinutes = timeToMinutes(task.slot_start_time);
+            const endMinutes = timeToMinutes(task.slot_end_time);
+            if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes)) return false;
+            return startMinutes <= currentMinutes && currentMinutes < endMinutes;
+        });
+    }, [now, scheduleTasks]);
+
+    const selectedTask = useMemo(() => {
+        if (selectedTaskId) {
+            return scheduleTasks.find((task) => task.id === selectedTaskId) || focusTaskSnapshot || null;
+        }
+        return focusTaskSnapshot || null;
+    }, [focusTaskSnapshot, scheduleTasks, selectedTaskId]);
+
+    const focusRemainingTaskMinutes = useMemo(() => {
+        if (!selectedTask?.slot_end_time) return null;
+        const endMinutes = timeToMinutes(selectedTask.slot_end_time);
+        if (!Number.isFinite(endMinutes)) return null;
+        const currentMinutes = (now.getHours() * 60) + now.getMinutes();
+        return Math.max(1, endMinutes - currentMinutes);
+    }, [now, selectedTask]);
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    useEffect(() => {
+        if (!scheduleByDate[todayYmd]) {
+            fetchSchedule(todayYmd).catch(() => null);
+        }
+    }, [fetchSchedule, scheduleByDate, todayYmd]);
 
     const persistFocusState = useCallback((override = {}) => {
         const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
@@ -153,6 +213,11 @@ const FocusDashboard = () => {
             durationMinutes: normalizedDuration,
             startedAt: focusStartedAt,
             sessionId: focusSessionId,
+            status: focusStatus,
+            pausedAt: focusPausedAt,
+            totalPausedSeconds,
+            selectedTaskId,
+            focusTaskSnapshot,
             completionAttempted: focusCompletionAttempted,
             pendingSession: pendingFocusSession,
             category: focusCategory,
@@ -168,7 +233,7 @@ const FocusDashboard = () => {
         }
 
         writeFocusStorage(user.id, payload);
-    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusGoal, focusSessionId, focusStartedAt, pendingFocusSession, user?.id]);
+    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusEnabled, focusGoal, focusPausedAt, focusSessionId, focusStartedAt, focusStatus, focusTaskSnapshot, pendingFocusSession, selectedTaskId, totalPausedSeconds, user?.id]);
 
     const loadFocusInsights = useCallback(async () => {
         try {
@@ -188,7 +253,12 @@ const FocusDashboard = () => {
             });
 
             setFocusInsights({
-                totals: data.totals || { focus_time_spent_minutes: 0, focus_sessions_count: 0 },
+                totals: data.totals || {
+                    focus_time_spent_minutes: 0,
+                    focus_sessions_count: 0,
+                    focus_sessions_total: 0,
+                    focus_sessions_completed: 0
+                },
                 daily,
                 weekly: data.weekly || [],
                 byCategory: data.by_category || [],
@@ -205,7 +275,12 @@ const FocusDashboard = () => {
                 bestDay: null
             });
             setFocusInsights({
-                totals: { focus_time_spent_minutes: 0, focus_sessions_count: 0 },
+                totals: {
+                    focus_time_spent_minutes: 0,
+                    focus_sessions_count: 0,
+                    focus_sessions_total: 0,
+                    focus_sessions_completed: 0
+                },
                 daily: [],
                 weekly: [],
                 byCategory: [],
@@ -235,21 +310,27 @@ const FocusDashboard = () => {
                         ? {
                             ...item,
                             focus_time_spent_minutes: data.focus_time_spent_minutes ?? item.focus_time_spent_minutes,
-                            focus_sessions_count: data.focus_sessions_count ?? item.focus_sessions_count
+                            focus_sessions_count: data.focus_sessions_count ?? item.focus_sessions_count,
+                            focus_sessions_total: data.focus_sessions_total ?? item.focus_sessions_total,
+                            focus_sessions_completed: data.focus_sessions_completed ?? item.focus_sessions_completed
                         }
                         : item
                 ))
                 : [...prev.daily, {
                     date: data.date,
                     focus_time_spent_minutes: data.focus_time_spent_minutes || 0,
-                    focus_sessions_count: data.focus_sessions_count || 0
+                    focus_sessions_count: data.focus_sessions_count || 0,
+                    focus_sessions_total: data.focus_sessions_total || 0,
+                    focus_sessions_completed: data.focus_sessions_completed || 0
                 }].sort((a, b) => a.date.localeCompare(b.date));
 
             const totals = updatedDaily.reduce((acc, item) => {
                 acc.focus_time_spent_minutes += item.focus_time_spent_minutes || 0;
                 acc.focus_sessions_count += item.focus_sessions_count || 0;
+                acc.focus_sessions_total += item.focus_sessions_total || 0;
+                acc.focus_sessions_completed += item.focus_sessions_completed || 0;
                 return acc;
-            }, { focus_time_spent_minutes: 0, focus_sessions_count: 0 });
+            }, { focus_time_spent_minutes: 0, focus_sessions_count: 0, focus_sessions_total: 0, focus_sessions_completed: 0 });
 
             return {
                 ...prev,
@@ -288,6 +369,17 @@ const FocusDashboard = () => {
         }
     }, [loadFocusInsights, pendingSyncAttempted, persistFocusState]);
 
+    const getElapsedSeconds = useCallback((timestamp = Date.now()) => {
+        if (!focusStartedAt) return 0;
+        const baseElapsed = Math.max(0, Math.floor((timestamp - focusStartedAt) / 1000));
+        const pausedOffset = totalPausedSeconds + (
+            focusStatus === 'paused' && focusPausedAt
+                ? Math.max(0, Math.floor((timestamp - focusPausedAt) / 1000))
+                : 0
+        );
+        return Math.max(0, baseElapsed - pausedOffset);
+    }, [focusPausedAt, focusStartedAt, focusStatus, totalPausedSeconds]);
+
     const completeFocusSession = useCallback(async (endTimestamp, reason = 'manual') => {
         if (!focusStartedAt || savingFocusSession || focusCompletingRef.current) return;
         if (reason === 'auto' && focusCompletionAttempted) return;
@@ -295,10 +387,14 @@ const FocusDashboard = () => {
         focusCompletingRef.current = true;
         const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
         const safeEndTimestamp = Number.isFinite(endTimestamp) ? endTimestamp : Date.now();
-        const durationSeconds = Math.max(0, Math.floor((safeEndTimestamp - focusStartedAt) / 1000));
-        const durationMinutes = Math.min(1440, Math.max(1, Math.ceil(durationSeconds / 60)));
+        const elapsedSeconds = getElapsedSeconds(safeEndTimestamp);
+        const maxSeconds = normalizedDuration * 60;
+        const actualSeconds = Math.min(elapsedSeconds, maxSeconds);
+        const actualMinutes = Math.min(1440, Math.max(1, Math.ceil(actualSeconds / 60)));
+        const targetMinutes = Math.min(1440, Math.max(1, normalizedDuration));
         const start = new Date(focusStartedAt);
         const end = new Date(safeEndTimestamp);
+        const status = reason === 'auto' || actualSeconds >= maxSeconds ? 'completed' : 'partial';
 
         setSavingFocusSession(true);
         setFocusError('');
@@ -312,7 +408,11 @@ const FocusDashboard = () => {
             date: toYmd(start),
             start_time: toHms(start),
             end_time: toHms(end),
-            duration_minutes: Math.min(durationMinutes, normalizedDuration),
+            duration_minutes: actualMinutes,
+            target_minutes: targetMinutes,
+            actual_minutes: actualMinutes,
+            status,
+            schedule_task_id: selectedTask?.id || null,
             category: focusCategory.trim()
         };
 
@@ -328,10 +428,30 @@ const FocusDashboard = () => {
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
             setFocusSessionId(null);
+            setFocusStatus('idle');
+            setFocusPausedAt(null);
+            setTotalPausedSeconds(0);
             setFocusCompletionAttempted(false);
             setPendingFocusSession(null);
             setPendingSyncAttempted(false);
-            persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession: null, enabled: true });
+            persistFocusState({
+                startedAt: null,
+                sessionId: null,
+                status: 'idle',
+                pausedAt: null,
+                totalPausedSeconds: 0,
+                completionAttempted: false,
+                pendingSession: null,
+                enabled: true
+            });
+
+            if (selectedTask?.id) {
+                const endMinutes = timeToMinutes(selectedTask.slot_end_time);
+                const currentMinutes = (new Date()).getHours() * 60 + (new Date()).getMinutes();
+                const shouldComplete = Number.isFinite(endMinutes) && currentMinutes >= endMinutes;
+                const nextStatus = shouldComplete ? 'completed' : 'in_progress';
+                await updateScheduleTaskStatus(selectedTask.id, nextStatus);
+            }
         } catch (error) {
             const message = resolveFocusErrorMessage(error, 'Failed to save focus session.');
             if (/no response from server/i.test(message)) {
@@ -347,12 +467,15 @@ const FocusDashboard = () => {
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
             setFocusSessionId(null);
+            setFocusStatus('idle');
+            setFocusPausedAt(null);
+            setTotalPausedSeconds(0);
             setFocusCompletionAttempted(false);
         } finally {
             setSavingFocusSession(false);
             focusCompletingRef.current = false;
         }
-    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusStartedAt, loadFocusInsights, persistFocusState, savingFocusSession]);
+    }, [focusCategory, focusCompletionAttempted, focusDurationMinutes, focusGoal, focusStartedAt, getElapsedSeconds, loadFocusInsights, persistFocusState, savingFocusSession, selectedTask, updateScheduleTaskStatus]);
 
     useEffect(() => {
         if (!user?.id) return;
@@ -366,6 +489,13 @@ const FocusDashboard = () => {
             && stored.startedAt > 0
             && stored.startedAt <= nowTimestamp + 60 * 1000;
         const restoredSessionId = hasValidStart ? (stored.sessionId || `${stored.startedAt}`) : null;
+        const restoredStatus = hasValidStart
+            ? (stored.status === 'paused' ? 'paused' : 'running')
+            : 'idle';
+        const restoredPausedAt = stored.status === 'paused' ? stored.pausedAt : null;
+        const restoredPausedSeconds = Number.isFinite(stored.totalPausedSeconds)
+            ? Math.max(0, stored.totalPausedSeconds)
+            : 0;
 
         if (stored.startedAt && !hasValidStart) {
             const pendingSession = stored.pendingSession || null;
@@ -373,6 +503,9 @@ const FocusDashboard = () => {
             setFocusEnabled(Boolean(stored.enabled));
             setFocusSessionId(null);
             setFocusStartedAt(null);
+            setFocusStatus('idle');
+            setFocusPausedAt(null);
+            setTotalPausedSeconds(0);
             setElapsedFocusSeconds(0);
             setFocusCompletionAttempted(false);
             setPendingFocusSession(pendingSession);
@@ -381,6 +514,8 @@ const FocusDashboard = () => {
             setFocusCategory(storedCategory);
             setCustomCategory(storedCategory && !FOCUS_CATEGORY_OPTIONS.includes(storedCategory) ? storedCategory : '');
             setFocusGoal(typeof stored.goal === 'string' ? stored.goal : '');
+            setSelectedTaskId(stored.selectedTaskId || null);
+            setFocusTaskSnapshot(stored.focusTaskSnapshot || null);
 
             if (pendingSession) {
                 writeFocusStorage(user.id, {
@@ -403,7 +538,18 @@ const FocusDashboard = () => {
         setFocusEnabled(Boolean(stored.enabled || hasValidStart));
         setFocusSessionId(restoredSessionId);
         setFocusStartedAt(hasValidStart ? stored.startedAt : null);
-        setElapsedFocusSeconds(hasValidStart ? Math.max(0, Math.floor((Date.now() - stored.startedAt) / 1000)) : 0);
+        setFocusStatus(restoredStatus);
+        setFocusPausedAt(restoredPausedAt);
+        setTotalPausedSeconds(restoredPausedSeconds);
+        if (hasValidStart) {
+            const baseElapsed = Math.max(0, Math.floor((Date.now() - stored.startedAt) / 1000));
+            const pausedOffset = restoredPausedSeconds + (restoredStatus === 'paused' && restoredPausedAt
+                ? Math.max(0, Math.floor((Date.now() - restoredPausedAt) / 1000))
+                : 0);
+            setElapsedFocusSeconds(Math.max(0, baseElapsed - pausedOffset));
+        } else {
+            setElapsedFocusSeconds(0);
+        }
         setFocusCompletionAttempted(hasValidStart && stored.sessionId && stored.sessionId === restoredSessionId
             ? Boolean(stored.completionAttempted)
             : false);
@@ -413,12 +559,32 @@ const FocusDashboard = () => {
         setFocusCategory(storedCategory);
         setCustomCategory(storedCategory && !FOCUS_CATEGORY_OPTIONS.includes(storedCategory) ? storedCategory : '');
         setFocusGoal(typeof stored.goal === 'string' ? stored.goal : '');
+        setSelectedTaskId(stored.selectedTaskId || null);
+        setFocusTaskSnapshot(stored.focusTaskSnapshot || null);
     }, [user?.id]);
 
     useEffect(() => {
         if (!pendingFocusSession) return;
         syncPendingFocusSession(pendingFocusSession);
     }, [pendingFocusSession, syncPendingFocusSession]);
+
+    useEffect(() => {
+        if (focusStatus !== 'idle') return;
+        if (currentTasks.length === 1) {
+            setSelectedTaskId(currentTasks[0].id);
+            setFocusTaskSnapshot(currentTasks[0]);
+            if (focusRemainingTaskMinutes) {
+                setFocusDurationMinutes(Math.min(focusRemainingTaskMinutes, DEFAULT_FOCUS_DURATION_MINUTES));
+            }
+        }
+    }, [currentTasks, focusRemainingTaskMinutes, focusStatus]);
+
+    useEffect(() => {
+        if (focusStatus !== 'idle' || !selectedTask) return;
+        if (focusRemainingTaskMinutes) {
+            setFocusDurationMinutes(Math.min(focusRemainingTaskMinutes, DEFAULT_FOCUS_DURATION_MINUTES));
+        }
+    }, [focusRemainingTaskMinutes, focusStatus, selectedTask]);
 
     useEffect(() => {
         loadFocusInsights();
@@ -429,34 +595,43 @@ const FocusDashboard = () => {
     }, [persistFocusState]);
 
     useEffect(() => {
-        if (!focusStartedAt || !focusEnabled) return undefined;
+        if (!focusStartedAt || !focusEnabled || focusStatus !== 'running') return undefined;
 
         const normalizedDuration = normalizeFocusDurationMinutes(focusDurationMinutes);
-        const endTimestamp = focusStartedAt + (normalizedDuration * 60 * 1000);
-
-        if (Date.now() >= endTimestamp) {
-            setElapsedFocusSeconds(normalizedDuration * 60);
-            completeFocusSession(endTimestamp, 'auto');
-            return undefined;
-        }
+        const maxSeconds = normalizedDuration * 60;
 
         const interval = setInterval(() => {
-            const now = Date.now();
-            setElapsedFocusSeconds(Math.min(normalizedDuration * 60, Math.max(0, Math.floor((now - focusStartedAt) / 1000))));
-            if (now >= endTimestamp) {
+            const elapsed = getElapsedSeconds();
+            const remaining = Math.max(0, maxSeconds - elapsed);
+            setElapsedFocusSeconds(Math.min(maxSeconds, elapsed));
+            if (remaining <= 0) {
                 clearInterval(interval);
-                completeFocusSession(endTimestamp, 'auto');
+                completeFocusSession(Date.now(), 'auto');
             }
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [completeFocusSession, focusDurationMinutes, focusEnabled, focusStartedAt]);
+    }, [completeFocusSession, focusDurationMinutes, focusEnabled, focusStartedAt, focusStatus, getElapsedSeconds]);
 
     const projectedEndTime = useMemo(() => {
         if (!focusStartedAt || !focusEnabled) return null;
-        const endTimestamp = focusStartedAt + (Math.max(1, Number(focusDurationMinutes) || 1) * 60 * 1000);
-        return new Date(endTimestamp);
-    }, [focusDurationMinutes, focusEnabled, focusStartedAt]);
+        const durationMs = Math.max(1, Number(focusDurationMinutes) || 1) * 60 * 1000;
+        const pauseOffset = (totalPausedSeconds * 1000)
+            + (focusStatus === 'paused' && focusPausedAt ? (Date.now() - focusPausedAt) : 0);
+        return new Date(focusStartedAt + durationMs + pauseOffset);
+    }, [focusDurationMinutes, focusEnabled, focusPausedAt, focusStartedAt, focusStatus, totalPausedSeconds]);
+
+    const focusTotalSeconds = useMemo(() => (
+        Math.max(1, Number(focusDurationMinutes) || 1) * 60
+    ), [focusDurationMinutes]);
+
+    const focusRemainingSeconds = useMemo(() => (
+        Math.max(0, focusTotalSeconds - elapsedFocusSeconds)
+    ), [elapsedFocusSeconds, focusTotalSeconds]);
+
+    const focusProgressPercent = useMemo(() => (
+        Math.min(100, Math.max(0, (elapsedFocusSeconds / focusTotalSeconds) * 100))
+    ), [elapsedFocusSeconds, focusTotalSeconds]);
 
     const chartColors = [
         '#6366F1',
@@ -546,16 +721,31 @@ const FocusDashboard = () => {
     };
 
     const handleFocusDurationBlur = () => {
-        setFocusDurationMinutes(normalizeFocusDurationMinutes(focusDurationMinutes));
+        const normalized = normalizeFocusDurationMinutes(focusDurationMinutes);
+        if (focusRemainingTaskMinutes) {
+            setFocusDurationMinutes(Math.min(normalized, focusRemainingTaskMinutes));
+            return;
+        }
+        setFocusDurationMinutes(normalized);
     };
 
-    const startFocusMode = () => {
+    const startFocusMode = async () => {
         if (!focusEnabled) {
             setFocusError('Enable focus mode first.');
             return;
         }
 
-        if (focusStartedAt || savingFocusSession) {
+        if (focusStartedAt || savingFocusSession || focusStatus !== 'idle') {
+            return;
+        }
+
+        if (!selectedTask || !currentTasks.some((task) => task.id === selectedTask.id)) {
+            setFocusError('Select an active task to start focus.');
+            return;
+        }
+
+        if (['completed', 'cancelled'].includes(selectedTask.status)) {
+            setFocusError('Completed tasks cannot enter focus mode.');
             return;
         }
 
@@ -564,13 +754,29 @@ const FocusDashboard = () => {
 
         setFocusError('');
         setFocusMessage('');
-        setFocusDurationMinutes(normalizedDuration);
+        if (focusRemainingTaskMinutes) {
+            setFocusDurationMinutes(Math.min(normalizedDuration, focusRemainingTaskMinutes));
+        } else {
+            setFocusDurationMinutes(normalizedDuration);
+        }
         setFocusStartedAt(Date.now());
         setFocusSessionId(sessionId);
+        setFocusStatus('running');
+        setFocusPausedAt(null);
+        setTotalPausedSeconds(0);
         setFocusCompletionAttempted(false);
         setPendingFocusSession(null);
         setPendingSyncAttempted(false);
         setElapsedFocusSeconds(0);
+        setFocusTaskSnapshot(selectedTask);
+
+        if (selectedTask.status === 'pending') {
+            try {
+                await updateScheduleTaskStatus(selectedTask.id, 'in_progress');
+            } catch (error) {
+                setFocusError('Unable to update task status for focus mode.');
+            }
+        }
     };
 
     const stopFocusMode = async () => {
@@ -578,14 +784,40 @@ const FocusDashboard = () => {
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
             setFocusSessionId(null);
+            setFocusStatus('idle');
+            setFocusPausedAt(null);
+            setTotalPausedSeconds(0);
             setFocusCompletionAttempted(false);
             setPendingFocusSession(null);
             setPendingSyncAttempted(false);
-            persistFocusState({ startedAt: null, sessionId: null, completionAttempted: false, pendingSession: null });
+            persistFocusState({
+                startedAt: null,
+                sessionId: null,
+                status: 'idle',
+                pausedAt: null,
+                totalPausedSeconds: 0,
+                completionAttempted: false,
+                pendingSession: null
+            });
             return;
         }
 
         await completeFocusSession(Date.now(), 'manual');
+    };
+
+    const pauseFocusMode = () => {
+        if (focusStatus !== 'running' || !focusStartedAt) return;
+        setElapsedFocusSeconds(getElapsedSeconds());
+        setFocusStatus('paused');
+        setFocusPausedAt(Date.now());
+    };
+
+    const resumeFocusMode = () => {
+        if (focusStatus !== 'paused' || !focusStartedAt || !focusPausedAt) return;
+        const pausedSeconds = Math.max(0, Math.floor((Date.now() - focusPausedAt) / 1000));
+        setTotalPausedSeconds((prev) => prev + pausedSeconds);
+        setFocusPausedAt(null);
+        setFocusStatus('running');
     };
 
     const toggleFocusEnabled = async (event) => {
@@ -638,6 +870,69 @@ const FocusDashboard = () => {
                         <p className="muted focus-disabled">Enable focus mode to start a new session and track your time.</p>
                     ) : (
                         <>
+                            <div className="focus-task-panel">
+                                <div className="focus-task-header">
+                                    <h3>Current Task</h3>
+                                    <span className="muted">Only ongoing tasks can enter focus mode.</span>
+                                </div>
+
+                                {currentTasks.length === 0 ? (
+                                    <div className="focus-task-empty">
+                                        No active tasks right now. Start a scheduled task to focus.
+                                    </div>
+                                ) : (
+                                    <>
+                                        {currentTasks.length > 1 && (
+                                            <label className="focus-task-select">
+                                                <span className="muted">Choose active task</span>
+                                                <select
+                                                    value={selectedTaskId || ''}
+                                                    onChange={(event) => {
+                                                        const nextId = event.target.value || null;
+                                                        setSelectedTaskId(nextId);
+                                                        const nextTask = currentTasks.find((task) => task.id === nextId) || null;
+                                                        setFocusTaskSnapshot(nextTask);
+                                                    }}
+                                                    disabled={focusStatus !== 'idle'}
+                                                >
+                                                    <option value="">Select a task</option>
+                                                    {currentTasks.map((task) => (
+                                                        <option key={task.id} value={task.id}>
+                                                            {task.title}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                        )}
+
+                                        {selectedTask && (
+                                            <div className="focus-task-card">
+                                                <div>
+                                                    <h4>{selectedTask.title}</h4>
+                                                    {selectedTask.description && (
+                                                        <p className="muted">{selectedTask.description}</p>
+                                                    )}
+                                                    <div className="focus-task-meta">
+                                                        <span>⏰ {selectedTask.slot_start_time?.slice(0, 5)} - {selectedTask.slot_end_time?.slice(0, 5)}</span>
+                                                        <span className={`task-priority priority-${selectedTask.priority || 'medium'}`}>
+                                                            {selectedTask.priority || 'medium'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="focus-task-status">
+                                                    <span className={`task-status-badge ${selectedTask.status === 'in_progress' ? 'status-current' : 'status-upcoming'}`}>
+                                                        {selectedTask.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                                                    </span>
+                                                    {focusRemainingTaskMinutes && (
+                                                        <span className="focus-task-remaining">{focusRemainingTaskMinutes} min left</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+
                             <div className="focus-settings-row">
                                 <label htmlFor="focus-duration" className="muted">Session target (minutes)</label>
                                 <input
@@ -645,7 +940,7 @@ const FocusDashboard = () => {
                                     className="input focus-duration-input"
                                     type="number"
                                     min="1"
-                                    max="240"
+                                    max={focusRemainingTaskMinutes || 240}
                                     value={focusDurationMinutes}
                                     onChange={handleFocusDurationChange}
                                     onBlur={handleFocusDurationBlur}
@@ -728,27 +1023,44 @@ const FocusDashboard = () => {
                             </div>
 
                             <div className="focus-live-box">
-                                <p className="focus-timer">{formatElapsed(elapsedFocusSeconds)}</p>
-                                <p className="muted">
-                                    Ending time:{' '}
-                                    <strong>{projectedEndTime ? projectedEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</strong>
-                                </p>
+                                <div className="focus-timer-row">
+                                    <p className="focus-timer">{formatElapsed(focusRemainingSeconds)}</p>
+                                    <div className="focus-progress-ring" style={{ '--progress': `${focusProgressPercent}%` }}>
+                                        <span>{Math.round(focusProgressPercent)}%</span>
+                                    </div>
+                                </div>
+                                <div className="focus-timer-meta">
+                                    <span>Started: {focusStartedAt ? new Date(focusStartedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                                    <span>Ends: {projectedEndTime ? projectedEndTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--'}</span>
+                                    <span>Total: {focusDurationMinutes} min</span>
+                                </div>
                             </div>
 
                             <div className="focus-actions">
-                                {!focusStartedAt ? (
+                                {focusStatus === 'idle' ? (
                                     <button className="btn btn-primary" type="button" onClick={startFocusMode}>
                                         Start Focus
                                     </button>
                                 ) : (
-                                    <button className="btn btn-danger" type="button" onClick={stopFocusMode} disabled={savingFocusSession}>
-                                        {savingFocusSession ? 'Saving...' : 'Stop Focus'}
-                                    </button>
+                                    <div className="focus-action-group">
+                                        {focusStatus === 'running' ? (
+                                            <button className="btn btn-outline" type="button" onClick={pauseFocusMode}>
+                                                Pause
+                                            </button>
+                                        ) : (
+                                            <button className="btn btn-secondary" type="button" onClick={resumeFocusMode}>
+                                                Resume
+                                            </button>
+                                        )}
+                                        <button className="btn btn-danger" type="button" onClick={stopFocusMode} disabled={savingFocusSession}>
+                                            {savingFocusSession ? 'Saving...' : 'Stop Focus'}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
 
                             {focusError && <p className="dashboard-error">{focusError}</p>}
-                            {focusMessage && <p className="muted">{focusMessage}</p>}
+                            {focusMessage && <div className="focus-complete-banner">{focusMessage}</div>}
                         </>
                     )}
                 </section>
@@ -790,7 +1102,15 @@ const FocusDashboard = () => {
                         </div>
                         <div>
                             <span className="profile-label">Completed Sessions</span>
-                            <p>{focusInsights.totals.focus_sessions_count || 0}</p>
+                            <p>{focusInsights.totals.focus_sessions_completed || 0}</p>
+                        </div>
+                        <div>
+                            <span className="profile-label">Focus Success Rate</span>
+                            <p>
+                                {focusInsights.totals.focus_sessions_total
+                                    ? `${Math.round((focusInsights.totals.focus_sessions_completed / focusInsights.totals.focus_sessions_total) * 100)}%`
+                                    : '0%'}
+                            </p>
                         </div>
                     </div>
 
