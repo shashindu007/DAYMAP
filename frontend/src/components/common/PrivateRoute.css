@@ -150,34 +150,37 @@
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.4rem 0.75rem;
-    border-radius: 8px;
-    border: 1px solid rgba(148, 163, 184, 0.35);
-    background: transparent;
-    color: var(--text-secondary);
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--primary-dark);
     font-size: 0.85rem;
     cursor: pointer;
+    font-weight: 600;
 }
 
 .settings-btn:hover {
-    background-color: var(--primary-light);
-    color: var(--text-primary);
+    background: rgba(99, 102, 241, 0.16);
+    color: var(--primary-dark);
+    border-color: rgba(99, 102, 241, 0.4);
 }
 
 .nav-logout-btn {
-    padding: 0.4rem 0.8rem;
-    border-color: var(--danger);
-    color: var(--danger);
-    border-radius: 6px;
-    background-color: rgba(248, 113, 113, 0.1);
+    padding: 0.45rem 0.95rem;
+    border-radius: 999px;
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #b91c1c;
+    background-color: rgba(239, 68, 68, 0.12);
     font-size: 0.85rem;
     cursor: pointer;
+    font-weight: 600;
 }
 
 .nav-logout-btn:hover {
-    background-color: var(--danger);
+    background-color: #ef4444;
     color: white;
-    border-color: var(--danger);
+    border-color: #ef4444;
 }
 
 .main-content {
