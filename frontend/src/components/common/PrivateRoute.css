@@ -27,13 +27,24 @@
 }
 
 .header-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    cursor: default;
+}
+
+.brand-title {
     font-size: 1.35rem;
     font-weight: 800;
     background: var(--primary-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    cursor: default;
     letter-spacing: -0.3px;
+}
+
+.brand-greeting {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
 }
 
 .header-nav {
@@ -68,11 +79,33 @@
     gap: 1rem;
 }
 
-.user-greeting {
+.header-time-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 0.9rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(56, 189, 248, 0.2));
+    border: 1px solid rgba(99, 102, 241, 0.25);
     font-size: 0.9rem;
-    font-weight: 500;
-    color: var(--text-secondary);
+    white-space: nowrap;
 }
+
+.dark .header-time-badge {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(37, 99, 235, 0.25));
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+.header-time-text {
+    color: var(--primary-dark);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.dark .header-time-text {
+    color: #E0E7FF;
+}
+
 
 .btn-icon {
     background: transparent;
@@ -87,19 +120,37 @@
     transform: rotate(20deg);
 }
 
+.settings-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.settings-btn:hover {
+    background-color: var(--primary-light);
+    color: var(--text-primary);
+}
+
 .nav-logout-btn {
     padding: 0.4rem 0.8rem;
-    border-color: var(--text-secondary);
-    color: var(--text-secondary);
+    border-color: var(--danger);
+    color: var(--danger);
     border-radius: 6px;
-    background-color: transparent;
+    background-color: rgba(248, 113, 113, 0.1);
     font-size: 0.85rem;
     cursor: pointer;
 }
 
 .nav-logout-btn:hover {
-    background-color: var(--danger-light);
-    color: var(--danger);
+    background-color: var(--danger);
+    color: white;
     border-color: var(--danger);
 }
 
@@ -107,7 +158,7 @@
     flex: 1;
     padding: 2rem 1rem;
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 

@@ -28,6 +28,40 @@
     border-radius: 0.9rem;
 }
 
+.dashboard-time-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.4rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(56, 189, 248, 0.15));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 1rem;
+    box-shadow: 0 18px 32px -24px rgba(15, 23, 42, 0.25);
+}
+
+.dark .dashboard-time-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85), rgba(37, 99, 235, 0.2));
+    border-color: rgba(59, 130, 246, 0.35);
+}
+
+.dashboard-time-tag {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.16);
+    color: #4F46E5;
+}
+
+.dark .dashboard-time-tag {
+    background: rgba(96, 165, 250, 0.25);
+    color: #BFDBFE;
+}
+
 .clock-date {
     color: var(--text-secondary);
     font-size: 0.84rem;
@@ -302,6 +336,11 @@
     .dashboard-live-clock {
         width: 100%;
         text-align: left;
+    }
+
+    .dashboard-time-card {
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .upcoming-list li {

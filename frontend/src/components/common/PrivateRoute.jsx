@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import './PrivateRoute.css';
@@ -7,6 +7,12 @@ const PrivateRoute = ({ children }) => {
     const { isAuthenticated, loading, logout, user } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
+    const [now, setNow] = useState(new Date());
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleLogout = async () => {
         await logout();
@@ -38,7 +44,10 @@ const PrivateRoute = ({ children }) => {
     return (
         <div className="app-shell">
             <header className="app-header">
-                <div className="header-brand">DayMap</div>
+                <div className="header-brand">
+                    <span className="brand-title">DayMap</span>
+                    <span className="brand-greeting">Hi, {user?.name || 'User'}</span>
+                </div>
                 
                 <nav className="header-nav">
                     {navLinks.map((link) => (
@@ -53,8 +62,21 @@ const PrivateRoute = ({ children }) => {
                 </nav>
 
                 <div className="header-actions">
-                    <span className="user-greeting">Hi, {user?.name || 'User'}</span>
-                    <button onClick={() => navigate('/settings')} className="btn-icon" title="Settings">⚙️</button>
+                    <div className="header-time-badge">
+                        <span className="header-time-text">
+                            {now.toLocaleDateString(undefined, {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric'
+                            })}
+                            {', '}
+                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                    </div>
+                    <button onClick={() => navigate('/settings')} className="settings-btn" title="Settings">
+                        <span aria-hidden>⚙️</span>
+                        Settings
+                    </button>
                     <button onClick={handleLogout} className="btn btn-outline nav-logout-btn">Log Out</button>
                 </div>
             </header>

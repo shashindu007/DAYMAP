@@ -152,19 +152,6 @@ const TodayView = () => {
                         <h1>Today's Dashboard</h1>
                         <p className="today-subtitle">Stay on track with a real-time view of today’s tasks.</p>
                     </div>
-                    <div className="today-live-clock">
-                        <p className="today-clock-date">
-                            {now.toLocaleDateString(undefined, {
-                                weekday: 'long',
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                            })}
-                        </p>
-                        <p className="today-clock-time">
-                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        </p>
-                    </div>
                     <div className="today-actions">
                         <Button variant="secondary" onClick={() => navigate(`/dashboard?edit=${todayYmd}`)}>
                             Edit Schedule

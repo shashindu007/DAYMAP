@@ -35,33 +35,6 @@
     font-size: 0.95rem;
 }
 
-.today-live-clock {
-    min-width: 230px;
-    padding: 0.75rem 1rem;
-    border-radius: 0.9rem;
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(99, 102, 241, 0.12));
-    border: 1px solid rgba(59, 130, 246, 0.18);
-    text-align: right;
-}
-
-.dark .today-live-clock {
-    background: rgba(15, 23, 42, 0.8);
-    border-color: rgba(148, 163, 184, 0.2);
-}
-
-.today-clock-date {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.82rem;
-}
-
-.today-clock-time {
-    margin: 0.25rem 0 0;
-    font-size: 1.4rem;
-    font-weight: 700;
-    color: var(--primary-dark);
-}
-
 .today-header h1 {
     margin-bottom: 0;
     color: var(--text-primary);

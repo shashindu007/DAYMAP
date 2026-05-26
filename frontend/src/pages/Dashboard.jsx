@@ -151,7 +151,12 @@ const Dashboard = () => {
         <div className="dashboard-container">
             <div className="dashboard-header-row">
                 <h1>Dashboard</h1>
-                <div className="dashboard-live-clock card">
+            </div>
+
+            {dashboardError && <p className="dashboard-error">{dashboardError}</p>}
+
+            <section className="dashboard-time-card card">
+                <div>
                     <p className="clock-date">
                         {now.toLocaleDateString(undefined, {
                             weekday: 'long',
@@ -162,9 +167,8 @@ const Dashboard = () => {
                     </p>
                     <p className="clock-time">{formatClock(now)}</p>
                 </div>
-            </div>
-
-            {dashboardError && <p className="dashboard-error">{dashboardError}</p>}
+                <span className="dashboard-time-tag">Live</span>
+            </section>
 
             <section className="dashboard-calendar card">
                 <div className="dashboard-section-header">
