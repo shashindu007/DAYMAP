@@ -37,6 +37,38 @@
     margin-bottom: 1rem;
 }
 
+.week-summary-card {
+    border: 1px solid var(--border);
+    border-radius: 0.9rem;
+    padding: 0.9rem 1rem;
+    background: linear-gradient(140deg, rgba(255, 255, 255, 0.9), rgba(240, 249, 255, 0.7));
+    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+}
+
+.dark .week-summary-card {
+    background: linear-gradient(140deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.8));
+    border-color: #334155;
+}
+
+.week-summary-card.accent {
+    background: linear-gradient(130deg, rgba(99, 102, 241, 0.15), rgba(14, 165, 233, 0.15));
+}
+
+.week-progress {
+    height: 6px;
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 0.4rem 0 0.2rem;
+}
+
+.week-progress span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #6366F1, #22C55E);
+    border-radius: 999px;
+}
+
 .week-summary-grid p {
     margin-top: 0.3rem;
     font-size: 1.1rem;
@@ -61,6 +93,13 @@
     font-size: 0.85rem;
 }
 
+.week-strip-meta {
+    display: grid;
+    justify-items: end;
+    gap: 0.15rem;
+    text-align: right;
+}
+
 .dark .week-strip-item {
     background: rgba(17, 24, 39, 0.65);
     border-color: #374151;
@@ -70,6 +109,44 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
     gap: 1.5rem;
+}
+
+.week-insights {
+    margin-bottom: 1.5rem;
+}
+
+.week-trend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.75rem;
+}
+
+.week-trend-card {
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    padding: 0.75rem 0.85rem;
+    background: rgba(255, 255, 255, 0.8);
+    display: grid;
+    gap: 0.35rem;
+}
+
+.dark .week-trend-card {
+    background: rgba(15, 23, 42, 0.7);
+    border-color: #334155;
+}
+
+.week-trend-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.25);
+    overflow: hidden;
+}
+
+.week-trend-bar span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #22C55E, #0EA5E9);
+    border-radius: 999px;
 }
 
 .week-panel-header {

@@ -1,6 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 const Schedule = require('../models/Schedule');
 const ScheduleTask = require('../models/ScheduleTask');
+const Task = require('../models/Task');
+const Analytics = require('../models/Analytics');
 
 const normalizeTimeToSeconds = (value) => {
     if (!value || typeof value !== 'string') return null;
@@ -102,6 +104,26 @@ const getScheduleByDate = async (userId, date) => {
     };
 };
 
+const updateAnalyticsForDate = async (userId, date) => {
+    try {
+        const [scheduleStats, taskStats] = await Promise.all([
+            ScheduleTask.getStatsByDate(userId, date),
+            Task.getStatsByDate(userId, date)
+        ]);
+
+        const combined = {
+            total_tasks_scheduled: (parseInt(scheduleStats.total_tasks, 10) || 0) + (parseInt(taskStats.total_tasks, 10) || 0),
+            total_tasks_completed: (parseInt(scheduleStats.completed_tasks, 10) || 0) + (parseInt(taskStats.completed_tasks, 10) || 0),
+            total_time_scheduled_minutes: (parseInt(scheduleStats.total_scheduled_minutes, 10) || 0) + (parseInt(taskStats.total_scheduled_minutes, 10) || 0),
+            total_time_spent_minutes: (parseInt(scheduleStats.total_actual_minutes, 10) || 0) + (parseInt(taskStats.total_actual_minutes, 10) || 0)
+        };
+
+        await Analytics.upsert(userId, date, combined);
+    } catch (error) {
+        console.warn('Schedule analytics update failed:', error?.message || error);
+    }
+};
+
 const createOrReplaceSchedule = async (userId, date, slots, replaceExisting) => {
     const schedule = await getOrCreateSchedule(userId, date);
 
@@ -126,6 +148,8 @@ const createOrReplaceSchedule = async (userId, date, slots, replaceExisting) => 
     }));
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);
+
+    await updateAnalyticsForDate(userId, date);
 
     return {
         schedule,
@@ -154,6 +178,8 @@ const replaceScheduleForDate = async (userId, date, slots) => {
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);
 
+    await updateAnalyticsForDate(userId, date);
+
     return {
         schedule,
         tasks
@@ -163,25 +189,31 @@ const replaceScheduleForDate = async (userId, date, slots) => {
 const updateScheduleTask = async (userId, taskId, updates) => {
     const existing = await ScheduleTask.findById(taskId);
     if (!existing || existing.user_id !== userId) return null;
-    return ScheduleTask.update(taskId, updates);
+    const updated = await ScheduleTask.update(taskId, updates);
+    await updateAnalyticsForDate(userId, existing.scheduled_date);
+    return updated;
 };
 
 const updateScheduleTaskStatus = async (userId, taskId, status) => {
     const existing = await ScheduleTask.findById(taskId);
     if (!existing || existing.user_id !== userId) return null;
-    return ScheduleTask.updateStatus(taskId, status);
+    const updated = await ScheduleTask.updateStatus(taskId, status);
+    await updateAnalyticsForDate(userId, existing.scheduled_date);
+    return updated;
 };
 
 const deleteScheduleTask = async (userId, taskId) => {
     const existing = await ScheduleTask.findById(taskId);
     if (!existing || existing.user_id !== userId) return null;
     await ScheduleTask.deleteById(taskId);
+    await updateAnalyticsForDate(userId, existing.scheduled_date);
     return existing;
 };
 
 const deleteScheduleByDate = async (userId, date) => {
     await ScheduleTask.deleteByUserAndDate(userId, date);
     await Schedule.deleteByUserAndDate(userId, date);
+    await updateAnalyticsForDate(userId, date);
 };
 
 const getScheduleRange = async (userId, startDate, endDate) => {

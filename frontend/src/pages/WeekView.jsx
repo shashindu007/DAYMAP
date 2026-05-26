@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import taskService from '../services/taskService';
 import routineService from '../services/routineService';
+import scheduleService from '../services/scheduleService';
+import analyticsService from '../services/analyticsService';
 import './WeekView.css';
 
 const toYmd = (date) => {
@@ -24,10 +26,26 @@ const titleCase = (value) => (
         : ''
 );
 
+const getWeekRange = (baseDate = new Date()) => {
+    const today = new Date(baseDate);
+    const start = new Date(today);
+    start.setDate(today.getDate() - today.getDay());
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return {
+        start,
+        end,
+        startYmd: toYmd(start),
+        endYmd: toYmd(end)
+    };
+};
+
 const WeekView = () => {
     const [weekTasks, setWeekTasks] = useState([]);
     const [routines, setRoutines] = useState([]);
     const [weekRange, setWeekRange] = useState({ start: '', end: '' });
+    const [weeklyAnalytics, setWeeklyAnalytics] = useState(null);
+    const [weeklyTrends, setWeeklyTrends] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -36,21 +54,47 @@ const WeekView = () => {
             setLoading(true);
             setError('');
 
-            const [tasksResponse, routinesResponse] = await Promise.all([
+            const { startYmd, endYmd } = getWeekRange();
+
+            const [tasksResponse, scheduleResponse, routinesResponse, weeklyResponse, trendsResponse] = await Promise.all([
                 taskService.getWeekTasks(),
-                routineService.getAllRoutines()
+                scheduleService.getScheduleRange(startYmd, endYmd),
+                routineService.getAllRoutines(),
+                analyticsService.getWeeklyAnalytics(startYmd, endYmd),
+                analyticsService.getTrends(7)
             ]);
 
             const taskPayload = tasksResponse?.data?.data || tasksResponse?.data || tasksResponse;
             const taskList = taskPayload?.tasks || taskPayload?.data?.tasks || [];
-            setWeekTasks(taskList);
+
+            const schedulePayload = scheduleResponse?.data?.data || scheduleResponse?.data || scheduleResponse;
+            const scheduleList = schedulePayload?.tasks || schedulePayload?.data?.tasks || schedulePayload || [];
+
+            const normalizedScheduleTasks = scheduleList.map((task) => ({
+                ...task,
+                scheduled_time: task.slot_start_time || task.scheduled_time || null,
+                source: 'schedule'
+            }));
+
+            const normalizedTaskList = taskList.map((task) => ({
+                ...task,
+                source: 'task'
+            }));
+
+            setWeekTasks([...normalizedScheduleTasks, ...normalizedTaskList]);
             setWeekRange({
-                start: taskPayload?.start_date || taskPayload?.data?.start_date || '',
-                end: taskPayload?.end_date || taskPayload?.data?.end_date || ''
+                start: startYmd,
+                end: endYmd
             });
 
             const routinePayload = routinesResponse?.data?.data || routinesResponse?.data || routinesResponse;
             setRoutines(routinePayload?.routines || routinePayload?.data?.routines || []);
+
+            const weeklyPayload = weeklyResponse?.data?.data || weeklyResponse?.data || weeklyResponse;
+            setWeeklyAnalytics(weeklyPayload?.data || weeklyPayload);
+
+            const trendsPayload = trendsResponse?.data?.data || trendsResponse?.data || trendsResponse;
+            setWeeklyTrends(trendsPayload?.trends || trendsPayload?.data?.trends || []);
         } catch (loadError) {
             setError(loadError?.message || 'Failed to load weekly data');
         } finally {
@@ -60,6 +104,13 @@ const WeekView = () => {
 
     useEffect(() => {
         loadWeekData();
+    }, [loadWeekData]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            loadWeekData();
+        }, 30000);
+        return () => clearInterval(interval);
     }, [loadWeekData]);
 
     const tasksByCategory = useMemo(() => {
@@ -99,28 +150,45 @@ const WeekView = () => {
     }, [routines]);
 
     const weeklyStats = useMemo(() => {
-        const total = weekTasks.length;
-        const completed = weekTasks.filter((task) => task.status === 'completed').length;
-        const inProgress = weekTasks.filter((task) => task.status === 'in_progress').length;
-        const pending = weekTasks.filter((task) => task.status === 'pending').length;
-        return { total, completed, inProgress, pending };
+        const filtered = weekTasks.filter((task) => task.status !== 'cancelled');
+        const total = filtered.length;
+        const completed = filtered.filter((task) => task.status === 'completed').length;
+        const inProgress = filtered.filter((task) => task.status === 'in_progress').length;
+        const pending = filtered.filter((task) => task.status === 'pending').length;
+        const cancelled = weekTasks.filter((task) => task.status === 'cancelled').length;
+        const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+        return { total, completed, inProgress, pending, cancelled, completionRate };
     }, [weekTasks]);
 
     const dailyCounts = useMemo(() => {
+        const { start } = getWeekRange();
         const days = [];
-        for (let i = 6; i >= 0; i -= 1) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
+        for (let i = 0; i < 7; i += 1) {
+            const date = new Date(start);
+            date.setDate(start.getDate() + i);
             const ymd = toYmd(date);
-            const count = weekTasks.filter((task) => task.scheduled_date === ymd).length;
+            const tasksForDay = weekTasks.filter((task) => task.scheduled_date === ymd && task.status !== 'cancelled');
+            const completedForDay = tasksForDay.filter((task) => task.status === 'completed').length;
+            const completionRate = tasksForDay.length > 0
+                ? Math.round((completedForDay / tasksForDay.length) * 100)
+                : 0;
             days.push({
                 date: ymd,
                 label: date.toLocaleDateString(undefined, { weekday: 'short' }),
-                count
+                count: tasksForDay.length,
+                completed: completedForDay,
+                completionRate
             });
         }
         return days;
     }, [weekTasks]);
+
+    const weeklyTotals = weeklyAnalytics?.totals || {};
+    const weeklyFocusMinutes = weeklyTotals.focus_time_spent_minutes || 0;
+    const weeklyFocusSessions = weeklyTotals.focus_sessions_count || 0;
+    const weeklyFocusSuccessRate = weeklyTotals.focus_sessions_total
+        ? Math.round((weeklyTotals.focus_sessions_completed / weeklyTotals.focus_sessions_total) * 100)
+        : 0;
 
     if (loading) {
         return (
@@ -149,21 +217,38 @@ const WeekView = () => {
 
             <section className="week-summary card">
                 <div className="week-summary-grid">
-                    <div>
+                    <div className="week-summary-card">
                         <span className="profile-label">Total Tasks</span>
                         <p>{weeklyStats.total}</p>
+                        <small className="muted">{weeklyStats.cancelled} cancelled</small>
                     </div>
-                    <div>
+                    <div className="week-summary-card">
                         <span className="profile-label">Completed</span>
                         <p>{weeklyStats.completed}</p>
+                        <div className="week-progress">
+                            <span style={{ width: `${weeklyStats.completionRate}%` }} />
+                        </div>
+                        <small className="muted">{weeklyStats.completionRate}% done</small>
                     </div>
-                    <div>
+                    <div className="week-summary-card">
                         <span className="profile-label">In Progress</span>
                         <p>{weeklyStats.inProgress}</p>
+                        <small className="muted">Active momentum</small>
                     </div>
-                    <div>
+                    <div className="week-summary-card">
                         <span className="profile-label">Pending</span>
                         <p>{weeklyStats.pending}</p>
+                        <small className="muted">Needs attention</small>
+                    </div>
+                    <div className="week-summary-card accent">
+                        <span className="profile-label">Focus Minutes</span>
+                        <p>{weeklyFocusMinutes} min</p>
+                        <small className="muted">{weeklyFocusSessions} session(s)</small>
+                    </div>
+                    <div className="week-summary-card accent">
+                        <span className="profile-label">Focus Success</span>
+                        <p>{weeklyFocusSuccessRate}%</p>
+                        <small className="muted">Weekly rate</small>
                     </div>
                 </div>
 
@@ -171,10 +256,36 @@ const WeekView = () => {
                     {dailyCounts.map((day) => (
                         <div key={day.date} className="week-strip-item">
                             <span>{day.label}</span>
-                            <strong>{day.count}</strong>
+                            <div className="week-strip-meta">
+                                <strong>{day.count}</strong>
+                                <small>{day.completed}/{day.count || 0} · {day.completionRate}%</small>
+                            </div>
                         </div>
                     ))}
                 </div>
+            </section>
+
+            <section className="week-insights card">
+                <div className="week-panel-header">
+                    <h2>Weekly Productivity Trends</h2>
+                    <span className="muted">Last 7 days</span>
+                </div>
+                {weeklyTrends.length === 0 ? (
+                    <p className="muted">No trend data yet.</p>
+                ) : (
+                    <div className="week-trend-grid">
+                        {weeklyTrends.slice(-7).map((trend) => (
+                            <div key={trend.date} className="week-trend-card">
+                                <span className="muted">{trend.date}</span>
+                                <strong>{trend.completed_tasks}/{trend.total_tasks}</strong>
+                                <div className="week-trend-bar">
+                                    <span style={{ width: `${Math.min(100, Math.round(trend.completion_rate || 0))}%` }} />
+                                </div>
+                                <small>{Number(trend.completion_rate || 0).toFixed(1)}% · {trend.time_spent_hours}h</small>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </section>
 
             <div className="week-grid">

@@ -42,6 +42,49 @@ class ScheduleTask {
             .lean();
     }
 
+    static async getStatsByDate(userId, date) {
+        const rows = await ScheduleTaskDocument.aggregate([
+            {
+                $match: {
+                    user_id: userId,
+                    scheduled_date: date
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    total_tasks: { $sum: 1 },
+                    completed_tasks: {
+                        $sum: {
+                            $cond: [{ $eq: ['$status', 'completed'] }, 1, 0]
+                        }
+                    },
+                    total_scheduled_minutes: { $sum: { $ifNull: ['$duration_minutes', 0] } },
+                    total_actual_minutes: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ['$status', 'completed'] },
+                                { $ifNull: ['$actual_duration_minutes', 0] },
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        if (!rows.length) {
+            return {
+                total_tasks: 0,
+                completed_tasks: 0,
+                total_scheduled_minutes: 0,
+                total_actual_minutes: 0
+            };
+        }
+
+        return rows[0];
+    }
+
     static async findByDateRange(userId, startDate, endDate) {
         return ScheduleTaskDocument.find({
             user_id: userId,

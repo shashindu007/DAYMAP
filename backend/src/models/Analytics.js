@@ -36,36 +36,37 @@ class Analytics {
      */
     static async upsert(userId, date, stats) {
         const {
-            total_tasks_scheduled = 0,
-            total_tasks_completed = 0,
-            total_time_scheduled_minutes = 0,
-            total_time_spent_minutes = 0,
-            focus_time_spent_minutes = 0,
-            focus_sessions_count = 0,
-            focus_sessions_total = 0,
-            focus_sessions_completed = 0
+            total_tasks_scheduled,
+            total_tasks_completed,
+            total_time_scheduled_minutes,
+            total_time_spent_minutes,
+            focus_time_spent_minutes,
+            focus_sessions_count,
+            focus_sessions_total,
+            focus_sessions_completed
         } = stats;
+
+        const setFields = {};
+        if (total_tasks_scheduled !== undefined) setFields.total_tasks_scheduled = total_tasks_scheduled;
+        if (total_tasks_completed !== undefined) setFields.total_tasks_completed = total_tasks_completed;
+        if (total_time_scheduled_minutes !== undefined) setFields.total_time_scheduled_minutes = total_time_scheduled_minutes;
+        if (total_time_spent_minutes !== undefined) setFields.total_time_spent_minutes = total_time_spent_minutes;
+        if (focus_time_spent_minutes !== undefined) setFields.focus_time_spent_minutes = focus_time_spent_minutes;
+        if (focus_sessions_count !== undefined) setFields.focus_sessions_count = focus_sessions_count;
+        if (focus_sessions_total !== undefined) setFields.focus_sessions_total = focus_sessions_total;
+        if (focus_sessions_completed !== undefined) setFields.focus_sessions_completed = focus_sessions_completed;
         
         await AnalyticsDocument.updateOne(
             { user_id: userId, date },
             {
-                $set: {
-                    total_tasks_scheduled,
-                    total_tasks_completed,
-                    total_time_scheduled_minutes,
-                    total_time_spent_minutes,
-                    focus_time_spent_minutes,
-                    focus_sessions_count,
-                    focus_sessions_total,
-                    focus_sessions_completed
-                },
+                $set: setFields,
                 $setOnInsert: {
                     id: uuidv4(),
                     user_id: userId,
                     date
                 }
             },
-            { upsert: true }
+            { upsert: true, setDefaultsOnInsert: true }
         );
         
         return await this.findByDate(userId, date);
