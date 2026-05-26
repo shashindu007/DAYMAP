@@ -153,32 +153,48 @@ const Settings = () => {
     };
 
     return (
-        <div className="dashboard-container settings-page" style={{ maxWidth: '960px' }}>
-            <h1>Settings</h1>
+        <div className="dashboard-container settings-page">
+            <div className="settings-header">
+                <div>
+                    <h1>Settings</h1>
+                    <p className="muted">Keep your profile up to date and manage security preferences.</p>
+                </div>
+            </div>
 
-            <div className="card settings-card" style={{ marginTop: '1rem' }}>
-                <h2>Profile Information</h2>
-                <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr' }} onSubmit={handleProfileSubmit} aria-busy={savingProfile}>
-                    <div className="profile-header" style={{ gridColumn: '1 / -1' }}>
+            <div className="card settings-card">
+                <div className="settings-card-header">
+                    <div>
+                        <h2>Profile Information</h2>
+                        <p className="settings-card-subtitle">Upload a profile image, update details, and keep your account fresh.</p>
+                    </div>
+                    <div className="settings-avatar-wrap">
                         {profileForm.profile_image ? (
-                            <img src={profileForm.profile_image} alt="Profile" className="profile-avatar" style={{ objectFit: 'cover' }} />
+                            <img src={profileForm.profile_image} alt="Profile" className="settings-avatar" />
                         ) : (
-                            <div className="profile-avatar">{initials}</div>
+                            <div className="settings-avatar settings-avatar-fallback">{initials}</div>
                         )}
-                        <div>
-                            <p className="profile-subtitle">Upload profile image, update details, and keep your account fresh.</p>
+                    </div>
+                </div>
+
+                <form className="settings-form" onSubmit={handleProfileSubmit} aria-busy={savingProfile}>
+                    <div className="settings-upload">
+                        <label className="settings-upload-btn">
                             <input type="file" accept="image/*" onChange={handleProfileImageSelect} disabled={savingProfile} />
-                        </div>
+                            Upload Photo
+                        </label>
+                        <span className="muted">PNG/JPG/WebP up to ~2.8MB</span>
                     </div>
 
-                    <input className="input" name="name" value={profileForm.name} onChange={handleProfileChange} placeholder="Name" required />
-                    <input className="input" name="email" value={profileForm.email} onChange={handleProfileChange} placeholder="Email" required />
-                    <input className="input" name="timezone" value={profileForm.timezone} onChange={handleProfileChange} placeholder="Timezone" />
-                    <input className="input" name="phone" value={profileForm.phone} onChange={handleProfileChange} placeholder="Phone" />
-                    <input className="input" name="location" value={profileForm.location} onChange={handleProfileChange} placeholder="Location" />
-                    <input className="input" name="bio" value={profileForm.bio} onChange={handleProfileChange} placeholder="Short bio" />
+                    <div className="settings-grid">
+                        <input className="input" name="name" value={profileForm.name} onChange={handleProfileChange} placeholder="Name" required />
+                        <input className="input" name="email" value={profileForm.email} onChange={handleProfileChange} placeholder="Email" required />
+                        <input className="input" name="timezone" value={profileForm.timezone} onChange={handleProfileChange} placeholder="Timezone" />
+                        <input className="input" name="phone" value={profileForm.phone} onChange={handleProfileChange} placeholder="Phone" />
+                        <input className="input" name="location" value={profileForm.location} onChange={handleProfileChange} placeholder="Location" />
+                        <input className="input" name="bio" value={profileForm.bio} onChange={handleProfileChange} placeholder="Short bio" />
+                    </div>
 
-                    <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="settings-actions">
                         <p
                             className={profileMessage.toLowerCase().includes('fail') ? 'dashboard-error' : 'muted'}
                             role="status"
@@ -191,56 +207,64 @@ const Settings = () => {
                 </form>
             </div>
 
-            <div className="card settings-card" style={{ marginTop: '1rem' }}>
-                <h2>Change Password</h2>
-                <form className="calendar-task-form" style={{ gridTemplateColumns: '1fr 1fr 1fr auto' }} onSubmit={handlePasswordSubmit} aria-busy={savingPassword}>
-                    <input
-                        className="input"
-                        type="password"
-                        name="currentPassword"
-                        value={passwordForm.currentPassword}
-                        onChange={handlePasswordChange}
-                        placeholder="Current password"
-                        required
-                    />
-                    <input
-                        className="input"
-                        type="password"
-                        name="newPassword"
-                        value={passwordForm.newPassword}
-                        onChange={handlePasswordChange}
-                        placeholder="New password"
-                        required
-                    />
-                    <input
-                        className="input"
-                        type="password"
-                        name="confirmPassword"
-                        value={passwordForm.confirmPassword}
-                        onChange={handlePasswordChange}
-                        placeholder="Confirm new password"
-                        required
-                    />
-                    <Button type="submit" disabled={savingPassword}>{savingPassword ? 'Updating...' : 'Change Password'}</Button>
-                    <p
-                        className={passwordMessage.toLowerCase().includes('fail') || passwordMessage.toLowerCase().includes('match') ? 'dashboard-error' : 'muted'}
-                        style={{ gridColumn: '1 / -1' }}
-                        role="status"
-                        aria-live="polite"
-                    >
-                        {passwordMessage}
-                    </p>
+            <div className="card settings-card">
+                <div className="settings-card-header">
+                    <div>
+                        <h2>Change Password</h2>
+                        <p className="settings-card-subtitle">Strengthen account security with a fresh password.</p>
+                    </div>
+                </div>
+                <form className="settings-form" onSubmit={handlePasswordSubmit} aria-busy={savingPassword}>
+                    <div className="settings-grid settings-grid-3">
+                        <input
+                            className="input"
+                            type="password"
+                            name="currentPassword"
+                            value={passwordForm.currentPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Current password"
+                            required
+                        />
+                        <input
+                            className="input"
+                            type="password"
+                            name="newPassword"
+                            value={passwordForm.newPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="New password"
+                            required
+                        />
+                        <input
+                            className="input"
+                            type="password"
+                            name="confirmPassword"
+                            value={passwordForm.confirmPassword}
+                            onChange={handlePasswordChange}
+                            placeholder="Confirm new password"
+                            required
+                        />
+                    </div>
+                    <div className="settings-actions">
+                        <p
+                            className={passwordMessage.toLowerCase().includes('fail') || passwordMessage.toLowerCase().includes('match') ? 'dashboard-error' : 'muted'}
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {passwordMessage}
+                        </p>
+                        <Button type="submit" disabled={savingPassword}>{savingPassword ? 'Updating...' : 'Change Password'}</Button>
+                    </div>
                 </form>
             </div>
 
-            <div className="card settings-card" style={{ marginTop: '1rem' }}>
-                <h2>Session</h2>
-                <p><strong>Logged in as:</strong> {user?.email}</p>
-                <div style={{ marginTop: '1rem' }}>
-                    <Button variant="danger" onClick={handleLogout}>
-                        Logout
-                    </Button>
+            <div className="card settings-card settings-session">
+                <div>
+                    <h2>Session</h2>
+                    <p className="muted">Logged in as <strong>{user?.email}</strong></p>
                 </div>
+                <Button variant="danger" onClick={handleLogout}>
+                    Log out
+                </Button>
             </div>
         </div>
     );

@@ -41,12 +41,29 @@ const PrivateRoute = ({ children }) => {
         { path: '/analytics', label: 'Analytics' }
     ];
 
+    const headerInitials = (() => {
+        const normalized = (user?.name || '').trim();
+        if (!normalized) return 'U';
+        const parts = normalized.split(/\s+/).filter(Boolean);
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    })();
+
     return (
         <div className="app-shell">
             <header className="app-header">
                 <div className="header-brand">
-                    <span className="brand-title">DayMap</span>
-                    <span className="brand-greeting">Hi, {user?.name || 'User'}</span>
+                    <div className="brand-avatar">
+                        {user?.profile_image ? (
+                            <img src={user.profile_image} alt="Profile" />
+                        ) : (
+                            <span>{headerInitials}</span>
+                        )}
+                    </div>
+                    <div className="brand-text">
+                        <span className="brand-title">DayMap</span>
+                        <span className="brand-greeting">Hi, {user?.name || 'User'}</span>
+                    </div>
                 </div>
                 
                 <nav className="header-nav">
