@@ -424,7 +424,7 @@ const FocusDashboard = () => {
             } catch {
                 // Non-blocking: focus stats can refresh later.
             }
-            setFocusMessage(`Great focus sprint! Logged ${Math.min(durationMinutes, normalizedDuration)} minute(s).`);
+            setFocusMessage(`Great focus sprint! Logged ${Math.min(actualMinutes, normalizedDuration)} minute(s).`);
             setFocusStartedAt(null);
             setElapsedFocusSeconds(0);
             setFocusSessionId(null);

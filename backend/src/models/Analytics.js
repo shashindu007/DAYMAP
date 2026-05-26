@@ -98,9 +98,7 @@ class Analytics {
                     total_tasks_scheduled: 0,
                     total_tasks_completed: 0,
                     total_time_scheduled_minutes: 0,
-                    total_time_spent_minutes: 0,
-                    focus_sessions_total: 0,
-                    focus_sessions_completed: 0
+                    total_time_spent_minutes: 0
                 }
             },
             { upsert: true }
