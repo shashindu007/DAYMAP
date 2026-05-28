@@ -40,7 +40,9 @@ const timeToMinutes = (value) => {
 const getNowRoundedTime = () => {
     const now = new Date();
     const nowMinutes = (now.getHours() * 60) + now.getMinutes();
-    return formatHm(roundToNextSlot(nowMinutes));
+    const rounded = roundToNextSlot(nowMinutes);
+    const safeStartMinutes = Math.min(rounded, 1410);
+    return formatHm(safeStartMinutes);
 };
 
 const getSlotTimeError = (slot) => {
@@ -69,8 +71,8 @@ const getDefaultStartTime = (date, hasExistingSlots) => {
 const buildDefaultSlot = (start = '09:00', durationMinutes = 30) => {
     const [hour, minute] = start.split(':').map(Number);
     const startMinutes = ((hour || 0) * 60) + (minute || 0);
-    const endMinutes = startMinutes + durationMinutes;
-    const end = formatHm(Math.min(endMinutes, 1440));
+    const endMinutes = Math.min(startMinutes + durationMinutes, 1439);
+    const end = formatHm(endMinutes);
     return {
         start_time: start,
         end_time: end,
@@ -142,7 +144,7 @@ const ScheduleEditor = ({
             if (!prev.length) {
                 const start = (nowStart || getDefaultStartTime(date, false)) || '09:00';
                 const startMinutes = timeToMinutes(start) ?? 0;
-                if (startMinutes + 30 > 1440) {
+                if (startMinutes >= 1439) {
                     setAddSlotError('Cannot add a new slot beyond 11:59 PM.');
                     return prev;
                 }
@@ -164,7 +166,7 @@ const ScheduleEditor = ({
                 setAddSlotError('Please set a valid time before adding another slot.');
                 return prev;
             }
-            if (nextStartMinutes + 30 > 1440) {
+            if (nextStartMinutes >= 1439) {
                 setAddSlotError('Cannot add a new slot beyond 11:59 PM.');
                 return prev;
             }
