@@ -1,4 +1,5 @@
 const Task = require('../models/Task');
+const ScheduleTask = require('../models/ScheduleTask');
 const Analytics = require('../models/Analytics');
 
 const normalizeTimeToSeconds = (value) => {
@@ -45,12 +46,27 @@ class TaskController {
             }
             
             const tasks = await Task.findByUser(req.user.id, filters);
+
+            let scheduleTasks = [];
+            if (filters.date_from && filters.date_to) {
+                const scheduleResults = await ScheduleTask.findByDateRange(req.user.id, filters.date_from, filters.date_to);
+                scheduleTasks = scheduleResults.map((task) => ({
+                    ...task,
+                    scheduled_time: task.slot_start_time || null
+                }));
+            }
+
+            const merged = [...tasks, ...scheduleTasks].sort((a, b) => {
+                const dateCompare = (a.scheduled_date || '').localeCompare(b.scheduled_date || '');
+                if (dateCompare !== 0) return dateCompare;
+                return (a.scheduled_time || '').localeCompare(b.scheduled_time || '');
+            });
             
             res.json({
                 success: true,
                 data: {
-                    tasks,
-                    count: tasks.length
+                    tasks: merged,
+                    count: merged.length
                 }
             });
         } catch (error) {
@@ -147,12 +163,33 @@ class TaskController {
             const task = await Task.findById(req.params.id);
             
             if (!task) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Task not found'
+                const scheduleTask = await ScheduleTask.findById(req.params.id);
+                if (!scheduleTask) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Task not found'
+                    });
+                }
+
+                if (scheduleTask.user_id !== req.user.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Unauthorized access to task'
+                    });
+                }
+
+                const updatedScheduleTask = await ScheduleTask.update(req.params.id, req.body);
+                if (updatedScheduleTask?.scheduled_date) {
+                    await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
+                }
+
+                return res.json({
+                    success: true,
+                    message: 'Task updated successfully',
+                    data: updatedScheduleTask
                 });
             }
-            
+
             // Verify ownership
             if (task.user_id !== req.user.id) {
                 return res.status(403).json({
@@ -160,9 +197,9 @@ class TaskController {
                     message: 'Unauthorized access to task'
                 });
             }
-            
+
             const updatedTask = await Task.update(req.params.id, req.body);
-            
+
             // Update analytics
             if (updatedTask.scheduled_date) {
                 await this.updateAnalytics(req.user.id, updatedTask.scheduled_date);
@@ -192,12 +229,33 @@ class TaskController {
             const task = await Task.findById(req.params.id);
             
             if (!task) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Task not found'
+                const scheduleTask = await ScheduleTask.findById(req.params.id);
+                if (!scheduleTask) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Task not found'
+                    });
+                }
+
+                if (scheduleTask.user_id !== req.user.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Unauthorized access to task'
+                    });
+                }
+
+                const scheduledDate = scheduleTask.scheduled_date;
+                await ScheduleTask.deleteById(req.params.id);
+                if (scheduledDate) {
+                    await this.updateAnalytics(req.user.id, scheduledDate);
+                }
+
+                return res.json({
+                    success: true,
+                    message: 'Task deleted successfully'
                 });
             }
-            
+
             // Verify ownership
             if (task.user_id !== req.user.id) {
                 return res.status(403).json({
@@ -205,10 +263,10 @@ class TaskController {
                     message: 'Unauthorized access to task'
                 });
             }
-            
+
             const scheduledDate = task.scheduled_date;
             await Task.delete(req.params.id);
-            
+
             // Update analytics
             if (scheduledDate) {
                 await this.updateAnalytics(req.user.id, scheduledDate);
@@ -237,12 +295,33 @@ class TaskController {
             const task = await Task.findById(req.params.id);
             
             if (!task) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Task not found'
+                const scheduleTask = await ScheduleTask.findById(req.params.id);
+                if (!scheduleTask) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Task not found'
+                    });
+                }
+
+                if (scheduleTask.user_id !== req.user.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Unauthorized access to task'
+                    });
+                }
+
+                const updatedScheduleTask = await ScheduleTask.updateStatus(req.params.id, 'completed');
+                if (updatedScheduleTask?.scheduled_date) {
+                    await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
+                }
+
+                return res.json({
+                    success: true,
+                    message: 'Task marked as complete',
+                    data: updatedScheduleTask
                 });
             }
-            
+
             // Verify ownership
             if (task.user_id !== req.user.id) {
                 return res.status(403).json({
@@ -250,9 +329,9 @@ class TaskController {
                     message: 'Unauthorized access to task'
                 });
             }
-            
+
             const updatedTask = await Task.updateStatus(req.params.id, 'completed');
-            
+
             // Update analytics
             if (updatedTask.scheduled_date) {
                 await this.updateAnalytics(req.user.id, updatedTask.scheduled_date);
@@ -283,12 +362,33 @@ class TaskController {
             const task = await Task.findById(req.params.id);
             
             if (!task) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Task not found'
+                const scheduleTask = await ScheduleTask.findById(req.params.id);
+                if (!scheduleTask) {
+                    return res.status(404).json({
+                        success: false,
+                        message: 'Task not found'
+                    });
+                }
+
+                if (scheduleTask.user_id !== req.user.id) {
+                    return res.status(403).json({
+                        success: false,
+                        message: 'Unauthorized access to task'
+                    });
+                }
+
+                const updatedScheduleTask = await ScheduleTask.updateStatus(req.params.id, status);
+                if (updatedScheduleTask?.scheduled_date) {
+                    await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
+                }
+
+                return res.json({
+                    success: true,
+                    message: 'Task status updated',
+                    data: updatedScheduleTask
                 });
             }
-            
+
             // Verify ownership
             if (task.user_id !== req.user.id) {
                 return res.status(403).json({
@@ -296,9 +396,9 @@ class TaskController {
                     message: 'Unauthorized access to task'
                 });
             }
-            
+
             const updatedTask = await Task.updateStatus(req.params.id, status);
-            
+
             // Update analytics
             if (updatedTask.scheduled_date) {
                 await this.updateAnalytics(req.user.id, updatedTask.scheduled_date);
@@ -553,13 +653,16 @@ class TaskController {
      */
     static async updateAnalytics(userId, date) {
         try {
-            const stats = await Task.getStatsByDate(userId, date);
-            
+            const [taskStats, scheduleStats] = await Promise.all([
+                Task.getStatsByDate(userId, date),
+                ScheduleTask.getStatsByDate(userId, date)
+            ]);
+
             await Analytics.upsert(userId, date, {
-                total_tasks_scheduled: parseInt(stats.total_tasks) || 0,
-                total_tasks_completed: parseInt(stats.completed_tasks) || 0,
-                total_time_scheduled_minutes: parseInt(stats.total_scheduled_minutes) || 0,
-                total_time_spent_minutes: parseInt(stats.total_actual_minutes) || 0
+                total_tasks_scheduled: (parseInt(taskStats.total_tasks) || 0) + (parseInt(scheduleStats.total_tasks) || 0),
+                total_tasks_completed: (parseInt(taskStats.completed_tasks) || 0) + (parseInt(scheduleStats.completed_tasks) || 0),
+                total_time_scheduled_minutes: (parseInt(taskStats.total_scheduled_minutes) || 0) + (parseInt(scheduleStats.total_scheduled_minutes) || 0),
+                total_time_spent_minutes: (parseInt(taskStats.total_actual_minutes) || 0) + (parseInt(scheduleStats.total_actual_minutes) || 0)
             });
         } catch (error) {
             console.error('Update analytics error:', error);
