@@ -23,7 +23,7 @@
 
 .tasks-toolbar {
     display: grid;
-    grid-template-columns: 1fr 220px auto;
+    grid-template-columns: 1fr 220px 200px auto;
     gap: 0.75rem;
     margin-bottom: 1.2rem;
     align-items: center;
@@ -56,6 +56,30 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
+}
+
+.tasks-day-group {
+    margin-bottom: 1.5rem;
+}
+
+.tasks-day-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0.75rem 0 0.8rem 0;
+}
+
+.tasks-day-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.tasks-day-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
 }
 
 .tasks-card {
@@ -112,6 +136,15 @@
     display: flex;
     justify-content: flex-end;
     gap: 0.65rem;
+}
+
+.tasks-status-locked {
+    font-size: 0.8rem;
+    color: #B45309;
+    background: #FEF3C7;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    width: fit-content;
 }
 
 .tasks-pill {
