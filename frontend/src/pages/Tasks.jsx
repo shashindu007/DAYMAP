@@ -31,6 +31,20 @@ const formatDateLabel = (dateString) => {
     });
 };
 
+const getRelativeLabel = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(`${dateString}T00:00:00`);
+    const today = new Date();
+    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const diffDays = Math.round((date - startOfToday) / (24 * 60 * 60 * 1000));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === -1) return 'Yesterday';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays < 0) return `${Math.abs(diffDays)} days ago`;
+    return `In ${diffDays} days`;
+};
+
 const Tasks = () => {
     const navigate = useNavigate();
     const { tasks, loading, error, fetchTasks, updateTask, deleteTask } = useTasks();
@@ -140,9 +154,6 @@ const Tasks = () => {
             <div className="tasks-page-header">
                 <h1>All Tasks</h1>
                 <div className="tasks-header-actions">
-                    <Button variant="secondary" onClick={() => navigate('/today')}>
-                        Today
-                    </Button>
                     <Button variant="primary" onClick={() => navigate('/today')}>
                         + New Task
                     </Button>
@@ -204,8 +215,11 @@ const Tasks = () => {
             {groupedTasks.map((group) => (
                 <section key={group.date} className="tasks-day-group">
                     <div className="tasks-day-header">
-                        <h2 className="tasks-day-title">{formatDateLabel(group.date)}</h2>
-                        <span className="tasks-day-subtitle">{group.date}</span>
+                        <div>
+                            <h2 className="tasks-day-title">{getRelativeLabel(group.date)}</h2>
+                            <span className="tasks-day-subtitle">{formatDateLabel(group.date)}</span>
+                        </div>
+                        <span className="tasks-day-date">{group.date}</span>
                     </div>
                     <div className="tasks-list-grid">
                         {group.tasks.map((task) => {
