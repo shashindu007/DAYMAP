@@ -149,6 +149,19 @@ const Tasks = () => {
         return diff <= HOURS_24_MS;
     };
 
+    const getStatusBadge = (status) => {
+        switch (status) {
+            case 'completed':
+                return { label: 'Complete', className: 'status-completed' };
+            case 'cancelled':
+                return { label: 'Cancelled', className: 'status-incomplete' };
+            case 'in_progress':
+                return { label: 'In progress', className: 'status-upcoming' };
+            default:
+                return { label: 'Pending', className: 'status-anytime' };
+        }
+    };
+
     return (
         <div className="tasks-page">
             <div className="tasks-page-header">
@@ -212,57 +225,77 @@ const Tasks = () => {
                 </div>
             )}
 
-            {groupedTasks.map((group) => (
-                <section key={group.date} className="tasks-day-group">
-                    <div className="tasks-day-header">
-                        <div>
-                            <h2 className="tasks-day-title">{getRelativeLabel(group.date)}</h2>
-                            <span className="tasks-day-subtitle">{formatDateLabel(group.date)}</span>
+            <div className="tasks-list">
+                {groupedTasks.map((group) => (
+                    <section key={group.date} className="task-section tasks-day-group">
+                        <div className="task-section-header tasks-day-header">
+                            <div>
+                                <h2 className="tasks-day-title">{getRelativeLabel(group.date)}</h2>
+                                <span className="tasks-day-subtitle">{formatDateLabel(group.date)}</span>
+                            </div>
+                            <span className="task-section-count">{group.tasks.length}</span>
                         </div>
-                        <span className="tasks-day-date">{group.date}</span>
-                    </div>
-                    <div className="tasks-list-grid">
-                        {group.tasks.map((task) => {
-                            const allowComplete = canMarkComplete(task);
-                            return (
-                                <article key={task.id} className="tasks-card">
-                                    <div className="tasks-card-top">
-                                        <h3>{task.title}</h3>
-                                        <span className={`tasks-pill tasks-pill-${task.status}`}>{task.status.replace('_', ' ')}</span>
+                        <div className="task-section-body">
+                            {group.tasks.map((task) => {
+                                const allowComplete = canMarkComplete(task);
+                                const statusBadge = getStatusBadge(task.status);
+                                return (
+                                    <div
+                                        key={task.id}
+                                        className={`task-item task-item--anytime ${task.status === 'completed' ? 'completed' : ''}`}
+                                    >
+                                        <div className="task-content">
+                                            <div className="task-title-row">
+                                                <h3 className="task-title">{task.title}</h3>
+                                                <span className={`task-status-badge ${statusBadge.className}`}>{statusBadge.label}</span>
+                                            </div>
+
+                                            {task.description && (
+                                                <p className="task-description">{task.description}</p>
+                                            )}
+
+                                            <div className="task-meta">
+                                                {task.scheduled_date && <span className="task-time">📅 {task.scheduled_date}</span>}
+                                                {task.scheduled_time && <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>}
+                                                {task.duration_minutes && <span className="task-duration">⏱ {task.duration_minutes} min</span>}
+                                                {task.priority && (
+                                                    <span className={`task-priority priority-${task.priority}`}>
+                                                        {task.priority}
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {!allowComplete && task.status !== 'completed' && (
+                                                <div className="task-hint">Status updates unlock after 24 hours.</div>
+                                            )}
+
+                                            <div className="task-actions">
+                                                {task.status !== 'completed' && (
+                                                    <Button
+                                                        variant="primary"
+                                                        className="task-action-btn"
+                                                        onClick={() => handleStatusChange(task, 'completed')}
+                                                        disabled={!allowComplete}
+                                                    >
+                                                        Mark done
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    variant="danger"
+                                                    className="task-action-btn"
+                                                    onClick={() => handleDelete(task.id)}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            </div>
+                                        </div>
                                     </div>
-
-                                    {task.description && <p className="tasks-card-desc">{task.description}</p>}
-
-                                    <div className="tasks-meta-row">
-                                        {task.scheduled_date && <span>📅 {task.scheduled_date}</span>}
-                                        {task.scheduled_time && <span>⏰ {formatDisplayTime(task.scheduled_time)}</span>}
-                                        {task.duration_minutes && <span>⏱ {task.duration_minutes} min</span>}
-                                    </div>
-
-                                    {!allowComplete && task.status !== 'completed' && (
-                                        <span className="tasks-status-locked">Status locked after 24 hours</span>
-                                    )}
-
-                                    <div className="tasks-card-actions">
-                                        {task.status !== 'completed' && (
-                                            <Button
-                                                variant="secondary"
-                                                onClick={() => handleStatusChange(task, 'completed')}
-                                                disabled={!allowComplete}
-                                            >
-                                                Mark done
-                                            </Button>
-                                        )}
-                                        <Button variant="danger" onClick={() => handleDelete(task.id)}>
-                                            Delete
-                                        </Button>
-                                    </div>
-                                </article>
-                            );
-                        })}
-                    </div>
-                </section>
-            ))}
+                                );
+                            })}
+                        </div>
+                    </section>
+                ))}
+            </div>
         </div>
     );
 };
