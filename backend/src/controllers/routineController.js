@@ -1,6 +1,34 @@
 const Routine = require('../models/Routine');
 const RoutineTask = require('../models/RoutineTask');
 const Task = require('../models/Task');
+const scheduleService = require('../services/scheduleService');
+
+const normalizeTimeToSeconds = (value) => {
+    if (!value || typeof value !== 'string') return null;
+    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
+        return `${value}:00`;
+    }
+    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) {
+        return value;
+    }
+    return null;
+};
+
+const timeToMinutes = (value) => {
+    if (!value) return null;
+    const [hours, minutes] = value.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return (hours * 60) + minutes;
+};
+
+const minutesToTime = (minutes) => {
+    if (!Number.isFinite(minutes)) return null;
+    if (minutes >= 1440) return '00:00';
+    if (minutes < 0) return '00:00';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+};
 
 class RoutineController {
     /**
@@ -297,13 +325,14 @@ class RoutineController {
             
             // Get routine tasks
             const routineTasks = await RoutineTask.findByRoutine(req.params.id);
-            
+
             const createdTasks = [];
-            
+            const scheduleSlots = [];
+
             // Create tasks from templates
             for (const routineTask of routineTasks) {
                 const template = routineTask.task_template;
-                
+
                 const task = await Task.create({
                     user_id: req.user.id,
                     title: template.title,
@@ -314,16 +343,48 @@ class RoutineController {
                     scheduled_time: template.scheduled_time,
                     duration_minutes: template.duration_minutes
                 });
-                
+
                 createdTasks.push(task);
+
+                const normalizedStart = normalizeTimeToSeconds(template.scheduled_time);
+                const duration = Number.isFinite(template.duration_minutes)
+                    ? template.duration_minutes
+                    : parseInt(template.duration_minutes, 10);
+                const slotDuration = Number.isFinite(duration) ? duration : 30;
+                const startMinutes = timeToMinutes(normalizedStart);
+
+                if (normalizedStart && Number.isFinite(startMinutes)) {
+                    const endMinutes = startMinutes + slotDuration;
+                    const endTime = minutesToTime(endMinutes);
+
+                    if (endTime) {
+                        scheduleSlots.push({
+                            title: template.title,
+                            description: template.description || null,
+                            category: template.category || null,
+                            priority: template.priority || 'medium',
+                            status: template.status || 'pending',
+                            start_time: normalizedStart,
+                            end_time: endTime
+                        });
+                    }
+                }
             }
-            
+
+            let scheduleResult = { tasks: [], skipped: 0 };
+            if (scheduleSlots.length) {
+                scheduleResult = await scheduleService.addSlotsToSchedule(req.user.id, date, scheduleSlots);
+            }
+
             res.json({
                 success: true,
-                message: `Routine applied successfully. ${createdTasks.length} tasks created.`,
+                message: `Routine applied successfully. ${createdTasks.length} tasks created. ${scheduleResult.tasks.length} scheduled slots created.`,
                 data: {
                     tasks: createdTasks,
-                    count: createdTasks.length
+                    tasks_count: createdTasks.length,
+                    schedule_slots: scheduleResult.tasks,
+                    schedule_count: scheduleResult.tasks.length,
+                    schedule_skipped: scheduleResult.skipped
                 }
             });
         } catch (error) {
