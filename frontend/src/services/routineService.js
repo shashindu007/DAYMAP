@@ -49,6 +49,18 @@ const routineService = {
      */
     applyRoutine: async (id, applyData) => {
         return api.post(`/routines/${id}/apply`, applyData);
+    },
+
+    getDailyRoutine: async (date) => {
+        return api.get(`/routines/daily/${date}`);
+    },
+
+    updateRoutineInstanceItem: async (instanceId, itemId, updates) => {
+        return api.patch(`/routines/instances/${instanceId}/items/${itemId}`, updates);
+    },
+
+    completeRoutineInstanceItem: async (instanceId, itemId, status = 'completed') => {
+        return api.patch(`/routines/instances/${instanceId}/items/${itemId}/complete`, { status });
     }
 };
 

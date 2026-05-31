@@ -136,7 +136,7 @@ const WeekView = () => {
     const routinesByType = useMemo(() => {
         const grouped = new Map();
         routines.forEach((routine) => {
-            const key = routine.routine_type || 'custom';
+            const key = routine.recurrence?.type || 'daily';
             if (!grouped.has(key)) grouped.set(key, []);
             grouped.get(key).push(routine);
         });

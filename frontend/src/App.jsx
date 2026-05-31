@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { TaskProvider } from './context/TaskContext';
 import { ScheduleProvider } from './context/ScheduleContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { RoutineProvider } from './context/RoutineContext';
 import PrivateRoute from './components/common/PrivateRoute';
 import usageService from './services/usageService';
 
@@ -36,11 +37,12 @@ function App() {
         <ThemeProvider>
             <AuthProvider>
                 <TaskProvider>
-                    <ScheduleProvider>
-                        <Router>
-                            <div className="App">
-                                <RouteUsageTracker />
-                                <Routes>
+                    <RoutineProvider>
+                        <ScheduleProvider>
+                            <Router>
+                                <div className="App">
+                                    <RouteUsageTracker />
+                                    <Routes>
                                 {/* Public routes */}
                                 <Route path="/login" element={<Login />} />
                                 <Route path="/register" element={<Register />} />
@@ -90,10 +92,11 @@ function App() {
                                 {/* Default redirect */}
                                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
-                            </Routes>
-                        </div>
-                    </Router>
-                    </ScheduleProvider>
+                                    </Routes>
+                                </div>
+                            </Router>
+                        </ScheduleProvider>
+                    </RoutineProvider>
                 </TaskProvider>
             </AuthProvider>
         </ThemeProvider>

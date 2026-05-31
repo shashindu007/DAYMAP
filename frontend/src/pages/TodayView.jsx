@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSchedule } from '../context/ScheduleContext';
+import { useRoutine } from '../context/RoutineContext';
 import Button from '../components/common/Button';
 import './TodayView.css';
 
@@ -13,12 +14,22 @@ const toYmd = (date) => {
 
 const TodayView = () => {
     const { scheduleByDate, loading, error, fetchSchedule, updateScheduleTaskStatus } = useSchedule();
+    const { dailyByDate, fetchDailyRoutine, completeInstanceItem } = useRoutine();
     const navigate = useNavigate();
 
     const [now, setNow] = useState(new Date());
     const todayYmd = useMemo(() => toYmd(now), [now]);
     const cachedSchedule = scheduleByDate[todayYmd];
     const scheduleTasks = cachedSchedule?.tasks || [];
+    const dailyRoutine = dailyByDate[todayYmd];
+    const routineInstances = dailyRoutine?.routines || [];
+    const routineItems = routineInstances.flatMap((instance) => (
+        (instance.items || []).map((item) => ({
+            ...item,
+            instanceId: instance.id,
+            routineName: instance.name
+        }))
+    ));
 
     const [stats, setStats] = useState({
         total: 0,
@@ -32,6 +43,12 @@ const TodayView = () => {
             fetchSchedule(todayYmd).catch(() => null);
         }
     }, [fetchSchedule, todayYmd, cachedSchedule]);
+
+    useEffect(() => {
+        if (!dailyRoutine) {
+            fetchDailyRoutine(todayYmd).catch(() => null);
+        }
+    }, [fetchDailyRoutine, todayYmd, dailyRoutine]);
 
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000);
@@ -71,6 +88,14 @@ const TodayView = () => {
             await updateScheduleTaskStatus(taskId, status);
         } catch (updateError) {
             console.error('Failed to update schedule task status:', updateError);
+        }
+    };
+
+    const handleRoutineStatusUpdate = async (instanceId, itemId, status) => {
+        try {
+            await completeInstanceItem(instanceId, itemId, status);
+        } catch (updateError) {
+            console.error('Failed to update routine item status:', updateError);
         }
     };
 
@@ -220,6 +245,69 @@ const TodayView = () => {
             </div>
 
             {error && <p className="today-error">{error}</p>}
+
+            <div className="tasks-list">
+                <div className="task-section">
+                    <div className="task-section-header">
+                        <div>
+                            <h2>Today’s Routine</h2>
+                            <span>Auto-generated from your templates</span>
+                        </div>
+                        <span className="task-section-count">{routineItems.length}</span>
+                    </div>
+                    <div className="task-section-body">
+                        {routineItems.length === 0 ? (
+                            <div className="task-section-empty">No routine items for today yet.</div>
+                        ) : (
+                            routineItems.map((item) => (
+                                <div
+                                    key={item.id}
+                                    className={`task-item task-item--upcoming ${item.status === 'completed' ? 'completed' : ''}`}
+                                >
+                                    <div className="task-content">
+                                        <div className="task-title-row">
+                                            <h3 className="task-title">{item.title}</h3>
+                                            <span className="task-status-badge status-upcoming">
+                                                {item.status === 'completed' ? 'Done' : 'Routine'}
+                                            </span>
+                                        </div>
+                                        {item.notes && (
+                                            <p className="task-description">{item.notes}</p>
+                                        )}
+                                        <div className="task-meta">
+                                            {item.start_time && item.end_time && (
+                                                <span className="task-time">⏰ {formatDisplayTime(item.start_time)} - {formatDisplayTime(item.end_time)}</span>
+                                            )}
+                                            {item.duration_minutes && (
+                                                <span className="task-duration">⏱ {item.duration_minutes} min</span>
+                                            )}
+                                            {item.routineName && (
+                                                <span className="task-priority">{item.routineName}</span>
+                                            )}
+                                        </div>
+                                        <div className="task-actions">
+                                            <Button
+                                                variant="primary"
+                                                className="task-action-btn"
+                                                onClick={() => handleRoutineStatusUpdate(item.instanceId, item.id, 'completed')}
+                                            >
+                                                Complete
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                className="task-action-btn"
+                                                onClick={() => handleRoutineStatusUpdate(item.instanceId, item.id, 'skipped')}
+                                            >
+                                                Skip
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
 
             <div className="tasks-list">
                 {isInitialLoading ? (

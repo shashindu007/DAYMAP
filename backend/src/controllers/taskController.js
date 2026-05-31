@@ -1,6 +1,7 @@
 const Task = require('../models/Task');
 const ScheduleTask = require('../models/ScheduleTask');
 const Analytics = require('../models/Analytics');
+const routineService = require('../services/routineService');
 
 const normalizeTimeToSeconds = (value) => {
     if (!value || typeof value !== 'string') return null;
@@ -179,6 +180,9 @@ class TaskController {
                 }
 
                 const updatedScheduleTask = await ScheduleTask.update(req.params.id, req.body);
+                if (updatedScheduleTask) {
+                    await routineService.updateInstanceItemFromScheduleTask(updatedScheduleTask);
+                }
                 if (updatedScheduleTask?.scheduled_date) {
                     await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
                 }
@@ -311,6 +315,9 @@ class TaskController {
                 }
 
                 const updatedScheduleTask = await ScheduleTask.updateStatus(req.params.id, 'completed');
+                if (updatedScheduleTask?.routine_instance_id && updatedScheduleTask?.routine_item_id) {
+                    await routineService.updateInstanceItemStatus(req.user.id, updatedScheduleTask.routine_instance_id, updatedScheduleTask.routine_item_id, 'completed');
+                }
                 if (updatedScheduleTask?.scheduled_date) {
                     await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
                 }
@@ -378,6 +385,9 @@ class TaskController {
                 }
 
                 const updatedScheduleTask = await ScheduleTask.updateStatus(req.params.id, status);
+                if (updatedScheduleTask?.routine_instance_id && updatedScheduleTask?.routine_item_id) {
+                    await routineService.updateInstanceItemStatus(req.user.id, updatedScheduleTask.routine_instance_id, updatedScheduleTask.routine_item_id, status);
+                }
                 if (updatedScheduleTask?.scheduled_date) {
                     await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
                 }

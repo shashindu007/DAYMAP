@@ -11,7 +11,7 @@ This README explains the implemented workflow end-to-end and documents the Mongo
 - secure user authentication (JWT)
 - task planning and status tracking
 - category management
-- routine templates + routine application to daily tasks
+- recurring routine templates with daily instances + schedule integration
 - analytics (daily/weekly/monthly/summary/trends)
 - route usage tracking on frontend dashboard
 
@@ -80,7 +80,7 @@ DayMap/
 - **Auth**: register/login/me/profile/password/logout
 - **Tasks**: full CRUD + today/week/upcoming + status + bulk delete
 - **Categories**: full CRUD
-- **Routines**: full CRUD + activate/deactivate + apply
+- **Routines**: template CRUD + daily routine instances + completion tracking
 - **Analytics**: daily/weekly/monthly/summary/trends
 
 Routes remain unchanged from the previous SQL version.

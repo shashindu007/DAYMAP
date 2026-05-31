@@ -1,159 +1,209 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useSchedule } from '../context/ScheduleContext';
-import routineService from '../services/routineService';
+import { useRoutine } from '../context/RoutineContext';
 import './Routines.css';
 
+const DEFAULT_ITEM = { title: '', notes: '', duration_minutes: '', start_time: '', end_time: '' };
+
+const dayOptions = [
+    { label: 'Sun', value: 0 },
+    { label: 'Mon', value: 1 },
+    { label: 'Tue', value: 2 },
+    { label: 'Wed', value: 3 },
+    { label: 'Thu', value: 4 },
+    { label: 'Fri', value: 5 },
+    { label: 'Sat', value: 6 }
+];
+
 const Routines = () => {
-    const { fetchSchedule } = useSchedule();
-    const [routines, setRoutines] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState('');
-    const [saving, setSaving] = useState(false);
-    const [applyDate, setApplyDate] = useState(new Date().toISOString().split('T')[0]);
+    const {
+        templates,
+        loading,
+        error,
+        fetchTemplates,
+        createTemplate,
+        updateTemplate,
+        deleteTemplate
+    } = useRoutine();
+
     const [form, setForm] = useState({
         name: '',
         description: '',
-        routine_type: 'custom',
-        tasks: [{ title: '', priority: 'medium', scheduled_time: '', duration_minutes: '' }]
+        color: '#6366F1',
+        icon: '',
+        is_active: true,
+        recurrence: { type: 'daily', days_of_week: [] },
+        items: [{ ...DEFAULT_ITEM }]
     });
 
-    const loadRoutines = async () => {
-        try {
-            setLoading(true);
-            setError('');
-            const response = await routineService.getAllRoutines();
-            setRoutines(response?.data?.routines || []);
-        } catch (loadError) {
-            setError(loadError?.message || 'Failed to load routines');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [editingId, setEditingId] = useState(null);
+    const [saving, setSaving] = useState(false);
+    const [localError, setLocalError] = useState('');
 
     useEffect(() => {
-        loadRoutines();
-    }, []);
+        fetchTemplates().catch(() => null);
+    }, [fetchTemplates]);
 
-    const isBusy = loading || saving;
-
-    const activeCount = useMemo(() => routines.filter((item) => item.is_active).length, [routines]);
-
-    const handleField = (event) => {
-        const { name, value } = event.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+    const resetForm = () => {
+        setForm({
+            name: '',
+            description: '',
+            color: '#6366F1',
+            icon: '',
+            is_active: true,
+            recurrence: { type: 'daily', days_of_week: [] },
+            items: [{ ...DEFAULT_ITEM }]
+        });
+        setEditingId(null);
     };
 
-    const handleTemplateTaskChange = (index, field, value) => {
+    const handleField = (event) => {
+        const { name, value, type, checked } = event.target;
+        setForm((prev) => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+    };
+
+    const handleRecurrenceType = (event) => {
+        const type = event.target.value;
+        setForm((prev) => ({
+            ...prev,
+            recurrence: {
+                ...prev.recurrence,
+                type,
+                days_of_week: type === 'custom' ? prev.recurrence.days_of_week : []
+            }
+        }));
+    };
+
+    const toggleDay = (day) => {
         setForm((prev) => {
-            const copy = [...prev.tasks];
-            copy[index] = { ...copy[index], [field]: value };
-            return { ...prev, tasks: copy };
+            const exists = prev.recurrence.days_of_week.includes(day);
+            const nextDays = exists
+                ? prev.recurrence.days_of_week.filter((value) => value !== day)
+                : [...prev.recurrence.days_of_week, day];
+            return {
+                ...prev,
+                recurrence: {
+                    ...prev.recurrence,
+                    days_of_week: nextDays
+                }
+            };
         });
     };
 
-    const addTemplateTask = () => {
+    const handleItemChange = (index, field, value) => {
+        setForm((prev) => {
+            const items = [...prev.items];
+            items[index] = { ...items[index], [field]: value };
+            return { ...prev, items };
+        });
+    };
+
+    const addItem = () => {
         setForm((prev) => ({
             ...prev,
-            tasks: [...prev.tasks, { title: '', priority: 'medium', scheduled_time: '', duration_minutes: '' }]
+            items: [...prev.items, { ...DEFAULT_ITEM }]
         }));
     };
 
-    const removeTemplateTask = (index) => {
+    const removeItem = (index) => {
         setForm((prev) => ({
             ...prev,
-            tasks: prev.tasks.filter((_, taskIdx) => taskIdx !== index)
+            items: prev.items.filter((_, itemIndex) => itemIndex !== index)
         }));
     };
 
-    const createRoutine = async (event) => {
+    const startEdit = (routine) => {
+        setEditingId(routine.id);
+        setForm({
+            name: routine.name,
+            description: routine.description || '',
+            color: routine.color || '#6366F1',
+            icon: routine.icon || '',
+            is_active: routine.is_active !== false,
+            recurrence: routine.recurrence || { type: 'daily', days_of_week: [] },
+            items: (routine.items || []).map((item) => ({
+                title: item.title,
+                notes: item.notes || '',
+                duration_minutes: item.duration_minutes || '',
+                start_time: item.start_time || '',
+                end_time: item.end_time || ''
+            }))
+        });
+    };
+
+    const handleDelete = async (id) => {
+        if (!window.confirm('Delete this routine template?')) return;
+        await deleteTemplate(id);
+    };
+
+    const handleSubmit = async (event) => {
         event.preventDefault();
-        setError('');
+        setLocalError('');
 
         if (!form.name.trim()) {
-            setError('Routine name is required.');
+            setLocalError('Routine name is required.');
             return;
         }
 
-        const cleanedTasks = form.tasks
-            .filter((task) => task.title.trim())
-            .map((task) => ({
-                title: task.title.trim(),
-                priority: task.priority,
-                scheduled_time: task.scheduled_time ? `${task.scheduled_time}:00` : null,
-                duration_minutes: task.duration_minutes ? parseInt(task.duration_minutes, 10) : null
+        const cleanedItems = form.items
+            .filter((item) => item.title.trim())
+            .map((item, index) => ({
+                title: item.title.trim(),
+                notes: item.notes.trim() || null,
+                duration_minutes: item.duration_minutes ? parseInt(item.duration_minutes, 10) : null,
+                start_time: item.start_time || null,
+                end_time: item.end_time || null,
+                order: index
             }));
+
+        if (cleanedItems.length === 0) {
+            setLocalError('Add at least one routine item.');
+            return;
+        }
+
+        const payload = {
+            name: form.name.trim(),
+            description: form.description.trim() || null,
+            color: form.color || '#6366F1',
+            icon: form.icon || null,
+            is_active: form.is_active,
+            recurrence: form.recurrence,
+            items: cleanedItems
+        };
 
         try {
             setSaving(true);
-            await routineService.createRoutine({
-                name: form.name.trim(),
-                description: form.description.trim() || null,
-                routine_type: form.routine_type,
-                tasks: cleanedTasks
-            });
-            setForm({
-                name: '',
-                description: '',
-                routine_type: 'custom',
-                tasks: [{ title: '', priority: 'medium', scheduled_time: '', duration_minutes: '' }]
-            });
-            await loadRoutines();
-        } catch (createError) {
-            const validationMessage = createError?.errors?.[0]?.message;
-            setError(validationMessage || createError?.message || 'Failed to create routine');
+            if (editingId) {
+                await updateTemplate(editingId, payload);
+            } else {
+                await createTemplate(payload);
+            }
+            resetForm();
+            await fetchTemplates();
+        } catch (err) {
+            setLocalError(err?.message || 'Failed to save routine.');
         } finally {
             setSaving(false);
         }
     };
 
-    const applyRoutine = async (routineId) => {
-        try {
-            setError('');
-            await routineService.applyRoutine(routineId, { date: applyDate });
-            if (applyDate) {
-                await fetchSchedule(applyDate);
-            }
-            await loadRoutines();
-        } catch (applyError) {
-            setError(applyError?.message || 'Could not apply routine');
-        }
-    };
-
-    const toggleRoutine = async (routineId) => {
-        try {
-            await routineService.toggleActive(routineId);
-            await loadRoutines();
-        } catch (toggleError) {
-            setError(toggleError?.message || 'Could not toggle routine status');
-        }
-    };
-
-    const deleteRoutine = async (routineId) => {
-        try {
-            await routineService.deleteRoutine(routineId);
-            await loadRoutines();
-        } catch (deleteError) {
-            setError(deleteError?.message || 'Could not delete routine');
-        }
-    };
+    const activeCount = useMemo(() => templates.filter((item) => item.is_active).length, [templates]);
 
     return (
         <div className="routines-page">
             <div className="routines-header">
                 <h1>Routines</h1>
-                <p>Create reusable routine templates and apply them to your day.</p>
+                <p>Create reusable routine templates that power your daily schedule.</p>
             </div>
 
             <div className="routines-meta card">
-                <p><strong>{routines.length}</strong> routines • <strong>{activeCount}</strong> active</p>
-                <label>
-                    Apply date:
-                    <input type="date" value={applyDate} onChange={(e) => setApplyDate(e.target.value)} />
-                </label>
+                <p><strong>{templates.length}</strong> routines • <strong>{activeCount}</strong> active</p>
             </div>
 
-            <form className="card routine-form" onSubmit={createRoutine} aria-busy={saving}>
-                <h2>Create Routine</h2>
+            <form className="card routine-form" onSubmit={handleSubmit} aria-busy={saving}>
+                <h2>{editingId ? 'Edit Routine Template' : 'Create Routine Template'}</h2>
                 <input
                     className="input"
                     name="name"
@@ -171,38 +221,86 @@ const Routines = () => {
                     placeholder="Description (optional)"
                     rows={2}
                 />
-                <select className="input" name="routine_type" value={form.routine_type} onChange={handleField}>
-                    <option value="morning">Morning</option>
-                    <option value="afternoon">Afternoon</option>
-                    <option value="evening">Evening</option>
-                    <option value="custom">Custom</option>
-                </select>
+                <div className="routine-form-row">
+                    <input
+                        className="input"
+                        type="color"
+                        name="color"
+                        value={form.color}
+                        onChange={handleField}
+                    />
+                    <input
+                        className="input"
+                        name="icon"
+                        value={form.icon}
+                        onChange={handleField}
+                        placeholder="Icon (emoji or text)"
+                        maxLength={20}
+                    />
+                    <label className="routine-toggle">
+                        <input
+                            type="checkbox"
+                            name="is_active"
+                            checked={form.is_active}
+                            onChange={handleField}
+                        />
+                        Active
+                    </label>
+                </div>
 
-                <h3>Template Tasks</h3>
-                {form.tasks.map((task, idx) => (
-                    <div className="routine-task-row" key={`template-task-${idx}`}>
+                <div className="routine-form-row">
+                    <label>
+                        Recurrence
+                        <select className="input" value={form.recurrence.type} onChange={handleRecurrenceType}>
+                            <option value="daily">Every day</option>
+                            <option value="weekdays">Weekdays</option>
+                            <option value="weekends">Weekends</option>
+                            <option value="custom">Custom days</option>
+                        </select>
+                    </label>
+                    {form.recurrence.type === 'custom' && (
+                        <div className="routine-days">
+                            {dayOptions.map((day) => (
+                                <button
+                                    type="button"
+                                    key={day.value}
+                                    className={`routine-day ${form.recurrence.days_of_week.includes(day.value) ? 'active' : ''}`}
+                                    onClick={() => toggleDay(day.value)}
+                                >
+                                    {day.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <h3>Routine Items</h3>
+                {form.items.map((item, idx) => (
+                    <div className="routine-task-row" key={`template-item-${idx}`}>
                         <input
                             className="input"
-                            placeholder="Task title"
-                            value={task.title}
-                            onChange={(e) => handleTemplateTaskChange(idx, 'title', e.target.value)}
+                            placeholder="Item title"
+                            value={item.title}
+                            onChange={(e) => handleItemChange(idx, 'title', e.target.value)}
                             maxLength={255}
                         />
-                        <select
+                        <input
                             className="input"
-                            value={task.priority}
-                            onChange={(e) => handleTemplateTaskChange(idx, 'priority', e.target.value)}
-                        >
-                            <option value="low">Low</option>
-                            <option value="medium">Medium</option>
-                            <option value="high">High</option>
-                            <option value="urgent">Urgent</option>
-                        </select>
+                            placeholder="Notes"
+                            value={item.notes}
+                            onChange={(e) => handleItemChange(idx, 'notes', e.target.value)}
+                        />
                         <input
                             className="input"
                             type="time"
-                            value={task.scheduled_time}
-                            onChange={(e) => handleTemplateTaskChange(idx, 'scheduled_time', e.target.value)}
+                            value={item.start_time}
+                            onChange={(e) => handleItemChange(idx, 'start_time', e.target.value)}
+                        />
+                        <input
+                            className="input"
+                            type="time"
+                            value={item.end_time}
+                            onChange={(e) => handleItemChange(idx, 'end_time', e.target.value)}
                         />
                         <input
                             className="input"
@@ -210,38 +308,43 @@ const Routines = () => {
                             min="1"
                             max="1440"
                             placeholder="Duration"
-                            value={task.duration_minutes}
-                            onChange={(e) => handleTemplateTaskChange(idx, 'duration_minutes', e.target.value)}
+                            value={item.duration_minutes}
+                            onChange={(e) => handleItemChange(idx, 'duration_minutes', e.target.value)}
                         />
-                        <button className="btn btn-outline" type="button" onClick={() => removeTemplateTask(idx)}>
+                        <button className="btn btn-outline" type="button" onClick={() => removeItem(idx)}>
                             Remove
                         </button>
                     </div>
                 ))}
 
                 <div className="routine-form-actions">
-                    <button className="btn btn-secondary" type="button" onClick={addTemplateTask} disabled={saving}>
-                        Add Template Task
+                    <button className="btn btn-secondary" type="button" onClick={addItem} disabled={saving}>
+                        Add Item
                     </button>
                     <button className="btn btn-primary" type="submit" disabled={saving}>
-                        {saving ? 'Saving...' : 'Create Routine'}
+                        {saving ? 'Saving...' : (editingId ? 'Update Routine' : 'Create Routine')}
                     </button>
+                    {editingId && (
+                        <button className="btn btn-outline" type="button" onClick={resetForm} disabled={saving}>
+                            Cancel
+                        </button>
+                    )}
                 </div>
             </form>
 
-            {error && (
+            {(localError || error) && (
                 <p className="dashboard-error" role="alert" aria-live="polite">
-                    {error}
+                    {localError || error}
                 </p>
             )}
 
             <section className="routine-list">
                 {loading ? (
                     <p className="muted">Loading routines...</p>
-                ) : routines.length === 0 ? (
-                    <p className="muted">No routines yet. Create your first one above.</p>
+                ) : templates.length === 0 ? (
+                    <p className="muted">No routines yet. Create your first template above.</p>
                 ) : (
-                    routines.map((routine) => (
+                    templates.map((routine) => (
                         <article className="card routine-item" key={routine.id}>
                             <div className="routine-item-head">
                                 <div>
@@ -252,25 +355,29 @@ const Routines = () => {
                                     {routine.is_active ? 'Active' : 'Inactive'}
                                 </span>
                             </div>
-                            <p className="routine-type">Type: {routine.routine_type}</p>
+                            <p className="routine-type">Recurrence: {routine.recurrence?.type || 'daily'}</p>
 
                             <ul className="routine-template-list">
-                                {(routine.tasks || []).map((task) => (
-                                    <li key={task.id || `${routine.id}-${task.task_order}`}>
-                                        {task.task_template?.title || 'Untitled'}
-                                        <span>{task.task_template?.priority || 'medium'}</span>
+                                {(routine.items || []).map((item) => (
+                                    <li key={item.id}>
+                                        {item.title}
+                                        <span>{item.duration_minutes ? `${item.duration_minutes} min` : 'Flexible'}</span>
                                     </li>
                                 ))}
                             </ul>
 
                             <div className="routine-item-actions">
-                                <button className="btn btn-secondary" type="button" onClick={() => applyRoutine(routine.id)} disabled={isBusy}>
-                                    Apply
+                                <button className="btn btn-secondary" type="button" onClick={() => startEdit(routine)}>
+                                    Edit
                                 </button>
-                                <button className="btn btn-outline" type="button" onClick={() => toggleRoutine(routine.id)} disabled={isBusy}>
+                                <button
+                                    className="btn btn-outline"
+                                    type="button"
+                                    onClick={() => updateTemplate(routine.id, { is_active: !routine.is_active })}
+                                >
                                     {routine.is_active ? 'Deactivate' : 'Activate'}
                                 </button>
-                                <button className="btn btn-danger" type="button" onClick={() => deleteRoutine(routine.id)} disabled={isBusy}>
+                                <button className="btn btn-outline" type="button" onClick={() => handleDelete(routine.id)}>
                                     Delete
                                 </button>
                             </div>

@@ -3,6 +3,7 @@ const Schedule = require('../models/Schedule');
 const ScheduleTask = require('../models/ScheduleTask');
 const Task = require('../models/Task');
 const Analytics = require('../models/Analytics');
+const routineService = require('./routineService');
 
 const normalizeTimeToSeconds = (value) => {
     if (!value || typeof value !== 'string') return null;
@@ -103,7 +104,36 @@ const getOrCreateSchedule = async (userId, date) => {
     return Schedule.create({ user_id: userId, scheduled_date: date });
 };
 
+const ensureRoutineSchedule = async (userId, date) => {
+    const { instances } = await routineService.ensureDailyInstances(userId, date);
+    if (!instances.length) return;
+
+    const slots = instances.flatMap((instance) => {
+        const pendingItems = (instance.items || []).filter((item) => !item.scheduled_task_id);
+        if (!pendingItems.length) return [];
+        return routineService.buildScheduleSlotsFromInstance({
+            ...instance,
+            items: pendingItems
+        });
+    });
+
+    if (!slots.length) {
+        await routineService.updateRoutineAnalytics(userId, date);
+        return;
+    }
+
+    const scheduleResult = await addSlotsToSchedule(userId, date, slots);
+    if (scheduleResult.tasks.length) {
+        for (const task of scheduleResult.tasks) {
+            await routineService.updateInstanceItemFromScheduleTask(task);
+        }
+    }
+
+    await routineService.updateRoutineAnalytics(userId, date);
+};
+
 const getScheduleByDate = async (userId, date) => {
+    await ensureRoutineSchedule(userId, date);
     const schedule = await Schedule.findByUserAndDate(userId, date);
     const tasks = await ScheduleTask.findByDate(userId, date);
 
@@ -137,7 +167,13 @@ const createOrReplaceSchedule = async (userId, date, slots, replaceExisting) => 
     const schedule = await getOrCreateSchedule(userId, date);
 
     if (replaceExisting) {
+        const existingTasks = await ScheduleTask.findByDate(userId, date);
         await ScheduleTask.deleteByScheduleId(schedule.id);
+        for (const task of existingTasks) {
+            if (task?.routine_instance_id && task?.routine_item_id) {
+                await routineService.clearInstanceItemSchedule(task.routine_instance_id, task.routine_item_id);
+            }
+        }
     }
 
     const normalizedSlots = normalizeSlots(slots);
@@ -153,10 +189,18 @@ const createOrReplaceSchedule = async (userId, date, slots, replaceExisting) => 
         category: slot.category || null,
         priority: slot.priority || 'medium',
         status: slot.status || 'pending',
-        duration_minutes: slot.duration_minutes
+        duration_minutes: slot.duration_minutes,
+        routine_template_id: slot.routine_template_id || null,
+        routine_instance_id: slot.routine_instance_id || null,
+        routine_item_id: slot.routine_item_id || null,
+        source: slot.source || 'schedule'
     }));
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);
+
+    for (const task of tasks) {
+        await routineService.updateInstanceItemFromScheduleTask(task);
+    }
 
     await updateAnalyticsForDate(userId, date);
 
@@ -214,10 +258,18 @@ const addSlotsToSchedule = async (userId, date, slots) => {
         category: slot.category || null,
         priority: slot.priority || 'medium',
         status: slot.status || 'pending',
-        duration_minutes: slot.duration_minutes
+        duration_minutes: slot.duration_minutes,
+        routine_template_id: slot.routine_template_id || null,
+        routine_instance_id: slot.routine_instance_id || null,
+        routine_item_id: slot.routine_item_id || null,
+        source: slot.source || 'schedule'
     }));
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);
+
+    for (const task of tasks) {
+        await routineService.updateInstanceItemFromScheduleTask(task);
+    }
 
     await updateAnalyticsForDate(userId, date);
 
@@ -230,7 +282,13 @@ const addSlotsToSchedule = async (userId, date, slots) => {
 
 const replaceScheduleForDate = async (userId, date, slots) => {
     const schedule = await getOrCreateSchedule(userId, date);
+    const existingTasks = await ScheduleTask.findByDate(userId, date);
     await ScheduleTask.deleteByScheduleId(schedule.id);
+    for (const task of existingTasks) {
+        if (task?.routine_instance_id && task?.routine_item_id) {
+            await routineService.clearInstanceItemSchedule(task.routine_instance_id, task.routine_item_id);
+        }
+    }
     const normalizedSlots = normalizeSlots(slots);
     const tasksToCreate = normalizedSlots.map((slot) => ({
         id: uuidv4(),
@@ -244,10 +302,18 @@ const replaceScheduleForDate = async (userId, date, slots) => {
         category: slot.category || null,
         priority: slot.priority || 'medium',
         status: slot.status || 'pending',
-        duration_minutes: slot.duration_minutes
+        duration_minutes: slot.duration_minutes,
+        routine_template_id: slot.routine_template_id || null,
+        routine_instance_id: slot.routine_instance_id || null,
+        routine_item_id: slot.routine_item_id || null,
+        source: slot.source || 'schedule'
     }));
 
     const tasks = await ScheduleTask.createMany(tasksToCreate);
+
+    for (const task of tasks) {
+        await routineService.updateInstanceItemFromScheduleTask(task);
+    }
 
     await updateAnalyticsForDate(userId, date);
 
@@ -261,6 +327,9 @@ const updateScheduleTask = async (userId, taskId, updates) => {
     const existing = await ScheduleTask.findById(taskId);
     if (!existing || existing.user_id !== userId) return null;
     const updated = await ScheduleTask.update(taskId, updates);
+    if (updated) {
+        await routineService.updateInstanceItemFromScheduleTask(updated);
+    }
     await updateAnalyticsForDate(userId, existing.scheduled_date);
     return updated;
 };
@@ -269,6 +338,9 @@ const updateScheduleTaskStatus = async (userId, taskId, status) => {
     const existing = await ScheduleTask.findById(taskId);
     if (!existing || existing.user_id !== userId) return null;
     const updated = await ScheduleTask.updateStatus(taskId, status);
+    if (updated?.routine_instance_id && updated?.routine_item_id) {
+        await routineService.updateInstanceItemStatus(userId, updated.routine_instance_id, updated.routine_item_id, status);
+    }
     await updateAnalyticsForDate(userId, existing.scheduled_date);
     return updated;
 };
@@ -277,17 +349,36 @@ const deleteScheduleTask = async (userId, taskId) => {
     const existing = await ScheduleTask.findById(taskId);
     if (!existing || existing.user_id !== userId) return null;
     await ScheduleTask.deleteById(taskId);
+    if (existing?.routine_instance_id && existing?.routine_item_id) {
+        await routineService.clearInstanceItemSchedule(existing.routine_instance_id, existing.routine_item_id);
+    }
     await updateAnalyticsForDate(userId, existing.scheduled_date);
     return existing;
 };
 
 const deleteScheduleByDate = async (userId, date) => {
+    const existingTasks = await ScheduleTask.findByDate(userId, date);
     await ScheduleTask.deleteByUserAndDate(userId, date);
     await Schedule.deleteByUserAndDate(userId, date);
+    for (const task of existingTasks) {
+        if (task?.routine_instance_id && task?.routine_item_id) {
+            await routineService.clearInstanceItemSchedule(task.routine_instance_id, task.routine_item_id);
+        }
+    }
     await updateAnalyticsForDate(userId, date);
 };
 
 const getScheduleRange = async (userId, startDate, endDate) => {
+    const start = new Date(`${startDate}T00:00:00`);
+    const end = new Date(`${endDate}T00:00:00`);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+        const cursor = new Date(start);
+        while (cursor <= end) {
+            const dateKey = cursor.toISOString().split('T')[0];
+            await ensureRoutineSchedule(userId, dateKey);
+            cursor.setDate(cursor.getDate() + 1);
+        }
+    }
     const tasks = await ScheduleTask.findByDateRange(userId, startDate, endDate);
     return tasks;
 };

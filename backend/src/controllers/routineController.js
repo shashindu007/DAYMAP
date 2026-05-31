@@ -1,58 +1,21 @@
-const Routine = require('../models/Routine');
-const RoutineTask = require('../models/RoutineTask');
-const Task = require('../models/Task');
 const scheduleService = require('../services/scheduleService');
-
-const normalizeTimeToSeconds = (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
-        return `${value}:00`;
-    }
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) {
-        return value;
-    }
-    return null;
-};
-
-const timeToMinutes = (value) => {
-    if (!value) return null;
-    const [hours, minutes] = value.split(':').map(Number);
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
-    return (hours * 60) + minutes;
-};
-
-const minutesToTime = (minutes) => {
-    if (!Number.isFinite(minutes)) return null;
-    if (minutes >= 1440) return '00:00';
-    if (minutes < 0) return '00:00';
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
-};
+const routineService = require('../services/routineService');
 
 class RoutineController {
     /**
-     * Get all routines for user
+     * Get all routine templates
      * @route GET /api/routines
      */
     static async getAllRoutines(req, res) {
         try {
             const { active_only } = req.query;
-            const routines = await Routine.findByUser(req.user.id, active_only === 'true');
-            
-            // Get tasks for each routine
-            const routinesWithTasks = await Promise.all(
-                routines.map(async (routine) => {
-                    const tasks = await RoutineTask.findByRoutine(routine.id);
-                    return { ...routine, tasks };
-                })
-            );
-            
+            const routines = await routineService.RoutineTemplate.findByUser(req.user.id, active_only === 'true');
+
             res.json({
                 success: true,
                 data: {
-                    routines: routinesWithTasks,
-                    count: routinesWithTasks.length
+                    routines,
+                    count: routines.length
                 }
             });
         } catch (error) {
@@ -71,29 +34,25 @@ class RoutineController {
      */
     static async getRoutine(req, res) {
         try {
-            const routine = await Routine.findById(req.params.id);
-            
+            const routine = await routineService.RoutineTemplate.findById(req.params.id);
+
             if (!routine) {
                 return res.status(404).json({
                     success: false,
                     message: 'Routine not found'
                 });
             }
-            
-            // Verify ownership
+
             if (routine.user_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Unauthorized access to routine'
                 });
             }
-            
-            // Get tasks for routine
-            const tasks = await RoutineTask.findByRoutine(routine.id);
-            
+
             res.json({
                 success: true,
-                data: { ...routine, tasks }
+                data: routine
             });
         } catch (error) {
             console.error('Get routine error:', error);
@@ -111,36 +70,37 @@ class RoutineController {
      */
     static async createRoutine(req, res) {
         try {
-            const { name, description, routine_type, is_active, tasks } = req.body;
-            
-            // Create routine
-            const routine = await Routine.create({
+            const {
+                name,
+                description,
+                color,
+                icon,
+                is_active,
+                recurrence,
+                items
+            } = req.body;
+
+            const normalizedItems = (items || []).map((item, index) => ({
+                ...item,
+                order: Number.isFinite(item.order) ? item.order : index
+            }));
+
+            const routine = await routineService.RoutineTemplate.create({
                 user_id: req.user.id,
                 name,
                 description,
-                routine_type,
-                is_active
+                color: color || '#6366F1',
+                icon: icon || null,
+                is_active: is_active !== false,
+                created_by: req.user.id,
+                recurrence: routineService.normalizeRecurrence(recurrence),
+                items: normalizedItems
             });
-            
-            // Create routine tasks if provided
-            if (tasks && Array.isArray(tasks)) {
-                for (let i = 0; i < tasks.length; i++) {
-                    await RoutineTask.create({
-                        routine_id: routine.id,
-                        task_template: tasks[i],
-                        task_order: i + 1
-                    });
-                }
-            }
-            
-            // Get complete routine with tasks
-            const completedRoutine = await Routine.findById(routine.id);
-            const routineTasks = await RoutineTask.findByRoutine(routine.id);
-            
+
             res.status(201).json({
                 success: true,
                 message: 'Routine created successfully',
-                data: { ...completedRoutine, tasks: routineTasks }
+                data: routine
             });
         } catch (error) {
             console.error('Create routine error:', error);
@@ -158,55 +118,43 @@ class RoutineController {
      */
     static async updateRoutine(req, res) {
         try {
-            const routine = await Routine.findById(req.params.id);
-            
+            const routine = await routineService.RoutineTemplate.findById(req.params.id);
+
             if (!routine) {
                 return res.status(404).json({
                     success: false,
                     message: 'Routine not found'
                 });
             }
-            
-            // Verify ownership
+
             if (routine.user_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Unauthorized access to routine'
                 });
             }
-            
-            const { name, description, routine_type, is_active, tasks } = req.body;
-            
-            // Update routine
-            const updatedRoutine = await Routine.update(req.params.id, {
-                name,
-                description,
-                routine_type,
-                is_active
-            });
-            
-            // Update tasks if provided
-            if (tasks && Array.isArray(tasks)) {
-                // Delete existing tasks
-                await RoutineTask.deleteByRoutine(req.params.id);
-                
-                // Create new tasks
-                for (let i = 0; i < tasks.length; i++) {
-                    await RoutineTask.create({
-                        routine_id: req.params.id,
-                        task_template: tasks[i],
-                        task_order: i + 1
-                    });
-                }
-            }
-            
-            // Get updated routine with tasks
-            const routineTasks = await RoutineTask.findByRoutine(req.params.id);
-            
+
+            const updates = {
+                name: req.body.name,
+                description: req.body.description,
+                color: req.body.color,
+                icon: req.body.icon,
+                is_active: req.body.is_active,
+                recurrence: req.body.recurrence ? routineService.normalizeRecurrence(req.body.recurrence) : routine.recurrence,
+                items: Array.isArray(req.body.items)
+                    ? req.body.items.map((item, index) => ({
+                        ...item,
+                        order: Number.isFinite(item.order) ? item.order : index
+                    }))
+                    : routine.items
+            };
+
+            const updatedRoutine = await routineService.RoutineTemplate.update(req.params.id, updates);
+
             res.json({
                 success: true,
                 message: 'Routine updated successfully',
-                data: { ...updatedRoutine, tasks: routineTasks }
+                data: updatedRoutine
             });
         } catch (error) {
             console.error('Update routine error:', error);
@@ -224,26 +172,25 @@ class RoutineController {
      */
     static async deleteRoutine(req, res) {
         try {
-            const routine = await Routine.findById(req.params.id);
-            
+            const routine = await routineService.RoutineTemplate.findById(req.params.id);
+
             if (!routine) {
                 return res.status(404).json({
                     success: false,
                     message: 'Routine not found'
                 });
             }
-            
-            // Verify ownership
+
             if (routine.user_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Unauthorized access to routine'
                 });
             }
-            
-            // Delete routine (cascade will delete routine_tasks)
-            await Routine.delete(req.params.id);
-            
+
+            await routineService.RoutineTemplate.delete(req.params.id);
+            await routineService.RoutineInstance.deleteByTemplate(req.params.id);
+
             res.json({
                 success: true,
                 message: 'Routine deleted successfully'
@@ -264,25 +211,26 @@ class RoutineController {
      */
     static async toggleActive(req, res) {
         try {
-            const routine = await Routine.findById(req.params.id);
-            
+            const routine = await routineService.RoutineTemplate.findById(req.params.id);
+
             if (!routine) {
                 return res.status(404).json({
                     success: false,
                     message: 'Routine not found'
                 });
             }
-            
-            // Verify ownership
+
             if (routine.user_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Unauthorized access to routine'
                 });
             }
-            
-            const updatedRoutine = await Routine.toggleActive(req.params.id);
-            
+
+            const updatedRoutine = await routineService.RoutineTemplate.update(req.params.id, {
+                is_active: !routine.is_active
+            });
+
             res.json({
                 success: true,
                 message: `Routine ${updatedRoutine.is_active ? 'activated' : 'deactivated'} successfully`,
@@ -304,103 +252,39 @@ class RoutineController {
      */
     static async applyRoutine(req, res) {
         try {
-            const { date, time_offset } = req.body; // date: YYYY-MM-DD, time_offset: minutes
-            const parsedOffset = Number.isFinite(Number(time_offset)) ? Number(time_offset) : 0;
-            let rollingStartMinutes = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : null;
-            
-            const routine = await Routine.findById(req.params.id);
-            
+            const routine = await routineService.RoutineTemplate.findById(req.params.id);
+
             if (!routine) {
                 return res.status(404).json({
                     success: false,
                     message: 'Routine not found'
                 });
             }
-            
-            // Verify ownership
+
             if (routine.user_id !== req.user.id) {
                 return res.status(403).json({
                     success: false,
                     message: 'Unauthorized access to routine'
                 });
             }
-            
-            // Get routine tasks
-            const routineTasks = await RoutineTask.findByRoutine(req.params.id);
 
-            const createdTasks = [];
-            const scheduleSlots = [];
-
-            // Create tasks from templates
-            for (const routineTask of routineTasks) {
-                const template = routineTask.task_template || {};
-
-                const explicitStart = normalizeTimeToSeconds(template.scheduled_time);
-                let derivedStart = explicitStart;
-
-                if (!derivedStart && Number.isFinite(rollingStartMinutes)) {
-                    derivedStart = minutesToTime(rollingStartMinutes);
-                }
-
-                const normalizedStart = normalizeTimeToSeconds(derivedStart);
-
-                const task = await Task.create({
-                    user_id: req.user.id,
-                    title: template.title,
-                    description: template.description,
-                    category: template.category,
-                    priority: template.priority || 'medium',
-                    scheduled_date: date,
-                    scheduled_time: normalizedStart,
-                    duration_minutes: template.duration_minutes
+            const { date } = req.body;
+            if (!date) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Apply date is required'
                 });
-
-                createdTasks.push(task);
-
-                const duration = Number.isFinite(template.duration_minutes)
-                    ? template.duration_minutes
-                    : parseInt(template.duration_minutes, 10);
-                const slotDuration = Number.isFinite(duration) ? duration : 30;
-                const startMinutes = timeToMinutes(normalizedStart);
-
-                if (normalizedStart && Number.isFinite(startMinutes)) {
-                    const endMinutes = startMinutes + slotDuration;
-                    const endTime = minutesToTime(endMinutes);
-
-                    if (endTime) {
-                        scheduleSlots.push({
-                            title: template.title,
-                            description: template.description || null,
-                            category: template.category || null,
-                            priority: template.priority || 'medium',
-                            status: template.status || 'pending',
-                            start_time: normalizedStart,
-                            end_time: endTime
-                        });
-                    }
-
-                    if (Number.isFinite(rollingStartMinutes)) {
-                        rollingStartMinutes = Math.max(rollingStartMinutes, endMinutes);
-                    } else {
-                        rollingStartMinutes = endMinutes;
-                    }
-                }
             }
 
-            let scheduleResult = { tasks: [], skipped: 0 };
-            if (scheduleSlots.length) {
-                scheduleResult = await scheduleService.addSlotsToSchedule(req.user.id, date, scheduleSlots);
-            }
+            await routineService.ensureDailyInstances(req.user.id, date);
+            const schedule = await scheduleService.getScheduleByDate(req.user.id, date);
 
             res.json({
                 success: true,
-                message: `Routine applied successfully. ${createdTasks.length} tasks created. ${scheduleResult.tasks.length} scheduled slots created.`,
+                message: 'Routine applied successfully',
                 data: {
-                    tasks: createdTasks,
-                    tasks_count: createdTasks.length,
-                    schedule_slots: scheduleResult.tasks,
-                    schedule_count: scheduleResult.tasks.length,
-                    schedule_skipped: scheduleResult.skipped
+                    date,
+                    schedule: schedule.tasks
                 }
             });
         } catch (error) {
@@ -408,6 +292,172 @@ class RoutineController {
             res.status(500).json({
                 success: false,
                 message: 'Error applying routine',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get daily routine instances for a date
+     * @route GET /api/routines/daily/:date
+     */
+    static async getDailyRoutine(req, res) {
+        try {
+            const { date } = req.params;
+            const { instances } = await routineService.ensureDailyInstances(req.user.id, date);
+            const schedule = await scheduleService.getScheduleByDate(req.user.id, date);
+            await routineService.updateRoutineAnalytics(req.user.id, date);
+
+            res.json({
+                success: true,
+                data: {
+                    date,
+                    routines: instances,
+                    schedule: schedule.tasks
+                }
+            });
+        } catch (error) {
+            console.error('Get daily routine error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching daily routine',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Update routine instance item
+     * @route PATCH /api/routines/instances/:id/items/:itemId
+     */
+    static async updateRoutineInstanceItem(req, res) {
+        try {
+            const instance = await routineService.RoutineInstance.findById(req.params.id);
+            if (!instance) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Routine instance not found'
+                });
+            }
+
+            if (instance.user_id !== req.user.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Unauthorized access to routine instance'
+                });
+            }
+
+            const updated = await routineService.updateInstanceItem(req.user.id, req.params.id, req.params.itemId, req.body);
+
+            if (req.body.start_time || req.body.end_time || req.body.duration_minutes) {
+                const item = updated.items.find((entry) => entry.id === req.params.itemId);
+                if (item?.scheduled_task_id) {
+                    await scheduleService.updateScheduleTask(req.user.id, item.scheduled_task_id, {
+                        slot_start_time: item.start_time,
+                        slot_end_time: item.end_time,
+                        duration_minutes: item.duration_minutes
+                    });
+                } else if (item?.start_time && item?.end_time) {
+                    await scheduleService.addSlotsToSchedule(req.user.id, updated.date, [
+                        {
+                            title: item.title,
+                            description: item.notes || null,
+                            priority: 'medium',
+                            status: item.status || 'pending',
+                            start_time: item.start_time,
+                            end_time: item.end_time,
+                            duration_minutes: item.duration_minutes,
+                            routine_template_id: updated.template_id,
+                            routine_instance_id: updated.id,
+                            routine_item_id: item.id,
+                            source: 'routine'
+                        }
+                    ]);
+                }
+            }
+
+            res.json({
+                success: true,
+                message: 'Routine item updated',
+                data: updated
+            });
+        } catch (error) {
+            console.error('Update routine instance item error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error updating routine item',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Update routine instance item status
+     * @route PATCH /api/routines/instances/:id/items/:itemId/complete
+     */
+    static async completeRoutineInstanceItem(req, res) {
+        try {
+            const instance = await routineService.RoutineInstance.findById(req.params.id);
+            if (!instance) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Routine instance not found'
+                });
+            }
+
+            if (instance.user_id !== req.user.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Unauthorized access to routine instance'
+                });
+            }
+
+            const status = req.body.status || 'completed';
+            const updated = await routineService.updateInstanceItemStatus(req.user.id, req.params.id, req.params.itemId, status);
+
+            const item = updated.items.find((entry) => entry.id === req.params.itemId);
+            if (item?.scheduled_task_id) {
+                await scheduleService.updateScheduleTaskStatus(req.user.id, item.scheduled_task_id, status === 'completed' ? 'completed' : 'pending');
+            }
+
+            res.json({
+                success: true,
+                message: 'Routine item status updated',
+                data: updated
+            });
+        } catch (error) {
+            console.error('Complete routine instance item error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error updating routine item status',
+                error: error.message
+            });
+        }
+    }
+
+    /**
+     * Get routine analytics for date
+     * @route GET /api/routines/analytics/:date
+     */
+    static async getRoutineAnalytics(req, res) {
+        try {
+            const { date } = req.params;
+            const analytics = await routineService.RoutineAnalytics.findByDate(req.user.id, date);
+
+            res.json({
+                success: true,
+                data: analytics || {
+                    date,
+                    total_items: 0,
+                    completed_items: 0,
+                    skipped_items: 0
+                }
+            });
+        } catch (error) {
+            console.error('Get routine analytics error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching routine analytics',
                 error: error.message
             });
         }

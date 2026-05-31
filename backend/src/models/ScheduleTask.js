@@ -15,7 +15,11 @@ const scheduleTaskSchema = new mongoose.Schema(
         priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
         status: { type: String, enum: ['pending', 'in_progress', 'completed', 'cancelled'], default: 'pending' },
         duration_minutes: { type: Number, default: 30 },
-        actual_duration_minutes: { type: Number, default: null }
+        actual_duration_minutes: { type: Number, default: null },
+        routine_template_id: { type: String, default: null },
+        routine_instance_id: { type: String, default: null },
+        routine_item_id: { type: String, default: null },
+        source: { type: String, enum: ['task', 'routine', 'schedule'], default: 'schedule' }
     },
     {
         timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
@@ -26,6 +30,7 @@ const scheduleTaskSchema = new mongoose.Schema(
 scheduleTaskSchema.index({ user_id: 1, scheduled_date: 1, slot_start_time: 1 }, { unique: true });
 scheduleTaskSchema.index({ schedule_id: 1, slot_start_time: 1 });
 scheduleTaskSchema.index({ status: 1 });
+scheduleTaskSchema.index({ routine_instance_id: 1 });
 
 const ScheduleTaskDocument = mongoose.models.ScheduleTask || mongoose.model('ScheduleTask', scheduleTaskSchema);
 
@@ -105,7 +110,10 @@ class ScheduleTask {
             'category',
             'priority',
             'status',
-            'actual_duration_minutes'
+            'actual_duration_minutes',
+            'slot_start_time',
+            'slot_end_time',
+            'duration_minutes'
         ];
 
         const safeUpdates = {};

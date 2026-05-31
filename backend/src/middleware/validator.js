@@ -309,6 +309,18 @@ const scheduleValidation = [
     body('slots.*.description')
         .optional({ nullable: true })
         .trim(),
+    body('slots.*.routine_template_id')
+        .optional({ nullable: true })
+        .isString().withMessage('routine_template_id must be a string'),
+    body('slots.*.routine_instance_id')
+        .optional({ nullable: true })
+        .isString().withMessage('routine_instance_id must be a string'),
+    body('slots.*.routine_item_id')
+        .optional({ nullable: true })
+        .isString().withMessage('routine_item_id must be a string'),
+    body('slots.*.source')
+        .optional({ nullable: true })
+        .isIn(['task', 'routine', 'schedule']).withMessage('Invalid slot source value'),
     handleValidationErrors
 ];
 
@@ -339,6 +351,18 @@ const scheduleSlotsValidation = [
     body('slots.*.description')
         .optional({ nullable: true })
         .trim(),
+    body('slots.*.routine_template_id')
+        .optional({ nullable: true })
+        .isString().withMessage('routine_template_id must be a string'),
+    body('slots.*.routine_instance_id')
+        .optional({ nullable: true })
+        .isString().withMessage('routine_instance_id must be a string'),
+    body('slots.*.routine_item_id')
+        .optional({ nullable: true })
+        .isString().withMessage('routine_item_id must be a string'),
+    body('slots.*.source')
+        .optional({ nullable: true })
+        .isIn(['task', 'routine', 'schedule']).withMessage('Invalid slot source value'),
     handleValidationErrors
 ];
 
@@ -366,6 +390,15 @@ const scheduleTaskUpdateValidation = [
     body('status')
         .optional()
         .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid status value'),
+    body('slot_start_time')
+        .optional()
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('slot_start_time must be HH:MM or HH:MM:SS'),
+    body('slot_end_time')
+        .optional()
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('slot_end_time must be HH:MM or HH:MM:SS'),
+    body('duration_minutes')
+        .optional()
+        .isInt({ min: 1 }).withMessage('duration_minutes must be a positive integer'),
     body('actual_duration_minutes')
         .optional()
         .isInt({ min: 1 }).withMessage('actual_duration_minutes must be a positive integer'),
@@ -418,6 +451,145 @@ const routineValidation = [
     handleValidationErrors
 ];
 
+const routineTemplateCreateValidation = [
+    body('name')
+        .trim()
+        .notEmpty().withMessage('Routine name is required')
+        .isLength({ max: 100 }).withMessage('Name must not exceed 100 characters'),
+    body('description')
+        .optional()
+        .trim(),
+    body('color')
+        .optional()
+        .matches(/^#[0-9A-F]{6}$/i).withMessage('color must be a valid hex code'),
+    body('icon')
+        .optional()
+        .trim()
+        .isLength({ max: 50 }).withMessage('Icon must not exceed 50 characters'),
+    body('is_active')
+        .optional()
+        .isBoolean().withMessage('is_active must be a boolean'),
+    body('recurrence.type')
+        .optional()
+        .isIn(['daily', 'weekdays', 'weekends', 'custom']).withMessage('Invalid recurrence type'),
+    body('recurrence.days_of_week')
+        .optional({ nullable: true })
+        .isArray().withMessage('days_of_week must be an array'),
+    body('recurrence.days_of_week.*')
+        .optional({ nullable: true })
+        .isInt({ min: 0, max: 6 }).withMessage('days_of_week must be 0-6'),
+    body('recurrence.start_date')
+        .optional({ nullable: true })
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
+    body('recurrence.end_date')
+        .optional({ nullable: true })
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('end_date must be in YYYY-MM-DD format'),
+    body('items')
+        .isArray({ min: 1 }).withMessage('items must be a non-empty array'),
+    body('items.*.title')
+        .trim()
+        .notEmpty().withMessage('Routine item title is required')
+        .isLength({ max: 255 }).withMessage('Title must not exceed 255 characters'),
+    body('items.*.notes')
+        .optional({ nullable: true })
+        .trim(),
+    body('items.*.duration_minutes')
+        .optional({ nullable: true })
+        .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
+    body('items.*.start_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('items.*.end_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('items.*.order')
+        .optional()
+        .isInt({ min: 0 }).withMessage('order must be a positive integer'),
+    handleValidationErrors
+];
+
+const routineTemplateUpdateValidation = [
+    body('name')
+        .optional()
+        .trim()
+        .isLength({ max: 100 }).withMessage('Name must not exceed 100 characters'),
+    body('description')
+        .optional()
+        .trim(),
+    body('color')
+        .optional()
+        .matches(/^#[0-9A-F]{6}$/i).withMessage('color must be a valid hex code'),
+    body('icon')
+        .optional()
+        .trim()
+        .isLength({ max: 50 }).withMessage('Icon must not exceed 50 characters'),
+    body('is_active')
+        .optional()
+        .isBoolean().withMessage('is_active must be a boolean'),
+    body('recurrence.type')
+        .optional()
+        .isIn(['daily', 'weekdays', 'weekends', 'custom']).withMessage('Invalid recurrence type'),
+    body('recurrence.days_of_week')
+        .optional({ nullable: true })
+        .isArray().withMessage('days_of_week must be an array'),
+    body('recurrence.days_of_week.*')
+        .optional({ nullable: true })
+        .isInt({ min: 0, max: 6 }).withMessage('days_of_week must be 0-6'),
+    body('recurrence.start_date')
+        .optional({ nullable: true })
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
+    body('recurrence.end_date')
+        .optional({ nullable: true })
+        .isDate({ format: 'YYYY-MM-DD' }).withMessage('end_date must be in YYYY-MM-DD format'),
+    body('items')
+        .optional()
+        .isArray().withMessage('items must be an array'),
+    body('items.*.title')
+        .optional()
+        .trim()
+        .notEmpty().withMessage('Routine item title is required')
+        .isLength({ max: 255 }).withMessage('Title must not exceed 255 characters'),
+    body('items.*.notes')
+        .optional({ nullable: true })
+        .trim(),
+    body('items.*.duration_minutes')
+        .optional({ nullable: true })
+        .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
+    body('items.*.start_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('items.*.end_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('items.*.order')
+        .optional()
+        .isInt({ min: 0 }).withMessage('order must be a positive integer'),
+    handleValidationErrors
+];
+
+const routineInstanceItemUpdateValidation = [
+    body('title')
+        .optional()
+        .trim()
+        .isLength({ max: 255 }).withMessage('Title must not exceed 255 characters'),
+    body('notes')
+        .optional({ nullable: true })
+        .trim(),
+    body('duration_minutes')
+        .optional({ nullable: true })
+        .isInt({ min: 1, max: 1440 }).withMessage('duration_minutes must be between 1 and 1440'),
+    body('start_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('start_time must be HH:MM or HH:MM:SS'),
+    body('end_time')
+        .optional({ nullable: true })
+        .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
+    body('status')
+        .optional()
+        .isIn(['pending', 'in_progress', 'completed', 'skipped']).withMessage('Invalid status value'),
+    handleValidationErrors
+];
+
 /**
  * Validation rules for resource ID parameters
  * NOTE: Accepts UUID or Mongo ObjectId to keep routes unchanged during DB migration.
@@ -458,6 +630,9 @@ module.exports = {
     scheduleTaskUpdateValidation,
     categoryValidation,
     routineValidation,
+    routineTemplateCreateValidation,
+    routineTemplateUpdateValidation,
+    routineInstanceItemUpdateValidation,
     uuidParamValidation,
     dateParamValidation,
     scheduleRangeQueryValidation,

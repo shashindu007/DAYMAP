@@ -13,7 +13,11 @@ const tasksToSlots = (tasks = []) => (
             title: task.title || '',
             description: task.description || '',
             priority: task.priority || 'medium',
-            status: task.status || 'pending'
+            status: task.status || 'pending',
+            routine_template_id: task.routine_template_id || null,
+            routine_instance_id: task.routine_instance_id || null,
+            routine_item_id: task.routine_item_id || null,
+            source: task.source || 'schedule'
         }))
         .filter((task) => task.start_time && task.end_time)
         .sort((a, b) => a.start_time.localeCompare(b.start_time))
@@ -179,13 +183,23 @@ const ScheduleEditor = ({
         slotValues
             .map((entry) => {
                 if (!entry?.title?.trim()) return null;
+                const startMinutes = timeToMinutes(entry.start_time);
+                const endMinutes = timeToMinutes(entry.end_time);
+                const durationMinutes = Number.isFinite(startMinutes) && Number.isFinite(endMinutes)
+                    ? Math.max(1, endMinutes - startMinutes)
+                    : null;
                 return {
                     title: entry.title.trim(),
                     description: entry.description?.trim() || null,
                     priority: entry.priority || 'medium',
                     status: entry.status || 'pending',
                     start_time: entry.start_time,
-                    end_time: entry.end_time
+                    end_time: entry.end_time,
+                    duration_minutes: durationMinutes,
+                    routine_template_id: entry.routine_template_id || null,
+                    routine_instance_id: entry.routine_instance_id || null,
+                    routine_item_id: entry.routine_item_id || null,
+                    source: entry.source || 'schedule'
                 };
             })
             .filter(Boolean)

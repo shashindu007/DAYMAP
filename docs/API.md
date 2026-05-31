@@ -296,6 +296,85 @@ Delete a task.
 
 ---
 
+## Routine Endpoints
+
+### Get Routine Templates
+
+**GET** `/routines`
+
+Optional query:
+- `active_only=true`
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "routines": [
+      {
+        "id": "uuid",
+        "name": "Morning Routine",
+        "recurrence": { "type": "daily" },
+        "items": [
+          { "id": "uuid", "title": "Wake up", "duration_minutes": 10, "order": 0 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Create Routine Template
+
+**POST** `/routines`
+
+```json
+{
+  "name": "Morning Routine",
+  "description": "Start strong",
+  "color": "#6366F1",
+  "icon": "☀️",
+  "is_active": true,
+  "recurrence": { "type": "weekdays" },
+  "items": [
+    { "title": "Wake up", "duration_minutes": 10, "order": 0 },
+    { "title": "Exercise", "duration_minutes": 30, "order": 1 }
+  ]
+}
+```
+
+### Update Routine Template
+
+**PUT** `/routines/:id`
+
+### Delete Routine Template
+
+**DELETE** `/routines/:id`
+
+### Get Daily Routine
+
+**GET** `/routines/daily/:date`
+
+Returns routine instances for the date (auto-generated from templates) plus the day schedule.
+
+### Update Routine Instance Item
+
+**PATCH** `/routines/instances/:id/items/:itemId`
+
+### Complete / Skip Routine Item
+
+**PATCH** `/routines/instances/:id/items/:itemId/complete`
+
+```json
+{ "status": "completed" }
+```
+
+### Routine Analytics (Daily)
+
+**GET** `/routines/analytics/:date`
+
+---
+
 ## Analytics Endpoints
 
 ### Get Daily Analytics
