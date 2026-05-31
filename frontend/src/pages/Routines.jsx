@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSchedule } from '../context/ScheduleContext';
 import routineService from '../services/routineService';
 import './Routines.css';
 
 const Routines = () => {
+    const { fetchSchedule } = useSchedule();
     const [routines, setRoutines] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -108,6 +110,9 @@ const Routines = () => {
         try {
             setError('');
             await routineService.applyRoutine(routineId, { date: applyDate });
+            if (applyDate) {
+                await fetchSchedule(applyDate);
+            }
             await loadRoutines();
         } catch (applyError) {
             setError(applyError?.message || 'Could not apply routine');

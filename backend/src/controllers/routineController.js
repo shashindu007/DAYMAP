@@ -305,6 +305,8 @@ class RoutineController {
     static async applyRoutine(req, res) {
         try {
             const { date, time_offset } = req.body; // date: YYYY-MM-DD, time_offset: minutes
+            const parsedOffset = Number.isFinite(Number(time_offset)) ? Number(time_offset) : 0;
+            let rollingStartMinutes = Number.isFinite(parsedOffset) ? Math.max(0, parsedOffset) : null;
             
             const routine = await Routine.findById(req.params.id);
             
@@ -331,7 +333,16 @@ class RoutineController {
 
             // Create tasks from templates
             for (const routineTask of routineTasks) {
-                const template = routineTask.task_template;
+                const template = routineTask.task_template || {};
+
+                const explicitStart = normalizeTimeToSeconds(template.scheduled_time);
+                let derivedStart = explicitStart;
+
+                if (!derivedStart && Number.isFinite(rollingStartMinutes)) {
+                    derivedStart = minutesToTime(rollingStartMinutes);
+                }
+
+                const normalizedStart = normalizeTimeToSeconds(derivedStart);
 
                 const task = await Task.create({
                     user_id: req.user.id,
@@ -340,13 +351,12 @@ class RoutineController {
                     category: template.category,
                     priority: template.priority || 'medium',
                     scheduled_date: date,
-                    scheduled_time: template.scheduled_time,
+                    scheduled_time: normalizedStart,
                     duration_minutes: template.duration_minutes
                 });
 
                 createdTasks.push(task);
 
-                const normalizedStart = normalizeTimeToSeconds(template.scheduled_time);
                 const duration = Number.isFinite(template.duration_minutes)
                     ? template.duration_minutes
                     : parseInt(template.duration_minutes, 10);
@@ -367,6 +377,12 @@ class RoutineController {
                             start_time: normalizedStart,
                             end_time: endTime
                         });
+                    }
+
+                    if (Number.isFinite(rollingStartMinutes)) {
+                        rollingStartMinutes = Math.max(rollingStartMinutes, endMinutes);
+                    } else {
+                        rollingStartMinutes = endMinutes;
                     }
                 }
             }
