@@ -21,6 +21,21 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 /**
+ * A 'custom' recurrence is meaningless without at least one selected weekday —
+ * it would silently match no days and the routine would never appear. Reject it.
+ * Runs against the whole `recurrence` object so it can see both type and days.
+ */
+const requireDaysForCustomRecurrence = (recurrence) => {
+    if (recurrence && recurrence.type === 'custom') {
+        const days = recurrence.days_of_week;
+        if (!Array.isArray(days) || days.length === 0) {
+            throw new Error('Custom recurrence requires at least one day in days_of_week');
+        }
+    }
+    return true;
+};
+
+/**
  * Validation rules for user registration
  */
 const registerValidation = [
@@ -478,6 +493,8 @@ const routineTemplateCreateValidation = [
     body('recurrence.days_of_week.*')
         .optional({ nullable: true })
         .isInt({ min: 0, max: 6 }).withMessage('days_of_week must be 0-6'),
+    body('recurrence')
+        .custom(requireDaysForCustomRecurrence),
     body('recurrence.start_date')
         .optional({ nullable: true })
         .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),
@@ -535,6 +552,9 @@ const routineTemplateUpdateValidation = [
     body('recurrence.days_of_week.*')
         .optional({ nullable: true })
         .isInt({ min: 0, max: 6 }).withMessage('days_of_week must be 0-6'),
+    body('recurrence')
+        .optional()
+        .custom(requireDaysForCustomRecurrence),
     body('recurrence.start_date')
         .optional({ nullable: true })
         .isDate({ format: 'YYYY-MM-DD' }).withMessage('start_date must be in YYYY-MM-DD format'),

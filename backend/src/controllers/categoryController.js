@@ -20,8 +20,7 @@ class CategoryController {
             console.error('Get all categories error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching categories',
-                error: error.message
+                message: 'Error fetching categories'
             });
         }
     }
@@ -57,8 +56,7 @@ class CategoryController {
             console.error('Get category error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching category',
-                error: error.message
+                message: 'Error fetching category'
             });
         }
     }
@@ -96,8 +94,7 @@ class CategoryController {
             console.error('Create category error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error creating category',
-                error: error.message
+                message: 'Error creating category'
             });
         }
     }
@@ -147,8 +144,7 @@ class CategoryController {
             console.error('Update category error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating category',
-                error: error.message
+                message: 'Error updating category'
             });
         }
     }
@@ -186,8 +182,7 @@ class CategoryController {
             console.error('Delete category error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error deleting category',
-                error: error.message
+                message: 'Error deleting category'
             });
         }
     }

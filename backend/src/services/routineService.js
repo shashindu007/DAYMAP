@@ -3,15 +3,9 @@ const RoutineTask = require('../models/RoutineTask');
 const RoutineTemplate = require('../models/RoutineTemplate');
 const RoutineInstance = require('../models/RoutineInstance');
 const RoutineAnalytics = require('../models/RoutineAnalytics');
+const { normalizeTimeToSeconds } = require('../utils/time');
 
 const DEFAULT_DAY_START = '06:00';
-
-const normalizeTimeToSeconds = (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) return `${value}:00`;
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) return value;
-    return null;
-};
 
 const timeToMinutes = (value) => {
     if (!value) return null;
@@ -174,9 +168,19 @@ const buildAnalyticsPayload = (instances) => {
     return { total_items, completed_items, skipped_items };
 };
 
+// Users whose legacy routines have already been migrated (or confirmed absent)
+// during this process lifetime. Prevents the expensive legacy scan from running
+// on every routine/schedule read (it previously ran once per day in a week range).
+const migratedUsers = new Set();
+
 const migrateLegacyRoutines = async (userId) => {
+    if (migratedUsers.has(userId)) return [];
+
     const legacyRoutines = await Routine.findByUser(userId, false);
-    if (!legacyRoutines.length) return [];
+    if (!legacyRoutines.length) {
+        migratedUsers.add(userId);
+        return [];
+    }
 
     const existingTemplates = await RoutineTemplate.findByUser(userId, false);
     const existingLegacyIds = new Set(existingTemplates.map((tpl) => tpl.legacy_routine_id).filter(Boolean));
@@ -213,6 +217,7 @@ const migrateLegacyRoutines = async (userId) => {
         migrated.push(template);
     }
 
+    migratedUsers.add(userId);
     return migrated;
 };
 
@@ -306,15 +311,6 @@ const updateInstanceItem = async (userId, instanceId, itemId, updates) => {
     return updated;
 };
 
-const updateTemplateAndFutureInstances = async (userId, templateId, updates) => {
-    const template = await RoutineTemplate.findById(templateId);
-    if (!template || template.user_id !== userId) return null;
-
-    const updatedTemplate = await RoutineTemplate.update(templateId, updates);
-
-    return updatedTemplate;
-};
-
 module.exports = {
     normalizeTimeToSeconds,
     timeToMinutes,
@@ -327,7 +323,6 @@ module.exports = {
     updateInstanceItemStatus,
     updateInstanceItem,
     clearInstanceItemSchedule,
-    updateTemplateAndFutureInstances,
     RoutineTemplate,
     RoutineInstance,
     RoutineAnalytics

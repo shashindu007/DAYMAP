@@ -25,12 +25,19 @@ const allowedOrigins = String(config.cors.origin || '')
 
 // Security middleware
 app.use(helmet()); // Set security headers
+if (allowedOrigins.length === 0) {
+    // eslint-disable-next-line no-console
+    console.warn('Warning: CORS_ORIGIN is empty. All cross-origin browser requests will be blocked. Set CORS_ORIGIN in the environment.');
+}
+
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow non-browser clients/tools without Origin header.
+        // Allow non-browser clients/tools without an Origin header.
         if (!origin) return callback(null, true);
 
-        if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        // Only explicitly allowlisted origins are permitted. An empty allowlist
+        // means block all cross-origin requests (never allow-all).
+        if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
 
@@ -51,10 +58,9 @@ if (config.nodeEnv === 'development') {
     app.use(morgan('combined'));
 }
 
-// Rate limiting (disabled in development for smoother local testing)
-if (config.nodeEnv !== 'development') {
-    app.use('/api', generalLimiter);
-}
+// Rate limiting — always on. Sensitive routes (auth, task creation) add their
+// own stricter limiters on top of this general /api limiter.
+app.use('/api', generalLimiter);
 
 // Health check route
 app.get('/health', (req, res) => {

@@ -22,8 +22,7 @@ class RoutineController {
             console.error('Get all routines error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching routines',
-                error: error.message
+                message: 'Error fetching routines'
             });
         }
     }
@@ -58,8 +57,7 @@ class RoutineController {
             console.error('Get routine error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching routine',
-                error: error.message
+                message: 'Error fetching routine'
             });
         }
     }
@@ -106,8 +104,7 @@ class RoutineController {
             console.error('Create routine error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error creating routine',
-                error: error.message
+                message: 'Error creating routine'
             });
         }
     }
@@ -160,8 +157,7 @@ class RoutineController {
             console.error('Update routine error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating routine',
-                error: error.message
+                message: 'Error updating routine'
             });
         }
     }
@@ -199,8 +195,7 @@ class RoutineController {
             console.error('Delete routine error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error deleting routine',
-                error: error.message
+                message: 'Error deleting routine'
             });
         }
     }
@@ -240,8 +235,7 @@ class RoutineController {
             console.error('Toggle active error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error toggling routine status',
-                error: error.message
+                message: 'Error toggling routine status'
             });
         }
     }
@@ -291,8 +285,7 @@ class RoutineController {
             console.error('Apply routine error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error applying routine',
-                error: error.message
+                message: 'Error applying routine'
             });
         }
     }
@@ -320,8 +313,7 @@ class RoutineController {
             console.error('Get daily routine error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching daily routine',
-                error: error.message
+                message: 'Error fetching daily routine'
             });
         }
     }
@@ -385,8 +377,7 @@ class RoutineController {
             console.error('Update routine instance item error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating routine item',
-                error: error.message
+                message: 'Error updating routine item'
             });
         }
     }
@@ -429,8 +420,7 @@ class RoutineController {
             console.error('Complete routine instance item error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating routine item status',
-                error: error.message
+                message: 'Error updating routine item status'
             });
         }
     }
@@ -457,8 +447,7 @@ class RoutineController {
             console.error('Get routine analytics error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching routine analytics',
-                error: error.message
+                message: 'Error fetching routine analytics'
             });
         }
     }

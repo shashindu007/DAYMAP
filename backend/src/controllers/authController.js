@@ -49,8 +49,7 @@ class AuthController {
             console.error('Register error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error registering user',
-                error: error.message
+                message: 'Error registering user'
             });
         }
     }
@@ -101,8 +100,7 @@ class AuthController {
             console.error('Login error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error logging in',
-                error: error.message
+                message: 'Error logging in'
             });
         }
     }
@@ -130,8 +128,7 @@ class AuthController {
             console.error('Get current user error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching user data',
-                error: error.message
+                message: 'Error fetching user data'
             });
         }
     }
@@ -174,8 +171,7 @@ class AuthController {
             console.error('Update profile error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating profile',
-                error: error.message
+                message: 'Error updating profile'
             });
         }
     }
@@ -221,8 +217,7 @@ class AuthController {
             console.error('Change password error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error changing password',
-                error: error.message
+                message: 'Error changing password'
             });
         }
     }
@@ -243,8 +238,7 @@ class AuthController {
             console.error('Logout error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error logging out',
-                error: error.message
+                message: 'Error logging out'
             });
         }
     }

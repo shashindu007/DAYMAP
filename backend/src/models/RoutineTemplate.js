@@ -68,8 +68,20 @@ class RoutineTemplate {
         return RoutineTemplateDocument.find(filter).sort({ created_at: -1 }).lean();
     }
 
-    static async update(id, updates) {
-        await RoutineTemplateDocument.updateOne({ id }, { $set: updates });
+    static async update(id, updates = {}) {
+        // Whitelist updatable fields so a partial payload (e.g. an is_active-only
+        // toggle) cannot clobber required fields with undefined/null.
+        const allowedFields = ['name', 'description', 'color', 'icon', 'is_active', 'recurrence', 'items'];
+        const sanitized = {};
+        for (const field of allowedFields) {
+            if (updates[field] !== undefined) {
+                sanitized[field] = updates[field];
+            }
+        }
+
+        if (Object.keys(sanitized).length > 0) {
+            await RoutineTemplateDocument.updateOne({ id }, { $set: sanitized });
+        }
         return RoutineTemplateDocument.findOne({ id }).lean();
     }
 

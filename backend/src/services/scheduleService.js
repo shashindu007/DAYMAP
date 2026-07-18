@@ -4,17 +4,8 @@ const ScheduleTask = require('../models/ScheduleTask');
 const Task = require('../models/Task');
 const Analytics = require('../models/Analytics');
 const routineService = require('./routineService');
-
-const normalizeTimeToSeconds = (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
-        return `${value}:00`;
-    }
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) {
-        return value;
-    }
-    return null;
-};
+const { eachYmd } = require('../utils/date');
+const { normalizeTimeToSeconds } = require('../utils/time');
 
 const toMinutes = (value) => {
     if (!value) return null;
@@ -369,15 +360,11 @@ const deleteScheduleByDate = async (userId, date) => {
 };
 
 const getScheduleRange = async (userId, startDate, endDate) => {
-    const start = new Date(`${startDate}T00:00:00`);
-    const end = new Date(`${endDate}T00:00:00`);
-    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-        const cursor = new Date(start);
-        while (cursor <= end) {
-            const dateKey = cursor.toISOString().split('T')[0];
-            await ensureRoutineSchedule(userId, dateKey);
-            cursor.setDate(cursor.getDate() + 1);
-        }
+    // eachYmd works directly on YYYY-MM-DD strings, so the auto-generated
+    // routine schedules land on exactly the requested calendar dates
+    // (previously toISOString() shifted keys by a day for non-UTC users).
+    for (const dateKey of eachYmd(startDate, endDate)) {
+        await ensureRoutineSchedule(userId, dateKey);
     }
     const tasks = await ScheduleTask.findByDateRange(userId, startDate, endDate);
     return tasks;

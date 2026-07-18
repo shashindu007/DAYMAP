@@ -46,13 +46,6 @@ class RoutineAnalytics {
     static async findByDate(userId, date) {
         return RoutineAnalyticsDocument.findOne({ user_id: userId, date }).lean();
     }
-
-    static async findByRange(userId, startDate, endDate) {
-        return RoutineAnalyticsDocument.find({
-            user_id: userId,
-            date: { $gte: startDate, $lte: endDate }
-        }).sort({ date: 1 }).lean();
-    }
 }
 
 module.exports = RoutineAnalytics;

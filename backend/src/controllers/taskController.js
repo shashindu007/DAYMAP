@@ -2,17 +2,8 @@ const Task = require('../models/Task');
 const ScheduleTask = require('../models/ScheduleTask');
 const Analytics = require('../models/Analytics');
 const routineService = require('../services/routineService');
-
-const normalizeTimeToSeconds = (value) => {
-    if (!value || typeof value !== 'string') return null;
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(value)) {
-        return `${value}:00`;
-    }
-    if (/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/.test(value)) {
-        return value;
-    }
-    return null;
-};
+const { getUserToday, addDaysToYmd } = require('../utils/date');
+const { normalizeTimeToSeconds } = require('../utils/time');
 
 const minutesBetweenTimes = (start, end) => {
     if (!start || !end) return null;
@@ -34,18 +25,31 @@ class TaskController {
      */
     static async getAllTasks(req, res) {
         try {
-            const { status, priority, category, scheduled_date, date_from, date_to } = req.query;
-            
+            // Only accept plain string query values. Express parses `?status[$ne]=x`
+            // into an object, so coercing to string (and whitelisting) prevents
+            // Mongo operator injection into the filter.
+            const asString = (value) => (typeof value === 'string' ? value : undefined);
+            const isYmd = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+            const VALID_STATUS = ['pending', 'in_progress', 'completed', 'cancelled'];
+            const VALID_PRIORITY = ['low', 'medium', 'high', 'urgent'];
+
+            const status = asString(req.query.status);
+            const priority = asString(req.query.priority);
+            const category = asString(req.query.category);
+            const scheduled_date = asString(req.query.scheduled_date);
+            const date_from = asString(req.query.date_from);
+            const date_to = asString(req.query.date_to);
+
             const filters = {};
-            if (status) filters.status = status;
-            if (priority) filters.priority = priority;
+            if (status && VALID_STATUS.includes(status)) filters.status = status;
+            if (priority && VALID_PRIORITY.includes(priority)) filters.priority = priority;
             if (category) filters.category = category;
-            if (scheduled_date) filters.scheduled_date = scheduled_date;
-            if (date_from && date_to) {
+            if (isYmd(scheduled_date)) filters.scheduled_date = scheduled_date;
+            if (isYmd(date_from) && isYmd(date_to)) {
                 filters.date_from = date_from;
                 filters.date_to = date_to;
             }
-            
+
             const tasks = await Task.findByUser(req.user.id, filters);
 
             let scheduleTasks = [];
@@ -74,8 +78,7 @@ class TaskController {
             console.error('Get all tasks error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching tasks',
-                error: error.message
+                message: 'Error fetching tasks'
             });
         }
     }
@@ -111,8 +114,7 @@ class TaskController {
             console.error('Get task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching task',
-                error: error.message
+                message: 'Error fetching task'
             });
         }
     }
@@ -131,10 +133,10 @@ class TaskController {
             const task = await Task.create(taskData);
 
             // Update analytics if task is scheduled for today (non-blocking)
-            const today = new Date().toISOString().split('T')[0];
+            const today = getUserToday(req.user.timezone);
             if (task?.scheduled_date === today) {
                 try {
-                    await this.updateAnalytics(req.user.id, today);
+                    await TaskController.updateAnalytics(req.user.id, today);
                 } catch (analyticsError) {
                     console.warn('Create task analytics update failed:', analyticsError?.message || analyticsError);
                 }
@@ -149,8 +151,7 @@ class TaskController {
             console.error('Create task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error creating task',
-                error: error.message
+                message: 'Error creating task'
             });
         }
     }
@@ -184,7 +185,7 @@ class TaskController {
                     await routineService.updateInstanceItemFromScheduleTask(updatedScheduleTask);
                 }
                 if (updatedScheduleTask?.scheduled_date) {
-                    await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
+                    await TaskController.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
                 }
 
                 return res.json({
@@ -206,7 +207,7 @@ class TaskController {
 
             // Update analytics
             if (updatedTask.scheduled_date) {
-                await this.updateAnalytics(req.user.id, updatedTask.scheduled_date);
+                await TaskController.updateAnalytics(req.user.id, updatedTask.scheduled_date);
             }
             
             res.json({
@@ -218,8 +219,7 @@ class TaskController {
             console.error('Update task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating task',
-                error: error.message
+                message: 'Error updating task'
             });
         }
     }
@@ -251,7 +251,7 @@ class TaskController {
                 const scheduledDate = scheduleTask.scheduled_date;
                 await ScheduleTask.deleteById(req.params.id);
                 if (scheduledDate) {
-                    await this.updateAnalytics(req.user.id, scheduledDate);
+                    await TaskController.updateAnalytics(req.user.id, scheduledDate);
                 }
 
                 return res.json({
@@ -273,7 +273,7 @@ class TaskController {
 
             // Update analytics
             if (scheduledDate) {
-                await this.updateAnalytics(req.user.id, scheduledDate);
+                await TaskController.updateAnalytics(req.user.id, scheduledDate);
             }
             
             res.json({
@@ -284,8 +284,7 @@ class TaskController {
             console.error('Delete task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error deleting task',
-                error: error.message
+                message: 'Error deleting task'
             });
         }
     }
@@ -319,7 +318,7 @@ class TaskController {
                     await routineService.updateInstanceItemStatus(req.user.id, updatedScheduleTask.routine_instance_id, updatedScheduleTask.routine_item_id, 'completed');
                 }
                 if (updatedScheduleTask?.scheduled_date) {
-                    await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
+                    await TaskController.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
                 }
 
                 return res.json({
@@ -341,7 +340,7 @@ class TaskController {
 
             // Update analytics
             if (updatedTask.scheduled_date) {
-                await this.updateAnalytics(req.user.id, updatedTask.scheduled_date);
+                await TaskController.updateAnalytics(req.user.id, updatedTask.scheduled_date);
             }
             
             res.json({
@@ -353,8 +352,7 @@ class TaskController {
             console.error('Complete task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error completing task',
-                error: error.message
+                message: 'Error completing task'
             });
         }
     }
@@ -389,7 +387,7 @@ class TaskController {
                     await routineService.updateInstanceItemStatus(req.user.id, updatedScheduleTask.routine_instance_id, updatedScheduleTask.routine_item_id, status);
                 }
                 if (updatedScheduleTask?.scheduled_date) {
-                    await this.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
+                    await TaskController.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
                 }
 
                 return res.json({
@@ -411,7 +409,7 @@ class TaskController {
 
             // Update analytics
             if (updatedTask.scheduled_date) {
-                await this.updateAnalytics(req.user.id, updatedTask.scheduled_date);
+                await TaskController.updateAnalytics(req.user.id, updatedTask.scheduled_date);
             }
             
             res.json({
@@ -423,8 +421,7 @@ class TaskController {
             console.error('Update status error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating task status',
-                error: error.message
+                message: 'Error updating task status'
             });
         }
     }
@@ -435,7 +432,7 @@ class TaskController {
      */
     static async getTodayTasks(req, res) {
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getUserToday(req.user.timezone);
             const tasks = await Task.findByDate(req.user.id, today);
             const stats = await Task.getStatsByDate(req.user.id, today);
             
@@ -457,8 +454,7 @@ class TaskController {
             console.error('Get today tasks error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching today\'s tasks',
-                error: error.message
+                message: 'Error fetching today\'s tasks'
             });
         }
     }
@@ -469,15 +465,12 @@ class TaskController {
      */
     static async getWeekTasks(req, res) {
         try {
-            const today = new Date();
-            const startOfWeek = new Date(today);
-            startOfWeek.setDate(today.getDate() - today.getDay());
-            const endOfWeek = new Date(startOfWeek);
-            endOfWeek.setDate(startOfWeek.getDate() + 6);
-            
-            const startDate = startOfWeek.toISOString().split('T')[0];
-            const endDate = endOfWeek.toISOString().split('T')[0];
-            
+            const today = getUserToday(req.user.timezone);
+            const [y, m, d] = today.split('-').map(Number);
+            const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+            const startDate = addDaysToYmd(today, -dayOfWeek);
+            const endDate = addDaysToYmd(startDate, 6);
+
             const tasks = await Task.findByWeek(req.user.id, startDate, endDate);
             
             res.json({
@@ -493,8 +486,7 @@ class TaskController {
             console.error('Get week tasks error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching week\'s tasks',
-                error: error.message
+                message: 'Error fetching week\'s tasks'
             });
         }
     }
@@ -505,11 +497,9 @@ class TaskController {
      */
     static async getUpcomingTasks(req, res) {
         try {
-            const today = new Date().toISOString().split('T')[0];
-            const nextWeek = new Date();
-            nextWeek.setDate(nextWeek.getDate() + 7);
-            const endDate = nextWeek.toISOString().split('T')[0];
-            
+            const today = getUserToday(req.user.timezone);
+            const endDate = addDaysToYmd(today, 7);
+
             const tasks = await Task.findByWeek(req.user.id, today, endDate);
             
             res.json({
@@ -523,8 +513,7 @@ class TaskController {
             console.error('Get upcoming tasks error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching upcoming tasks',
-                error: error.message
+                message: 'Error fetching upcoming tasks'
             });
         }
     }
@@ -552,8 +541,7 @@ class TaskController {
             console.error('Get day schedule error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching day schedule',
-                error: error.message
+                message: 'Error fetching day schedule'
             });
         }
     }
@@ -595,7 +583,7 @@ class TaskController {
                 createdTasks.push(created);
             }
 
-            await this.updateAnalytics(req.user.id, date);
+            await TaskController.updateAnalytics(req.user.id, date);
 
             res.status(201).json({
                 success: true,
@@ -610,8 +598,7 @@ class TaskController {
             console.error('Create day schedule error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error creating day schedule',
-                error: error.message
+                message: 'Error creating day schedule'
             });
         }
     }
@@ -623,14 +610,23 @@ class TaskController {
     static async bulkDelete(req, res) {
         try {
             const { ids } = req.body;
-            
+
             if (!Array.isArray(ids) || ids.length === 0) {
                 return res.status(400).json({
                     success: false,
                     message: 'Please provide an array of task IDs'
                 });
             }
-            
+
+            // Every id must be a plain string — reject objects/arrays that could
+            // carry Mongo operators into the delete filter.
+            if (!ids.every((id) => typeof id === 'string' && id.length > 0)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Task IDs must be non-empty strings'
+                });
+            }
+
             // Verify ownership of all tasks
             for (const id of ids) {
                 const task = await Task.findById(id);
@@ -652,8 +648,7 @@ class TaskController {
             console.error('Bulk delete error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error deleting tasks',
-                error: error.message
+                message: 'Error deleting tasks'
             });
         }
     }

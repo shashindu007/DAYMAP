@@ -29,14 +29,6 @@ class AnalyticsController {
         return null;
     }
 
-    static clockToSeconds(value) {
-        const normalized = this.normalizeClock(value);
-        if (!normalized) return null;
-
-        const [h, m, s] = normalized.split(':').map((part) => parseInt(part, 10));
-        return (h * 3600) + (m * 60) + s;
-    }
-
     static normalizeTags(tags) {
         if (Array.isArray(tags)) {
             return tags
@@ -102,8 +94,7 @@ class AnalyticsController {
             console.error('Get daily analytics error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching daily analytics',
-                error: error.message
+                message: 'Error fetching daily analytics'
             });
         }
     }
@@ -183,8 +174,7 @@ class AnalyticsController {
             console.error('Get weekly analytics error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching weekly analytics',
-                error: error.message
+                message: 'Error fetching weekly analytics'
             });
         }
     }
@@ -264,8 +254,7 @@ class AnalyticsController {
             console.error('Get monthly analytics error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching monthly analytics',
-                error: error.message
+                message: 'Error fetching monthly analytics'
             });
         }
     }
@@ -289,8 +278,7 @@ class AnalyticsController {
             console.error('Get summary error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching analytics summary',
-                error: error.message
+                message: 'Error fetching analytics summary'
             });
         }
     }
@@ -339,8 +327,7 @@ class AnalyticsController {
             console.error('Get trends error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching trends',
-                error: error.message
+                message: 'Error fetching trends'
             });
         }
     }
@@ -475,8 +462,7 @@ class AnalyticsController {
             console.error('Log focus session error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error recording focus session',
-                error: error.message
+                message: 'Error recording focus session'
             });
         }
     }
@@ -555,8 +541,7 @@ class AnalyticsController {
             console.error('Get focus patterns error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching focus patterns',
-                error: error.message
+                message: 'Error fetching focus patterns'
             });
         }
     }
@@ -713,8 +698,7 @@ class AnalyticsController {
             console.error('Get focus insights error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching focus insights',
-                error: error.message
+                message: 'Error fetching focus insights'
             });
         }
     }
@@ -751,8 +735,7 @@ class AnalyticsController {
             console.error('Get focus sessions error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching focus sessions',
-                error: error.message
+                message: 'Error fetching focus sessions'
             });
         }
     }

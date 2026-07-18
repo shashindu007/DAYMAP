@@ -18,7 +18,7 @@ export const RoutineProvider = ({ children }) => {
             setLoading(true);
             setError(null);
             const response = await routineService.getAllRoutines(activeOnly);
-            const data = response?.data || response?.data?.data || response;
+            const data = response?.data || response;
             const routineList = data?.routines || [];
             setTemplates(routineList);
             return routineList;
@@ -34,7 +34,7 @@ export const RoutineProvider = ({ children }) => {
         try {
             setError(null);
             const response = await routineService.createRoutine(payload);
-            const data = response?.data || response?.data?.data || response;
+            const data = response?.data || response;
             if (data) {
                 setTemplates((prev) => [data, ...prev]);
             }
@@ -49,7 +49,7 @@ export const RoutineProvider = ({ children }) => {
         try {
             setError(null);
             const response = await routineService.updateRoutine(id, payload);
-            const data = response?.data || response?.data?.data || response;
+            const data = response?.data || response;
             if (data) {
                 setTemplates((prev) => prev.map((item) => (item.id === id ? data : item)));
             }
@@ -75,7 +75,7 @@ export const RoutineProvider = ({ children }) => {
         try {
             setError(null);
             const response = await routineService.getDailyRoutine(date);
-            const data = response?.data || response?.data?.data || response;
+            const data = response?.data || response;
             if (data) {
                 setDailyByDate((prev) => ({
                     ...prev,
@@ -93,7 +93,7 @@ export const RoutineProvider = ({ children }) => {
         try {
             setError(null);
             const response = await routineService.updateRoutineInstanceItem(instanceId, itemId, updates);
-            const data = response?.data || response?.data?.data || response;
+            const data = response?.data || response;
             if (data?.date) {
                 setDailyByDate((prev) => {
                     const existing = prev[data.date] || {};
@@ -121,7 +121,7 @@ export const RoutineProvider = ({ children }) => {
         try {
             setError(null);
             const response = await routineService.completeRoutineInstanceItem(instanceId, itemId, status);
-            const data = response?.data || response?.data?.data || response;
+            const data = response?.data || response;
             if (data?.date) {
                 setDailyByDate((prev) => {
                     const existing = prev[data.date] || {};

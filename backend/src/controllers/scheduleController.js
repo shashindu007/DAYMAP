@@ -1,4 +1,5 @@
 const scheduleService = require('../services/scheduleService');
+const { getUserToday, getUserTomorrow } = require('../utils/date');
 
 class ScheduleController {
     static async getScheduleByDate(req, res) {
@@ -19,15 +20,14 @@ class ScheduleController {
             console.error('Get schedule by date error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching schedule',
-                error: error.message
+                message: 'Error fetching schedule'
             });
         }
     }
 
     static async getTodaySchedule(req, res) {
         try {
-            const today = new Date().toISOString().split('T')[0];
+            const today = getUserToday(req.user.timezone);
             const result = await scheduleService.getScheduleByDate(req.user.id, today);
 
             res.json({
@@ -43,17 +43,14 @@ class ScheduleController {
             console.error('Get today schedule error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching today schedule',
-                error: error.message
+                message: 'Error fetching today schedule'
             });
         }
     }
 
     static async getTomorrowSchedule(req, res) {
         try {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const tomorrowDate = tomorrow.toISOString().split('T')[0];
+            const tomorrowDate = getUserTomorrow(req.user.timezone);
             const result = await scheduleService.getScheduleByDate(req.user.id, tomorrowDate);
 
             res.json({
@@ -69,8 +66,7 @@ class ScheduleController {
             console.error('Get tomorrow schedule error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching tomorrow schedule',
-                error: error.message
+                message: 'Error fetching tomorrow schedule'
             });
         }
     }
@@ -93,8 +89,7 @@ class ScheduleController {
             console.error('Get schedule range error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error fetching schedules',
-                error: error.message
+                message: 'Error fetching schedules'
             });
         }
     }
@@ -118,8 +113,7 @@ class ScheduleController {
             console.error('Create schedule error:', error);
             res.status(400).json({
                 success: false,
-                message: error.message || 'Error creating schedule',
-                error: error.message
+                message: error.message || 'Error creating schedule'
             });
         }
     }
@@ -144,8 +138,7 @@ class ScheduleController {
             console.error('Replace schedule error:', error);
             res.status(400).json({
                 success: false,
-                message: error.message || 'Error updating schedule',
-                error: error.message
+                message: error.message || 'Error updating schedule'
             });
         }
     }
@@ -170,8 +163,7 @@ class ScheduleController {
             console.error('Update schedule task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating schedule task',
-                error: error.message
+                message: 'Error updating schedule task'
             });
         }
     }
@@ -197,8 +189,7 @@ class ScheduleController {
             console.error('Update schedule task status error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error updating schedule task status',
-                error: error.message
+                message: 'Error updating schedule task status'
             });
         }
     }
@@ -222,8 +213,7 @@ class ScheduleController {
             console.error('Delete schedule task error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error deleting schedule task',
-                error: error.message
+                message: 'Error deleting schedule task'
             });
         }
     }
@@ -241,8 +231,7 @@ class ScheduleController {
             console.error('Delete schedule error:', error);
             res.status(500).json({
                 success: false,
-                message: 'Error deleting schedule',
-                error: error.message
+                message: 'Error deleting schedule'
             });
         }
     }

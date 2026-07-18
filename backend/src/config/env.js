@@ -16,7 +16,9 @@ module.exports = {
     },
     
     jwt: {
-        secret: process.env.JWT_SECRET || 'fallback_secret_key',
+        // Secret intentionally has no fallback — see config/jwt.js, which is the
+        // single source of truth and throws if JWT_SECRET is unset.
+        secret: process.env.JWT_SECRET,
         expire: process.env.JWT_EXPIRE || '7d',
         refreshExpire: process.env.JWT_REFRESH_EXPIRE || '30d'
     },

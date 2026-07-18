@@ -3,10 +3,11 @@
  */
 const errorHandler = (err, req, res, next) => {
     console.error('Error:', err);
-    
-    // Default error
+
+    // Default error. Do NOT echo raw err.message to the client for unexpected
+    // errors — it can leak internal detail. Known cases below set safe messages.
     let statusCode = err.statusCode || 500;
-    let message = err.message || 'Internal Server Error';
+    let message = statusCode >= 500 ? 'Internal Server Error' : (err.message || 'Request failed');
     
     // Mongo duplicate key
     if (err.code === 11000) {
@@ -47,10 +48,11 @@ const errorHandler = (err, req, res, next) => {
         message = 'Uploaded content is too large. Please use a smaller image.';
     }
     
+    // Stack traces are logged server-side only (see console.error above) and are
+    // never returned to the client, in any environment.
     res.status(statusCode).json({
         success: false,
-        message,
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+        message
     });
 };
 
