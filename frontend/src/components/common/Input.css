@@ -1,53 +1,40 @@
+/* Base .input styling lives in the design system (App.css). */
+
 .input-group {
-    margin-bottom: 1rem;
+    margin-bottom: 1.1rem;
 }
 
 .input-label {
     display: block;
-    margin-bottom: 0.5rem;
-    font-size: 0.875rem;
-    font-weight: 500;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--text-primary);
+    letter-spacing: 0.01em;
 }
 
 .required {
     color: var(--danger);
+    margin-left: 0.15rem;
 }
 
-.input {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    border: 1.5px solid var(--border);
-    border-radius: 0.5rem;
-    font-size: 0.9375rem;
-    background-color: white;
-    color: var(--text-primary);
-    transition: all 0.2s ease;
-}
-
-.dark .input {
-    background-color: #374151;
-    border-color: #4B5563;
-    color: var(--text-primary);
-}
-
-.input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.input-error {
+.input-error,
+.input.input-error {
     border-color: var(--danger);
+    background: var(--danger-soft);
 }
 
-.input-error:focus {
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+.input-error:focus,
+.input.input-error:focus {
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px var(--danger-soft);
 }
 
 .error-message {
     display: block;
-    margin-top: 0.375rem;
-    font-size: 0.8125rem;
-    color: var(--danger);
+    margin-top: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--danger-dark);
+    animation: pop-in var(--dur) var(--ease-spring) both;
 }

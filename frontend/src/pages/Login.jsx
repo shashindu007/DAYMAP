@@ -36,6 +36,7 @@ const Login = () => {
         <div className="auth-container">
             <div className="auth-card">
                 <div className="auth-header">
+                    <div className="auth-logo" aria-hidden>🗓️</div>
                     <h1>Welcome Back</h1>
                     <p>Login to your DayMap account</p>
                 </div>

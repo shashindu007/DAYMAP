@@ -20,7 +20,8 @@ import Routines from './pages/Routines';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 
-import './App.css';
+// App.css (the design system) is imported in index.js so that it loads before
+// every component/page stylesheet and can be overridden by them.
 
 const RouteUsageTracker = () => {
     const location = useLocation();
