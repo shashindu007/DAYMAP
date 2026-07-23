@@ -6,6 +6,7 @@ const Analytics = require('../models/Analytics');
 const routineService = require('./routineService');
 const { eachYmd } = require('../utils/date');
 const { normalizeTimeToSeconds } = require('../utils/time');
+const { toRoutineItemStatus } = require('../utils/statusMapping');
 
 const toMinutes = (value) => {
     if (!value) return null;
@@ -356,7 +357,12 @@ const updateScheduleTaskStatus = async (userId, taskId, status) => {
     if (!existing || existing.user_id !== userId) return null;
     const updated = await ScheduleTask.updateStatus(taskId, status);
     if (updated?.routine_instance_id && updated?.routine_item_id) {
-        await routineService.updateInstanceItemStatus(userId, updated.routine_instance_id, updated.routine_item_id, status);
+        await routineService.updateInstanceItemStatus(
+            userId,
+            updated.routine_instance_id,
+            updated.routine_item_id,
+            toRoutineItemStatus(status)
+        );
     }
     await updateAnalyticsForDate(userId, existing.scheduled_date);
     return updated;

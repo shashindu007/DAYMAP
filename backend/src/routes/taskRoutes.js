@@ -5,6 +5,7 @@ const authMiddleware = require('../middleware/authMiddleware');
 const { taskCreationLimiter } = require('../middleware/rateLimiter');
 const {
     taskValidation,
+    taskStatusValidation,
     uuidParamValidation
 } = require('../middleware/validator');
 
@@ -23,7 +24,7 @@ router.delete('/:id', uuidParamValidation, TaskController.deleteTask);
 
 // Task status routes
 router.patch('/:id/complete', uuidParamValidation, TaskController.completeTask);
-router.patch('/:id/status', uuidParamValidation, TaskController.updateStatus);
+router.patch('/:id/status', uuidParamValidation, taskStatusValidation, TaskController.updateStatus);
 
 // Bulk operations
 router.post('/bulk-delete', TaskController.bulkDelete);
