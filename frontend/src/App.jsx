@@ -5,6 +5,7 @@ import { TaskProvider } from './context/TaskContext';
 import { ScheduleProvider } from './context/ScheduleContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RoutineProvider } from './context/RoutineContext';
+import { FocusProvider } from './context/FocusContext';
 import PrivateRoute from './components/common/PrivateRoute';
 import usageService from './services/usageService';
 
@@ -41,6 +42,10 @@ function App() {
                     <RoutineProvider>
                         <ScheduleProvider>
                             <Router>
+                                {/* Inside Router but above Routes: a focus
+                                    session must survive navigation between
+                                    /today and /focus. */}
+                                <FocusProvider>
                                 <div className="App">
                                     <RouteUsageTracker />
                                     <Routes>
@@ -95,6 +100,7 @@ function App() {
                                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
                                     </Routes>
                                 </div>
+                                </FocusProvider>
                             </Router>
                         </ScheduleProvider>
                     </RoutineProvider>

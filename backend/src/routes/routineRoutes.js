@@ -7,7 +7,8 @@ const {
     dateParamValidation,
     routineTemplateCreateValidation,
     routineTemplateUpdateValidation,
-    routineInstanceItemUpdateValidation
+    routineInstanceItemUpdateValidation,
+    routineInstanceItemStatusValidation
 } = require('../middleware/validator');
 
 // All routes require authentication
@@ -26,6 +27,6 @@ router.delete('/:id', uuidParamValidation, RoutineController.deleteRoutine);
 router.patch('/:id/activate', uuidParamValidation, RoutineController.toggleActive);
 router.post('/:id/apply', uuidParamValidation, RoutineController.applyRoutine);
 router.patch('/instances/:id/items/:itemId', uuidParamValidation, routineInstanceItemUpdateValidation, RoutineController.updateRoutineInstanceItem);
-router.patch('/instances/:id/items/:itemId/complete', uuidParamValidation, RoutineController.completeRoutineInstanceItem);
+router.patch('/instances/:id/items/:itemId/complete', uuidParamValidation, routineInstanceItemStatusValidation, RoutineController.completeRoutineInstanceItem);
 
 module.exports = router;

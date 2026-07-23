@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import routineService from '../services/routineService';
+import { toRoutineItemStatus } from '../utils/taskStatus';
 
 const RoutineContext = createContext(null);
 
@@ -145,6 +146,46 @@ export const RoutineProvider = ({ children }) => {
         }
     }, []);
 
+    /**
+     * Reflect a schedule task's new status back onto the routine item it came
+     * from. The server already writes both sides; this keeps the two client
+     * caches from drifting until a reload.
+     */
+    const patchItemFromScheduleTask = useCallback((scheduleTask) => {
+        const date = scheduleTask?.scheduled_date;
+        const itemId = scheduleTask?.routine_item_id;
+        if (!date || !scheduleTask?.routine_instance_id) return;
+
+        const nextStatus = toRoutineItemStatus(scheduleTask.status);
+        setDailyByDate((prev) => {
+            const existing = prev[date];
+            const routines = Array.isArray(existing?.routines) ? existing.routines : null;
+            if (!routines) return prev;
+
+            return {
+                ...prev,
+                [date]: {
+                    ...existing,
+                    routines: routines.map((instance) => {
+                        if (instance.id !== scheduleTask.routine_instance_id) return instance;
+                        return {
+                            ...instance,
+                            items: (instance.items || []).map((item) => (
+                                item.id === itemId || item.scheduled_task_id === scheduleTask.id
+                                    ? {
+                                        ...item,
+                                        status: nextStatus,
+                                        completed_at: nextStatus === 'completed' ? new Date().toISOString() : null
+                                    }
+                                    : item
+                            ))
+                        };
+                    })
+                }
+            };
+        });
+    }, []);
+
     const value = useMemo(() => ({
         templates,
         dailyByDate,
@@ -156,7 +197,8 @@ export const RoutineProvider = ({ children }) => {
         deleteTemplate,
         fetchDailyRoutine,
         updateInstanceItem,
-        completeInstanceItem
+        completeInstanceItem,
+        patchItemFromScheduleTask
     }), [
         templates,
         dailyByDate,
@@ -168,7 +210,8 @@ export const RoutineProvider = ({ children }) => {
         deleteTemplate,
         fetchDailyRoutine,
         updateInstanceItem,
-        completeInstanceItem
+        completeInstanceItem,
+        patchItemFromScheduleTask
     ]);
 
     return (

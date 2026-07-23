@@ -1,4 +1,5 @@
 const { body, param, query, validationResult } = require('express-validator');
+const { SCHEDULE_TASK_STATUSES, ROUTINE_ITEM_STATUSES } = require('../utils/statusMapping');
 
 /**
  * Handle validation errors
@@ -236,7 +237,7 @@ const taskValidation = [
         .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority value'),
     body('status')
         .optional()
-        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid status value'),
+        .isIn(SCHEDULE_TASK_STATUSES).withMessage('Invalid status value'),
     body('scheduled_date')
         .optional()
         .isDate({ format: 'YYYY-MM-DD' }).withMessage('Date must be in YYYY-MM-DD format'),
@@ -252,9 +253,23 @@ const taskValidation = [
     body('duration_minutes')
         .optional()
         .isInt({ min: 1 }).withMessage('Duration must be a positive integer'),
+    body('actual_duration_minutes')
+        .optional({ nullable: true })
+        .isInt({ min: 1 }).withMessage('actual_duration_minutes must be a positive integer'),
     body('is_recurring')
         .optional()
         .isBoolean().withMessage('is_recurring must be a boolean'),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for task status updates (PATCH /tasks/:id/status).
+ * The id may resolve to either a Task or a ScheduleTask, and neither
+ * updateStatus helper runs schema validators, so this is the only gate.
+ */
+const taskStatusValidation = [
+    body('status')
+        .isIn(SCHEDULE_TASK_STATUSES).withMessage('Invalid status value'),
     handleValidationErrors
 ];
 
@@ -316,7 +331,7 @@ const scheduleValidation = [
         .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid slot priority value'),
     body('slots.*.status')
         .optional()
-        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid slot status value'),
+        .isIn(SCHEDULE_TASK_STATUSES).withMessage('Invalid slot status value'),
     body('slots.*.category')
         .optional({ nullable: true })
         .trim()
@@ -358,7 +373,7 @@ const scheduleSlotsValidation = [
         .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid slot priority value'),
     body('slots.*.status')
         .optional()
-        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid slot status value'),
+        .isIn(SCHEDULE_TASK_STATUSES).withMessage('Invalid slot status value'),
     body('slots.*.category')
         .optional({ nullable: true })
         .trim()
@@ -383,7 +398,7 @@ const scheduleSlotsValidation = [
 
 const scheduleTaskStatusValidation = [
     body('status')
-        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid status value'),
+        .isIn(SCHEDULE_TASK_STATUSES).withMessage('Invalid status value'),
     handleValidationErrors
 ];
 
@@ -404,7 +419,7 @@ const scheduleTaskUpdateValidation = [
         .isIn(['low', 'medium', 'high', 'urgent']).withMessage('Invalid priority value'),
     body('status')
         .optional()
-        .isIn(['pending', 'in_progress', 'completed', 'cancelled']).withMessage('Invalid status value'),
+        .isIn(SCHEDULE_TASK_STATUSES).withMessage('Invalid status value'),
     body('slot_start_time')
         .optional()
         .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('slot_start_time must be HH:MM or HH:MM:SS'),
@@ -606,7 +621,17 @@ const routineInstanceItemUpdateValidation = [
         .matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/).withMessage('end_time must be HH:MM or HH:MM:SS'),
     body('status')
         .optional()
-        .isIn(['pending', 'in_progress', 'completed', 'skipped']).withMessage('Invalid status value'),
+        .isIn(ROUTINE_ITEM_STATUSES).withMessage('Invalid status value'),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for marking a routine instance item complete/skipped
+ */
+const routineInstanceItemStatusValidation = [
+    body('status')
+        .optional()
+        .isIn(ROUTINE_ITEM_STATUSES).withMessage('Invalid status value'),
     handleValidationErrors
 ];
 
@@ -653,6 +678,8 @@ module.exports = {
     routineTemplateCreateValidation,
     routineTemplateUpdateValidation,
     routineInstanceItemUpdateValidation,
+    routineInstanceItemStatusValidation,
+    taskStatusValidation,
     uuidParamValidation,
     dateParamValidation,
     scheduleRangeQueryValidation,

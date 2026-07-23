@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import scheduleService from '../services/scheduleService';
+import { toScheduleTaskStatus } from '../utils/taskStatus';
 
 const ScheduleContext = createContext(null);
 
@@ -148,6 +149,31 @@ export const ScheduleProvider = ({ children }) => {
         }
     }, []);
 
+    /**
+     * Reflect a routine item's new status onto the schedule task it was
+     * materialized into. The server already writes both sides; this keeps the
+     * two client caches from drifting until a reload.
+     */
+    const patchTaskFromRoutineItem = useCallback((date, item) => {
+        if (!date || !item?.scheduled_task_id) return;
+        const nextStatus = toScheduleTaskStatus(item.status);
+        setScheduleByDate((prev) => {
+            const day = prev[date];
+            if (!day?.tasks) return prev;
+            return {
+                ...prev,
+                [date]: {
+                    ...day,
+                    tasks: day.tasks.map((task) => (
+                        task.id === item.scheduled_task_id
+                            ? { ...task, status: nextStatus }
+                            : task
+                    ))
+                }
+            };
+        });
+    }, []);
+
     const fetchScheduleRange = useCallback(async (startDate, endDate) => {
         try {
             setError(null);
@@ -170,7 +196,8 @@ export const ScheduleProvider = ({ children }) => {
         updateScheduleTaskStatus,
         updateScheduleTask,
         deleteScheduleTask,
-        fetchScheduleRange
+        fetchScheduleRange,
+        patchTaskFromRoutineItem
     }), [
         scheduleByDate,
         loading,
@@ -181,7 +208,8 @@ export const ScheduleProvider = ({ children }) => {
         updateScheduleTaskStatus,
         updateScheduleTask,
         deleteScheduleTask,
-        fetchScheduleRange
+        fetchScheduleRange,
+        patchTaskFromRoutineItem
     ]);
 
     return (

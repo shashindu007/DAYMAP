@@ -218,7 +218,17 @@
 
 .chart-bar-completed { background: linear-gradient(180deg, #34d399, #059669); }
 .chart-bar-incomplete { background: linear-gradient(180deg, #fb7185, #e11d48); }
+.chart-bar-review { background: linear-gradient(180deg, #fbbf24, #d97706); }
 .chart-bar-upcoming { background: linear-gradient(180deg, #60a5fa, #2563eb); }
+
+/* Needs Review sits above the fold - give it a little emphasis */
+.task-section--review .task-section-header h2 {
+    color: #b45309;
+}
+
+.dark .task-section--review .task-section-header h2 {
+    color: #fcd34d;
+}
 
 /* ==========================================================================
    Add / edit task modal

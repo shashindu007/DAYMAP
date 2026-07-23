@@ -4,6 +4,7 @@ const Analytics = require('../models/Analytics');
 const routineService = require('../services/routineService');
 const { getUserToday, addDaysToYmd } = require('../utils/date');
 const { normalizeTimeToSeconds } = require('../utils/time');
+const { toRoutineItemStatus, SCHEDULE_TASK_STATUSES } = require('../utils/statusMapping');
 
 const minutesBetweenTimes = (start, end) => {
     if (!start || !end) return null;
@@ -30,7 +31,7 @@ class TaskController {
             // Mongo operator injection into the filter.
             const asString = (value) => (typeof value === 'string' ? value : undefined);
             const isYmd = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
-            const VALID_STATUS = ['pending', 'in_progress', 'completed', 'cancelled'];
+            const VALID_STATUS = SCHEDULE_TASK_STATUSES;
             const VALID_PRIORITY = ['low', 'medium', 'high', 'urgent'];
 
             const status = asString(req.query.status);
@@ -384,7 +385,12 @@ class TaskController {
 
                 const updatedScheduleTask = await ScheduleTask.updateStatus(req.params.id, status);
                 if (updatedScheduleTask?.routine_instance_id && updatedScheduleTask?.routine_item_id) {
-                    await routineService.updateInstanceItemStatus(req.user.id, updatedScheduleTask.routine_instance_id, updatedScheduleTask.routine_item_id, status);
+                    await routineService.updateInstanceItemStatus(
+                        req.user.id,
+                        updatedScheduleTask.routine_instance_id,
+                        updatedScheduleTask.routine_item_id,
+                        toRoutineItemStatus(status)
+                    );
                 }
                 if (updatedScheduleTask?.scheduled_date) {
                     await TaskController.updateAnalytics(req.user.id, updatedScheduleTask.scheduled_date);
