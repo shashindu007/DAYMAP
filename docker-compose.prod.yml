@@ -1,0 +1,57 @@
+# DayMap - production-style stack.
+#   docker compose -f docker-compose.prod.yml up --build
+#
+# Frontend  http://localhost:8080  (static build served by nginx)
+# Backend   http://localhost:3010
+#
+# No source bind mounts and no hot reload: code is baked into the images.
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: daymap-mongo-prod
+    restart: unless-stopped
+    volumes:
+      - mongo-data-prod:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    container_name: daymap-backend-prod
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017/daymap
+      CORS_ORIGIN: http://localhost:8080
+      PORT: 3010
+      NODE_ENV: production
+    ports:
+      - "3010:3010"
+
+  frontend:
+    build:
+      context: ./frontend
+      target: production
+      args:
+        # Baked into the bundle at build time - changing it needs a rebuild.
+        REACT_APP_API_URL: http://localhost:3010/api
+    container_name: daymap-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  mongo-data-prod:

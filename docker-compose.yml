@@ -1,0 +1,95 @@
+# DayMap - development stack.
+#   docker compose up --build
+#
+# Frontend  http://localhost:3000
+# Backend   http://localhost:3010
+# MongoDB   mongodb://localhost:27017  (data bind-mounted from C:/data/daymap-mongo,
+#           the same directory the previous standalone container used)
+#
+# Production build instead:  docker compose -f docker-compose.prod.yml up --build
+
+services:
+  mongo:
+    # 6.0 matches the pre-existing daymap-mongo container this replaces.
+    image: mongo:6.0
+    container_name: daymap-mongo-compose
+    restart: unless-stopped
+    ports:
+      # Published on the standard port so a host-run backend (npm run dev)
+      # still works against the same database.
+      - "127.0.0.1:27017:27017"
+    volumes:
+      # Same host path the previous container used, so existing data carries
+      # over instead of starting from an empty database.
+      - C:/data/daymap-mongo:/data/db
+    healthcheck:
+      # Backend must not start until Mongo actually accepts connections,
+      # otherwise the first request races the connection.
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+      target: development
+    container_name: daymap-backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      # These override .env: inside the network Mongo is `mongo`, not
+      # 127.0.0.1, and CORS has to allow the browser's origin.
+      MONGODB_URI: mongodb://mongo:27017/daymap
+      CORS_ORIGIN: http://localhost:3000
+      PORT: 3010
+      NODE_ENV: development
+    ports:
+      # Bound to IPv4 loopback: publishing dual-stack leaves a [::]:3010
+      # listener that does not forward on Docker Desktop for Windows, so
+      # `localhost` (which resolves ::1 first) hangs instead of failing fast.
+      - "127.0.0.1:3010:3010"
+    volumes:
+      - ./backend:/app
+      # Anonymous volume keeps the image's node_modules from being shadowed
+      # by the host bind mount above.
+      - /app/node_modules
+
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: daymap-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Read by the BROWSER, so it must be the host-published port -
+      # http://backend:3010 would only resolve inside the compose network.
+      REACT_APP_API_URL: http://localhost:3010/api
+      REACT_APP_API_TIMEOUT: 10000
+      # webpack-dev-server binds to localhost by default, which inside a
+      # container means the container's own loopback - the published port
+      # would connect and get an empty reply. It must listen on all interfaces.
+      HOST: 0.0.0.0
+      # The bind mount below brings frontend/.env into the container, which
+      # sets PORT=3006. Real env vars beat dotenv, so pin the container port
+      # to 3000 and keep the mapping predictable.
+      PORT: 3000
+      # Bind-mounted source on Windows/macOS does not deliver inotify events;
+      # without polling, hot reload silently never fires.
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      WDS_SOCKET_PORT: 3000
+      BROWSER: "none"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    stdin_open: true
