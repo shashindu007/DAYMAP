@@ -1,5 +1,6 @@
 const scheduleService = require('../services/scheduleService');
 const routineService = require('../services/routineService');
+const { toScheduleTaskStatus } = require('../utils/statusMapping');
 
 class RoutineController {
     /**
@@ -408,7 +409,9 @@ class RoutineController {
 
             const item = updated.items.find((entry) => entry.id === req.params.itemId);
             if (item?.scheduled_task_id) {
-                await scheduleService.updateScheduleTaskStatus(req.user.id, item.scheduled_task_id, status === 'completed' ? 'completed' : 'pending');
+                // Translate rather than collapsing to 'pending' — a skipped item
+                // must land on the schedule task as 'missed', not lose the signal.
+                await scheduleService.updateScheduleTaskStatus(req.user.id, item.scheduled_task_id, toScheduleTaskStatus(status));
             }
 
             res.json({

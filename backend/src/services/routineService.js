@@ -4,6 +4,7 @@ const RoutineTemplate = require('../models/RoutineTemplate');
 const RoutineInstance = require('../models/RoutineInstance');
 const RoutineAnalytics = require('../models/RoutineAnalytics');
 const { normalizeTimeToSeconds } = require('../utils/time');
+const { toRoutineItemStatus, toScheduleTaskStatus } = require('../utils/statusMapping');
 
 const DEFAULT_DAY_START = '06:00';
 
@@ -142,7 +143,9 @@ const buildScheduleSlotsFromInstance = (instance) => {
                     title: item.title,
                     description: item.notes || null,
                     priority: 'medium',
-                    status: item.status || 'pending',
+                    // Translate: a skipped routine item must not carry 'skipped'
+                    // into a ScheduleTask, whose enum has no such value.
+                    status: toScheduleTaskStatus(item.status),
                     start_time: slot.start_time,
                     end_time: slot.end_time,
                     duration_minutes: slot.duration_minutes,
@@ -283,9 +286,12 @@ const updateInstanceItemFromScheduleTask = async (scheduleTask) => {
 };
 
 const updateInstanceItemStatus = async (userId, instanceId, itemId, status) => {
+    // RoutineInstance.updateItem uses updateOne, which skips validators, so an
+    // out-of-enum status would persist silently. Normalize before writing.
+    const normalizedStatus = toRoutineItemStatus(status);
     const updated = await RoutineInstance.updateItem(instanceId, itemId, {
-        status,
-        completed_at: status === 'completed' ? new Date() : null
+        status: normalizedStatus,
+        completed_at: normalizedStatus === 'completed' ? new Date() : null
     });
     if (updated?.date) {
         await updateRoutineAnalytics(userId, updated.date);
@@ -301,7 +307,7 @@ const updateInstanceItem = async (userId, instanceId, itemId, updates) => {
         start_time: updates.start_time,
         end_time: updates.end_time,
         order: updates.order,
-        status: updates.status
+        status: updates.status === undefined ? undefined : toRoutineItemStatus(updates.status)
     };
 
     const updated = await RoutineInstance.updateItem(instanceId, itemId, sanitized);

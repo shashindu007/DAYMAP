@@ -1,5 +1,6 @@
 const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const { SCHEDULE_TASK_STATUSES } = require('../utils/statusMapping');
 
 // NOTE: Major migration change - SQL table -> Mongoose schema.
 const taskSchema = new mongoose.Schema(
@@ -10,7 +11,7 @@ const taskSchema = new mongoose.Schema(
         description: { type: String, default: null },
         category: { type: String, default: null, maxlength: 50 },
         priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
-        status: { type: String, enum: ['pending', 'in_progress', 'completed', 'cancelled'], default: 'pending' },
+        status: { type: String, enum: SCHEDULE_TASK_STATUSES, default: 'pending' },
         scheduled_date: { type: String, default: null }, // Kept as YYYY-MM-DD for API compatibility
         scheduled_time: { type: String, default: null }, // Kept as HH:MM:SS for API compatibility
         duration_minutes: { type: Number, default: null },
@@ -49,6 +50,7 @@ class Task {
             scheduled_date = null,
             scheduled_time = null,
             duration_minutes = null,
+            actual_duration_minutes = null,
             is_recurring = false,
             recurrence_pattern = null,
             parent_task_id = null
@@ -65,9 +67,13 @@ class Task {
             scheduled_date,
             scheduled_time,
             duration_minutes,
+            actual_duration_minutes,
             is_recurring,
             recurrence_pattern,
-            parent_task_id
+            parent_task_id,
+            // A task can be created already-finished (e.g. logged after an
+            // ad-hoc focus session), so stamp completed_at up front.
+            completed_at: status === 'completed' ? new Date() : null
         });
 
         return created?.toObject ? created.toObject() : created;

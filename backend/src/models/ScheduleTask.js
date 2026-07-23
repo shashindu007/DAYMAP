@@ -1,5 +1,6 @@
 const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const { SCHEDULE_TASK_STATUSES } = require('../utils/statusMapping');
 
 const scheduleTaskSchema = new mongoose.Schema(
     {
@@ -13,7 +14,7 @@ const scheduleTaskSchema = new mongoose.Schema(
         description: { type: String, default: null },
         category: { type: String, default: null, maxlength: 50 },
         priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
-        status: { type: String, enum: ['pending', 'in_progress', 'completed', 'cancelled'], default: 'pending' },
+        status: { type: String, enum: SCHEDULE_TASK_STATUSES, default: 'pending' },
         duration_minutes: { type: Number, default: 30 },
         actual_duration_minutes: { type: Number, default: null },
         routine_template_id: { type: String, default: null },

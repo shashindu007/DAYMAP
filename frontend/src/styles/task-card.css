@@ -107,6 +107,14 @@
 .task-item--current::before { background: linear-gradient(180deg, #34d399, #059669); }
 .task-item--anytime::before { background: linear-gradient(180deg, #a78bfa, #7c3aed); }
 .task-item--completed::before { background: linear-gradient(180deg, #34d399, #10b981); }
+.task-item--review::before { background: linear-gradient(180deg, #fbbf24, #d97706); }
+.task-item--missed::before { background: linear-gradient(180deg, #fb7185, #e11d48); }
+
+/* Awaiting a decision - nudge the user without shouting */
+.task-item--review {
+    background: linear-gradient(135deg, var(--warning-soft, rgba(251, 191, 36, 0.14)), transparent 65%);
+    border-color: var(--warning, #f59e0b);
+}
 
 /* The task happening right now gets a gentle glow */
 .task-item--current {
@@ -228,8 +236,22 @@
 .status-anytime { background: var(--primary-soft); color: var(--primary-dark); }
 .status-completed { background: var(--success-soft); color: var(--success-dark); }
 .status-incomplete { background: var(--danger-soft); color: var(--danger-dark); }
+.status-missed { background: var(--danger-soft); color: var(--danger-dark); }
+.status-review { background: rgba(251, 191, 36, 0.18); color: #b45309; }
 
 .dark .status-past { color: #fdba74; }
+.dark .status-review { color: #fcd34d; }
+
+/* Marks a task that came from a routine template */
+.task-badge-routine {
+    padding: 0.24rem 0.6rem;
+    border-radius: var(--radius-pill);
+    font-weight: 700;
+    font-size: 0.74rem;
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+    white-space: nowrap;
+}
 
 /* ---------- Priority pills ---------- */
 .task-priority {

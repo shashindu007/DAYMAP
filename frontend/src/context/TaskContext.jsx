@@ -5,6 +5,10 @@ const TaskContext = createContext(null);
 
 export const TaskProvider = ({ children }) => {
     const [tasks, setTasks] = useState([]);
+    // Date-keyed cache kept alongside the flat `tasks` array, which every
+    // fetch* helper overwrites wholesale. Today's Dashboard needs one day's
+    // free-form tasks to survive a refetch triggered by another page.
+    const [tasksByDate, setTasksByDate] = useState({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -74,6 +78,52 @@ export const TaskProvider = ({ children }) => {
     }, []);
 
 
+    /**
+     * Load one day's free-form tasks into the date-keyed cache.
+     *
+     * Uses the scheduled_date filter rather than GET /tasks/today, which
+     * resolves "today" server-side from the user's timezone and can disagree
+     * with the browser's date. This returns Task rows only - the API merges
+     * schedule tasks only when both date_from and date_to are given - so it
+     * never duplicates what ScheduleContext already holds.
+     */
+    const fetchTasksForDate = useCallback(async (date) => {
+        if (!date) return [];
+        try {
+            setError(null);
+            const response = await taskService.getAllTasks({ scheduled_date: date });
+            const dayTasks = normalizeTasksResponse(response);
+            setTasksByDate(prev => ({ ...prev, [date]: dayTasks }));
+            return dayTasks;
+        } catch (error) {
+            setError(resolveErrorMessage(error, 'Failed to fetch tasks for date'));
+            throw error;
+        }
+    }, []);
+
+    /** Insert a task into the day cache without a refetch. */
+    const addTaskToDate = useCallback((date, task) => {
+        if (!date || !task) return;
+        setTasksByDate(prev => {
+            const existing = prev[date] || [];
+            if (existing.some(entry => entry.id === task.id)) return prev;
+            return { ...prev, [date]: [...existing, task] };
+        });
+    }, []);
+
+    /** Patch a task already in the day cache (e.g. after a status change). */
+    const patchTaskInDate = useCallback((date, task) => {
+        if (!date || !task) return;
+        setTasksByDate(prev => {
+            const existing = prev[date];
+            if (!existing) return prev;
+            return {
+                ...prev,
+                [date]: existing.map(entry => (entry.id === task.id ? { ...entry, ...task } : entry))
+            };
+        });
+    }, []);
+
     const createTask = async (taskData) => {
         try {
             setError(null);
@@ -81,6 +131,9 @@ export const TaskProvider = ({ children }) => {
             const createdTask = normalizeTaskResponse(response);
             if (createdTask) {
                 setTasks(prev => [...prev, createdTask]);
+                if (taskData?.scheduled_date) {
+                    addTaskToDate(taskData.scheduled_date, createdTask);
+                }
             }
             return response;
         } catch (error) {
@@ -147,11 +200,15 @@ export const TaskProvider = ({ children }) => {
 
     const value = {
         tasks,
+        tasksByDate,
         loading,
         error,
         fetchTasks,
         fetchTodayTasks,
         fetchWeekTasks,
+        fetchTasksForDate,
+        addTaskToDate,
+        patchTaskInDate,
         createTask,
         updateTask,
         deleteTask,
