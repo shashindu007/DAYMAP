@@ -224,10 +224,36 @@ const addSlotsToSchedule = async (userId, date, slots) => {
         };
     }
 
-    const normalizedSlots = normalizeSlots(candidates);
-    const nonOverlapping = normalizedSlots.filter((slot) => (
-        existingRanges.every((range) => slot.startMinutes >= range.endMinutes || slot.endMinutes <= range.startMinutes)
-    ));
+    // Candidates here are auto-generated (e.g. routine instances), so a bad or
+    // mutually-overlapping slot must be skipped rather than throwing — unlike
+    // normalizeSlots(), which rejects the whole batch for user-submitted saves.
+    const normalizedCandidates = [];
+    for (const slot of candidates) {
+        const normalizedStart = normalizeTimeToSeconds(slot.start_time);
+        const normalizedEnd = normalizeTimeToSeconds(slot.end_time);
+        if (!normalizedStart || !normalizedEnd) continue;
+        const { valid, startMinutes, endMinutes } = validateSlotTimes(normalizedStart, normalizedEnd);
+        if (!valid) continue;
+        normalizedCandidates.push({
+            ...slot,
+            start_time: normalizedStart,
+            end_time: normalizedEnd,
+            startMinutes,
+            endMinutes,
+            duration_minutes: endMinutes - startMinutes
+        });
+    }
+
+    const acceptedRanges = existingRanges.slice();
+    const nonOverlapping = [];
+    for (const slot of normalizedCandidates.sort((a, b) => a.startMinutes - b.startMinutes)) {
+        const overlaps = acceptedRanges.some((range) => (
+            slot.startMinutes < range.endMinutes && range.startMinutes < slot.endMinutes
+        ));
+        if (overlaps) continue;
+        acceptedRanges.push({ startMinutes: slot.startMinutes, endMinutes: slot.endMinutes });
+        nonOverlapping.push(slot);
+    }
 
     if (!nonOverlapping.length) {
         return {

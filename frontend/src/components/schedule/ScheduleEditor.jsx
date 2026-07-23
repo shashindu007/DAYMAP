@@ -61,6 +61,15 @@ const getSlotTimeError = (slot) => {
     return '';
 };
 
+const slotsOverlap = (slotA, slotB) => {
+    const startA = timeToMinutes(slotA?.start_time);
+    const endA = timeToMinutes(slotA?.end_time);
+    const startB = timeToMinutes(slotB?.start_time);
+    const endB = timeToMinutes(slotB?.end_time);
+    if (![startA, endA, startB, endB].every(Number.isFinite)) return false;
+    return startA < endB && startB < endA;
+};
+
 const getDefaultStartTime = (date, hasExistingSlots) => {
     if (hasExistingSlots) return null;
     const today = new Date();
@@ -211,7 +220,16 @@ const ScheduleEditor = ({
     };
 
     const slotErrors = useMemo(
-        () => slotValues.map((slot) => getSlotTimeError(slot)),
+        () => slotValues.map((slot, index) => {
+            const timeError = getSlotTimeError(slot);
+            if (timeError) return timeError;
+            const overlapsAnother = slotValues.some((other, otherIndex) => (
+                otherIndex !== index
+                && !getSlotTimeError(other)
+                && slotsOverlap(slot, other)
+            ));
+            return overlapsAnother ? 'This time slot overlaps with another slot.' : '';
+        }),
         [slotValues]
     );
 
