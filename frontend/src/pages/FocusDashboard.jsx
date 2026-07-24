@@ -10,7 +10,6 @@ import {
     Legend
 } from 'chart.js';
 import { useFocus } from '../context/FocusContext';
-import FocusSessionPanel from '../components/focus/FocusSessionPanel';
 import analyticsService from '../services/analyticsService';
 import { toYmd, extractFocusPayload, resolveFocusErrorMessage } from '../utils/focusTime';
 import './FocusDashboard.css';
@@ -54,8 +53,8 @@ const CHART_COLORS = [
 
 /**
  * The focus analytics page. The session engine itself lives in FocusContext
- * and is rendered here through the same FocusSessionPanel that Today's
- * Dashboard uses, so a sprint started on either page is the same session.
+ * and is driven from the FocusSessionPanel on the Today dashboard; this page
+ * only reads that shared state to render momentum and weekly insights.
  */
 const FocusDashboard = () => {
     // sessionsVersion / lastSessionResponse are the engine's way of saying
@@ -221,14 +220,12 @@ const FocusDashboard = () => {
         <div className="focus-dashboard-container">
             <div className="focus-header">
                 <div>
-                    <h1>Focus Mode</h1>
-                    <p className="muted">Stay locked in with a dedicated focus dashboard and weekly insights.</p>
+                    <h1>Focus Metrics</h1>
+                    <p className="muted">Review your focus momentum and weekly insights. Start a session from Focus Mode on the Today dashboard.</p>
                 </div>
             </div>
 
             <div className="focus-layout focus-layout-stacked">
-                <FocusSessionPanel variant="full" showTaskPicker />
-
                 <section className="card focus-stats focus-section">
                     <h2>Focus Metrics</h2>
                     <p className="muted">Track your momentum across the last two weeks.</p>
@@ -316,7 +313,7 @@ const FocusDashboard = () => {
                                     <p>{focusGoal}</p>
                                 </div>
                             ) : (
-                                <p className="muted focus-chart-empty">Add a goal above to keep your session aligned.</p>
+                                <p className="muted focus-chart-empty">Set a goal in Focus Mode on the Today dashboard to keep your session aligned.</p>
                             )}
                         </div>
                     </div>

@@ -243,19 +243,30 @@ const FocusSessionPanel = ({
                         {isCompact ? 'Lock in on what you are doing right now.' : 'Set your target and hit start.'}
                     </span>
                 </div>
-                <label className="focus-toggle">
-                    <input
-                        className="focus-toggle-input"
-                        type="checkbox"
-                        checked={focusEnabled}
-                        onChange={(event) => toggleFocusEnabled(event.target.checked)}
-                        disabled={savingFocusSession}
-                    />
-                    <span className="focus-toggle-track">
-                        <span className="focus-toggle-thumb" />
-                    </span>
-                    <span className="focus-toggle-label">{focusEnabled ? 'Enabled' : 'Enable'}</span>
-                </label>
+                <div className="focus-session-panel-header-actions">
+                    {isCompact && onOpenFullView && (
+                        <button
+                            className="btn btn-secondary focus-open-full"
+                            type="button"
+                            onClick={onOpenFullView}
+                        >
+                            🎯 Focus Metrics
+                        </button>
+                    )}
+                    <label className="focus-toggle">
+                        <input
+                            className="focus-toggle-input"
+                            type="checkbox"
+                            checked={focusEnabled}
+                            onChange={(event) => toggleFocusEnabled(event.target.checked)}
+                            disabled={savingFocusSession}
+                        />
+                        <span className="focus-toggle-track">
+                            <span className="focus-toggle-thumb" />
+                        </span>
+                        <span className="focus-toggle-label">{focusEnabled ? 'Enabled' : 'Enable'}</span>
+                    </label>
+                </div>
             </div>
 
             {!focusEnabled ? (
@@ -335,11 +346,6 @@ const FocusSessionPanel = ({
                                     {savingFocusSession ? 'Saving...' : 'Stop Focus'}
                                 </button>
                             </div>
-                        )}
-                        {isCompact && onOpenFullView && (
-                            <button className="btn btn-secondary focus-open-full" type="button" onClick={onOpenFullView}>
-                                Focus insights
-                            </button>
                         )}
                     </div>
 

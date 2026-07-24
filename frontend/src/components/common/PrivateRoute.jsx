@@ -7,7 +7,6 @@ import './PrivateRoute.css';
 const NAV_LINKS = [
     { path: '/dashboard', label: 'Dashboard', icon: '🏠', tone: 'violet' },
     { path: '/today', label: 'Today', icon: '☀️', tone: 'amber' },
-    { path: '/focus', label: 'Focus', icon: '🎯', tone: 'rose' },
     { path: '/week', label: 'Week', icon: '🗓️', tone: 'cyan' },
     { path: '/tasks', label: 'Tasks', icon: '✅', tone: 'green' },
     { path: '/routines', label: 'Routines', icon: '🔁', tone: 'indigo' },
