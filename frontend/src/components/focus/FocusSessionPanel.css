@@ -103,8 +103,15 @@
     text-decoration: underline;
 }
 
+.focus-session-panel-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
 .focus-open-full {
-    margin-left: 0.7rem;
+    white-space: nowrap;
 }
 
 /* ---------- Bound task ---------- */
