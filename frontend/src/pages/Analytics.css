@@ -180,6 +180,73 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* ---------- Time Management ---------- */
+.tm-section {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+}
+
+.tm-heading h2 {
+    margin: 0;
+    background: linear-gradient(120deg, #6366f1, #06b6d4 60%, #ec4899);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.tm-heading p {
+    margin: 0.3rem 0 0;
+    font-size: 0.88rem;
+}
+
+.tm-callouts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.tm-callout {
+    display: grid;
+    gap: 0.3rem;
+    text-align: left;
+}
+
+.tm-callout-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tm-callout-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.tm-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+}
+
+.tm-chart-card h3 {
+    margin: 0 0 0.25rem;
+}
+
+.tm-chart {
+    position: relative;
+    height: 280px;
+    margin-top: 0.75rem;
+}
+
+.tm-over { color: var(--danger-dark); font-weight: 700; }
+.tm-under { color: var(--success-dark); font-weight: 700; }
+
 @media (max-width: 768px) {
     .analytics-filters {
         flex-direction: column;

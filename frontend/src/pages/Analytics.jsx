@@ -1,8 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Bar } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    CategoryScale,
+    LinearScale,
+    BarElement,
+    Tooltip,
+    Legend
+} from 'chart.js';
 import analyticsService from '../services/analyticsService';
 import './Analytics.css';
 
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
+
 const TASK_TIME_STORAGE_KEY = 'daymap_task_time_v1';
+
+const formatHourLabel = (hour) => {
+    const suffix = hour < 12 ? 'AM' : 'PM';
+    const display = hour % 12 === 0 ? 12 : hour % 12;
+    return `${display}${suffix}`;
+};
 
 const toYmd = (date) => {
     const year = date.getFullYear();
@@ -19,6 +36,7 @@ const Analytics = () => {
     const [weekly, setWeekly] = useState(null);
     const [monthly, setMonthly] = useState(null);
     const [trends, setTrends] = useState([]);
+    const [timeManagement, setTimeManagement] = useState(null);
     const [selectedDate, setSelectedDate] = useState(toYmd(new Date()));
     const [trendDays, setTrendDays] = useState(30);
 
@@ -29,12 +47,13 @@ const Analytics = () => {
         try {
             setLoading(true);
             setError('');
-            const [summaryRes, dailyRes, weeklyRes, monthlyRes, trendsRes] = await Promise.all([
+            const [summaryRes, dailyRes, weeklyRes, monthlyRes, trendsRes, timeMgmtRes] = await Promise.all([
                 analyticsService.getSummary(),
                 analyticsService.getDailyAnalytics(dailyDate),
                 analyticsService.getWeeklyAnalytics(),
                 analyticsService.getMonthlyAnalytics(),
-                analyticsService.getTrends(trendWindow)
+                analyticsService.getTrends(trendWindow),
+                analyticsService.getTimeManagement(trendWindow)
             ]);
 
             setSummary(summaryRes.data);
@@ -42,6 +61,7 @@ const Analytics = () => {
             setWeekly(weeklyRes.data);
             setMonthly(monthlyRes.data);
             setTrends(trendsRes?.data?.trends || []);
+            setTimeManagement(timeMgmtRes?.data || null);
         } catch (loadError) {
             setError(loadError?.message || 'Failed to load analytics');
         } finally {
@@ -63,6 +83,69 @@ const Analytics = () => {
             return 0;
         }
     }, []);
+
+    const hourChartData = useMemo(() => {
+        const hours = timeManagement?.hour_distribution;
+        if (!hours?.length || hours.every((h) => h.tasks_completed === 0)) return null;
+        return {
+            labels: hours.map((h) => formatHourLabel(h.hour)),
+            datasets: [
+                {
+                    label: 'Tasks completed',
+                    data: hours.map((h) => h.tasks_completed),
+                    backgroundColor: 'rgba(99, 102, 241, 0.65)',
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Minutes spent',
+                    data: hours.map((h) => h.time_spent_minutes),
+                    backgroundColor: 'rgba(6, 182, 212, 0.55)',
+                    yAxisID: 'y1'
+                }
+            ]
+        };
+    }, [timeManagement]);
+
+    const categoryChartData = useMemo(() => {
+        const categories = (timeManagement?.by_category || []).slice(0, 8);
+        if (!categories.length) return null;
+        return {
+            labels: categories.map((c) => c.category),
+            datasets: [
+                {
+                    label: 'Planned (min)',
+                    data: categories.map((c) => c.planned_minutes),
+                    backgroundColor: 'rgba(148, 163, 184, 0.7)'
+                },
+                {
+                    label: 'Actual (min)',
+                    data: categories.map((c) => c.actual_minutes),
+                    backgroundColor: 'rgba(139, 92, 246, 0.7)'
+                }
+            ]
+        };
+    }, [timeManagement]);
+
+    const hourBarOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: {
+            y: { type: 'linear', position: 'left', beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Tasks' } },
+            y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Minutes' } }
+        }
+    }), []);
+
+    const categoryBarOptions = useMemo(() => ({
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }), []);
+
+    const pva = timeManagement?.planned_vs_actual;
+    const peakHour = timeManagement?.peak_hour;
+    const focus = timeManagement?.focus;
 
     const handleRefresh = () => {
         loadAnalytics();
@@ -196,6 +279,98 @@ const Analytics = () => {
                                                 <td>{row.completed_tasks}</td>
                                                 <td>{Number(row.completion_rate || 0).toFixed(1)}%</td>
                                                 <td>{row.time_spent_hours}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
+
+                    <section className="tm-section">
+                        <div className="tm-heading">
+                            <h2>Time Management</h2>
+                            <p className="muted">How you actually spend time — last {timeManagement?.range?.days || trendDays} days.</p>
+                        </div>
+
+                        <div className="tm-callouts">
+                            <article className="card tm-callout">
+                                <span className="tm-callout-label">Peak productive hour</span>
+                                <strong className="tm-callout-value">
+                                    {peakHour !== null && peakHour !== undefined ? formatHourLabel(peakHour) : '—'}
+                                </strong>
+                                <small className="muted">When you complete the most tasks</small>
+                            </article>
+                            <article className="card tm-callout">
+                                <span className="tm-callout-label">Best focus time</span>
+                                <strong className="tm-callout-value">
+                                    {focus?.best_hour !== null && focus?.best_hour !== undefined ? formatHourLabel(focus.best_hour) : '—'}
+                                </strong>
+                                <small className="muted">{focus?.best_day ? `Best day: ${focus.best_day}` : 'Most focus minutes'}</small>
+                            </article>
+                            <article className="card tm-callout">
+                                <span className="tm-callout-label">Estimate accuracy</span>
+                                <strong className="tm-callout-value">
+                                    {pva?.accuracy_pct !== null && pva?.accuracy_pct !== undefined ? `${pva.accuracy_pct}%` : '—'}
+                                </strong>
+                                <small className="muted">
+                                    {pva
+                                        ? `${pva.total_actual_minutes} min actual vs ${pva.total_planned_minutes} min planned`
+                                        : 'Actual vs planned time'}
+                                </small>
+                            </article>
+                        </div>
+
+                        <div className="tm-grid">
+                            <article className="card tm-chart-card">
+                                <h3>Peak Productive Hours</h3>
+                                <p className="muted">Tasks completed and minutes spent by hour of day.</p>
+                                {hourChartData ? (
+                                    <div className="tm-chart">
+                                        <Bar data={hourChartData} options={hourBarOptions} />
+                                    </div>
+                                ) : (
+                                    <p className="muted">No completed tasks with times in this period.</p>
+                                )}
+                            </article>
+
+                            <article className="card tm-chart-card">
+                                <h3>Time by Category — Planned vs Actual</h3>
+                                <p className="muted">Where your time goes, and how estimates hold up.</p>
+                                {categoryChartData ? (
+                                    <div className="tm-chart">
+                                        <Bar data={categoryChartData} options={categoryBarOptions} />
+                                    </div>
+                                ) : (
+                                    <p className="muted">No category time data yet.</p>
+                                )}
+                            </article>
+                        </div>
+
+                        {timeManagement?.by_category?.length > 0 && (
+                            <div className="trend-table-wrap">
+                                <table className="trend-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Category</th>
+                                            <th>Tasks</th>
+                                            <th>Completed</th>
+                                            <th>Planned (min)</th>
+                                            <th>Actual (min)</th>
+                                            <th>Variance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {timeManagement.by_category.map((row) => (
+                                            <tr key={row.category}>
+                                                <td>{row.category}</td>
+                                                <td>{row.tasks}</td>
+                                                <td>{row.completed}</td>
+                                                <td>{row.planned_minutes}</td>
+                                                <td>{row.actual_minutes}</td>
+                                                <td className={row.variance_minutes > 0 ? 'tm-over' : 'tm-under'}>
+                                                    {row.variance_minutes > 0 ? '+' : ''}{row.variance_minutes} min
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
