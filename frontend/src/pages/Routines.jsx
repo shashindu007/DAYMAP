@@ -38,6 +38,8 @@ const Routines = () => {
     const [editingId, setEditingId] = useState(null);
     const [saving, setSaving] = useState(false);
     const [localError, setLocalError] = useState('');
+    const [pendingDelete, setPendingDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     useEffect(() => {
         fetchTemplates().catch(() => null);
@@ -133,9 +135,17 @@ const Routines = () => {
         });
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Delete this routine template?')) return;
-        await deleteTemplate(id);
+    const handleConfirmDelete = async () => {
+        if (!pendingDelete) return;
+        try {
+            setDeleting(true);
+            await deleteTemplate(pendingDelete.id);
+            setPendingDelete(null);
+        } catch (err) {
+            setLocalError(err?.message || 'Failed to delete routine.');
+        } finally {
+            setDeleting(false);
+        }
     };
 
     const handleSubmit = async (event) => {
@@ -377,7 +387,7 @@ const Routines = () => {
                                 >
                                     {routine.is_active ? 'Deactivate' : 'Activate'}
                                 </button>
-                                <button className="btn btn-outline" type="button" onClick={() => handleDelete(routine.id)}>
+                                <button className="btn btn-outline" type="button" onClick={() => setPendingDelete(routine)}>
                                     Delete
                                 </button>
                             </div>
@@ -385,6 +395,45 @@ const Routines = () => {
                     ))
                 )}
             </section>
+
+            {pendingDelete && (
+                <div
+                    className="routine-modal-overlay"
+                    role="presentation"
+                    onClick={() => !deleting && setPendingDelete(null)}
+                >
+                    <div
+                        className="routine-modal card"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="routine-delete-title"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <h3 id="routine-delete-title">Delete this routine?</h3>
+                        <p>
+                            "{pendingDelete.name}" and its scheduled items will be removed. This can’t be undone.
+                        </p>
+                        <div className="routine-modal-actions">
+                            <button
+                                className="btn btn-outline"
+                                type="button"
+                                onClick={() => setPendingDelete(null)}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="btn btn-danger"
+                                type="button"
+                                onClick={handleConfirmDelete}
+                                disabled={deleting}
+                            >
+                                {deleting ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

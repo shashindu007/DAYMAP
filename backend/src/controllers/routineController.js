@@ -188,6 +188,14 @@ class RoutineController {
             await routineService.RoutineTemplate.delete(req.params.id);
             await routineService.RoutineInstance.deleteByTemplate(req.params.id);
 
+            // If this template was migrated from a legacy routine, remove the
+            // legacy record too. Otherwise migrateLegacyRoutines() resurrects the
+            // template the next time the daily flow runs after a process restart.
+            if (routine.legacy_routine_id) {
+                await routineService.RoutineTask.deleteByRoutine(routine.legacy_routine_id);
+                await routineService.Routine.delete(routine.legacy_routine_id);
+            }
+
             res.json({
                 success: true,
                 message: 'Routine deleted successfully'

@@ -202,6 +202,55 @@
     flex-wrap: wrap;
 }
 
+/* ---------- Delete confirmation modal ---------- */
+.routine-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(3px);
+    animation: routine-modal-fade var(--dur) var(--ease);
+}
+
+.routine-modal {
+    width: min(420px, 100%);
+    display: grid;
+    gap: 0.6rem;
+    animation: routine-modal-pop var(--dur) var(--ease-spring);
+}
+
+.routine-modal h3 {
+    margin: 0;
+}
+
+.routine-modal p {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.routine-modal-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+@keyframes routine-modal-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes routine-modal-pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @media (max-width: 900px) {
     .routine-task-row {
         grid-template-columns: 1fr;

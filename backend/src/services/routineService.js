@@ -331,5 +331,7 @@ module.exports = {
     clearInstanceItemSchedule,
     RoutineTemplate,
     RoutineInstance,
-    RoutineAnalytics
+    RoutineAnalytics,
+    Routine,
+    RoutineTask
 };
