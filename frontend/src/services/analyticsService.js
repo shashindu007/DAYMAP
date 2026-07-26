@@ -48,6 +48,14 @@ const analyticsService = {
     },
 
     /**
+     * Get time-management analytics (peak hours, time by category,
+     * planned-vs-actual, best focus time/day) for the last N days
+     */
+    getTimeManagement: async (days = 30) => {
+        return api.get(`/analytics/time-management?days=${days}`);
+    },
+
+    /**
      * Get focus patterns for last N days
      */
     getFocusPatterns: async (days = 14) => {

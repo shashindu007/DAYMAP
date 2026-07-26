@@ -1,5 +1,22 @@
 const Analytics = require('../models/Analytics');
 const FocusSession = require('../models/FocusSession');
+const ScheduleTask = require('../models/ScheduleTask');
+
+const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** Hour (0-23) from an HH:MM[:SS] clock string, or null. */
+const hourOf = (clock) => {
+    if (!clock || typeof clock !== 'string') return null;
+    const hour = parseInt(clock.slice(0, 2), 10);
+    return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : null;
+};
+
+/** Day-of-week (0=Sun) from a YYYY-MM-DD string, or null. */
+const dowOf = (ymd) => {
+    if (!ymd || typeof ymd !== 'string') return null;
+    const parsed = new Date(`${ymd}T00:00:00`);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getDay();
+};
 
 const formatHms = (date) => (
     `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}:${`${date.getSeconds()}`.padStart(2, '0')}`
@@ -328,6 +345,171 @@ class AnalyticsController {
             res.status(500).json({
                 success: false,
                 message: 'Error fetching trends'
+            });
+        }
+    }
+
+    /**
+     * Time-management analytics over a date range: peak productive hours,
+     * time by category, planned-vs-actual accuracy, and best focus time/day.
+     * ScheduleTask is the unified execution record (scheduled + routine +
+     * task-sourced items all land there), so it is the single source for the
+     * task metrics to avoid double-counting.
+     * @route GET /api/analytics/time-management
+     */
+    static async getTimeManagement(req, res) {
+        try {
+            const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30));
+
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - days + 1);
+            const start = startDate.toISOString().split('T')[0];
+            const end = endDate.toISOString().split('T')[0];
+
+            const [tasks, focusSessions] = await Promise.all([
+                ScheduleTask.findByDateRange(req.user.id, start, end),
+                FocusSession.getByRange(req.user.id, start, end, 2000)
+            ]);
+
+            // Hour-of-day + day-of-week distribution of completed work.
+            const hours = Array.from({ length: 24 }, (_, hour) => ({
+                hour,
+                tasks_completed: 0,
+                time_spent_minutes: 0
+            }));
+            const dayOfWeek = DOW_LABELS.map((label, dow) => ({
+                dow,
+                label,
+                tasks_completed: 0,
+                time_spent_minutes: 0
+            }));
+
+            // Per-category planned vs actual time.
+            const categoryMap = new Map();
+            const bumpCategory = (name) => {
+                const key = (name && name.trim()) || 'Uncategorized';
+                if (!categoryMap.has(key)) {
+                    categoryMap.set(key, {
+                        category: key,
+                        planned_minutes: 0,
+                        actual_minutes: 0,
+                        tasks: 0,
+                        completed: 0
+                    });
+                }
+                return categoryMap.get(key);
+            };
+
+            let totalPlanned = 0;
+            let totalActual = 0;
+
+            tasks.forEach((task) => {
+                const planned = Number(task.duration_minutes) || 0;
+                const actual = Number(task.actual_duration_minutes) || 0;
+                const isCompleted = task.status === 'completed';
+                const spent = isCompleted ? (actual || planned) : 0;
+
+                const cat = bumpCategory(task.category);
+                cat.planned_minutes += planned;
+                cat.tasks += 1;
+                totalPlanned += planned;
+
+                if (isCompleted) {
+                    cat.actual_minutes += spent;
+                    cat.completed += 1;
+                    totalActual += spent;
+
+                    const hour = hourOf(task.slot_start_time);
+                    if (hour !== null) {
+                        hours[hour].tasks_completed += 1;
+                        hours[hour].time_spent_minutes += spent;
+                    }
+                    const dow = dowOf(task.scheduled_date);
+                    if (dow !== null) {
+                        dayOfWeek[dow].tasks_completed += 1;
+                        dayOfWeek[dow].time_spent_minutes += spent;
+                    }
+                }
+            });
+
+            const byCategory = Array.from(categoryMap.values())
+                .map((entry) => ({
+                    ...entry,
+                    // >0 means it took longer than planned, <0 means faster.
+                    variance_minutes: entry.actual_minutes - entry.planned_minutes,
+                    accuracy_pct: entry.planned_minutes > 0
+                        ? Math.round((entry.actual_minutes / entry.planned_minutes) * 100)
+                        : null
+                }))
+                .sort((a, b) => b.actual_minutes - a.actual_minutes);
+
+            // Focus timing: minutes and sessions per hour and per weekday.
+            const focusByHour = Array.from({ length: 24 }, (_, hour) => ({
+                hour,
+                minutes: 0,
+                sessions: 0
+            }));
+            const focusByDay = DOW_LABELS.map((label, dow) => ({
+                dow,
+                label,
+                minutes: 0,
+                sessions: 0
+            }));
+            let focusTotalMinutes = 0;
+
+            focusSessions.forEach((session) => {
+                const minutes = Number(session.duration_minutes) || 0;
+                focusTotalMinutes += minutes;
+                const hour = hourOf(session.start_time);
+                if (hour !== null) {
+                    focusByHour[hour].minutes += minutes;
+                    focusByHour[hour].sessions += 1;
+                }
+                const dow = dowOf(session.date);
+                if (dow !== null) {
+                    focusByDay[dow].minutes += minutes;
+                    focusByDay[dow].sessions += 1;
+                }
+            });
+
+            const pickMax = (list, field) => (
+                list.reduce((best, item) => (item[field] > (best?.[field] ?? -1) ? item : best), null)
+            );
+            const peakTaskHour = pickMax(hours, 'tasks_completed');
+            const bestFocusHour = pickMax(focusByHour, 'minutes');
+            const bestFocusDay = pickMax(focusByDay, 'minutes');
+
+            res.json({
+                success: true,
+                data: {
+                    range: { start_date: start, end_date: end, days },
+                    hour_distribution: hours,
+                    day_of_week: dayOfWeek,
+                    peak_hour: peakTaskHour && peakTaskHour.tasks_completed > 0 ? peakTaskHour.hour : null,
+                    by_category: byCategory,
+                    planned_vs_actual: {
+                        total_planned_minutes: totalPlanned,
+                        total_actual_minutes: totalActual,
+                        variance_minutes: totalActual - totalPlanned,
+                        accuracy_pct: totalPlanned > 0
+                            ? Math.round((totalActual / totalPlanned) * 100)
+                            : null
+                    },
+                    focus: {
+                        total_minutes: focusTotalMinutes,
+                        by_hour: focusByHour,
+                        by_day: focusByDay,
+                        best_hour: bestFocusHour && bestFocusHour.minutes > 0 ? bestFocusHour.hour : null,
+                        best_day: bestFocusDay && bestFocusDay.minutes > 0 ? bestFocusDay.label : null
+                    }
+                }
+            });
+        } catch (error) {
+            console.error('Get time-management analytics error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error fetching time-management analytics'
             });
         }
     }

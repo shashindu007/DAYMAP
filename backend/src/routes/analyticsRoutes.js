@@ -22,6 +22,7 @@ router.get('/weekly', analyticsWeeklyQueryValidation, AnalyticsController.getWee
 router.get('/monthly', analyticsMonthlyQueryValidation, AnalyticsController.getMonthlyAnalytics);
 router.get('/summary', AnalyticsController.getSummary);
 router.get('/trends', analyticsTrendsQueryValidation, AnalyticsController.getTrends);
+router.get('/time-management', analyticsTrendsQueryValidation, AnalyticsController.getTimeManagement);
 router.get('/focus-patterns', analyticsFocusPatternsQueryValidation, AnalyticsController.getFocusPatterns);
 router.get('/focus-insights', analyticsFocusInsightsQueryValidation, AnalyticsController.getFocusInsights);
 router.get('/focus-sessions', analyticsFocusSessionsQueryValidation, AnalyticsController.getFocusSessions);
