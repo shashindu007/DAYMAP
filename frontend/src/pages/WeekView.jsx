@@ -250,9 +250,7 @@ const WeekView = () => {
                         <p className="week-subtitle">Your weekly progress — this week&apos;s tasks and routines, grouped by category.</p>
                     </div>
                     <div className="week-actions">
-                        <Button variant="secondary" onClick={() => navigate('/tasks')}>Task List</Button>
-                        <Button variant="secondary" onClick={() => navigate('/routines')}>Daily Routines</Button>
-                        <Button variant="secondary" onClick={() => navigate('/analytics')}>Analytics</Button>
+                        <Button variant="secondary" onClick={() => navigate('/analytics')}>View Analytics</Button>
                     </div>
                 </div>
 
