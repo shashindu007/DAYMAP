@@ -4,6 +4,8 @@ const config = require('../config/env');
 /**
  * General rate limiter for all API routes
  */
+const LOCAL_IPS = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+
 const generalLimiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
     max: config.rateLimit.max,
@@ -12,7 +14,11 @@ const generalLimiter = rateLimit({
         message: 'Too many requests from this IP, please try again later.'
     },
     standardHeaders: true,
-    legacyHeaders: false
+    legacyHeaders: false,
+    // Never throttle local traffic in development — a data-heavy SPA makes
+    // several API calls per page, which would otherwise trip the limiter
+    // during normal navigation. Production traffic is still limited.
+    skip: (req) => config.nodeEnv !== 'production' && LOCAL_IPS.includes(req.ip)
 });
 
 /**
