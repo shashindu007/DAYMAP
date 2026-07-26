@@ -73,8 +73,14 @@ class ScheduleController {
 
     static async getScheduleRange(req, res) {
         try {
-            const { start_date, end_date } = req.query;
-            const tasks = await scheduleService.getScheduleRange(req.user.id, start_date, end_date);
+            const { start_date, end_date, materialize } = req.query;
+            // Summary views (Week dashboard) pass materialize=false for a pure,
+            // fast read. Default keeps materializing routine schedules so
+            // existing callers are unchanged.
+            const readOnly = materialize === 'false' || materialize === '0';
+            const tasks = readOnly
+                ? await scheduleService.getScheduleRangeReadOnly(req.user.id, start_date, end_date)
+                : await scheduleService.getScheduleRange(req.user.id, start_date, end_date);
 
             res.json({
                 success: true,

@@ -402,6 +402,18 @@ const getScheduleRange = async (userId, startDate, endDate) => {
     return tasks;
 };
 
+/**
+ * A pure read of the schedule tasks in a range, skipping the per-day
+ * `ensureRoutineSchedule` materialization loop. Summary views (e.g. the Week
+ * dashboard) only need to *display* already-materialized tasks; making them
+ * generate routine instances on every load — and every poll — was the main
+ * cause of slow Week loads. Actually opening a day (Today/Dashboard) still
+ * materializes routines via getScheduleByDate.
+ */
+const getScheduleRangeReadOnly = async (userId, startDate, endDate) => {
+    return ScheduleTask.findByDateRange(userId, startDate, endDate);
+};
+
 module.exports = {
     getScheduleByDate,
     createOrReplaceSchedule,
@@ -411,5 +423,6 @@ module.exports = {
     updateScheduleTaskStatus,
     deleteScheduleTask,
     deleteScheduleByDate,
-    getScheduleRange
+    getScheduleRange,
+    getScheduleRangeReadOnly
 };

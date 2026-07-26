@@ -471,11 +471,22 @@ class TaskController {
      */
     static async getWeekTasks(req, res) {
         try {
-            const today = getUserToday(req.user.timezone);
-            const [y, m, d] = today.split('-').map(Number);
-            const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-            const startDate = addDaysToYmd(today, -dayOfWeek);
-            const endDate = addDaysToYmd(startDate, 6);
+            // Honor an explicit client range so the Week dashboard's task list,
+            // schedule range, and weekly analytics all cover the same days.
+            // Fall back to the current (Sunday-based) week when absent.
+            const YMD = /^\d{4}-\d{2}-\d{2}$/;
+            let startDate;
+            let endDate;
+            if (YMD.test(req.query.start_date || '') && YMD.test(req.query.end_date || '')) {
+                startDate = req.query.start_date;
+                endDate = req.query.end_date;
+            } else {
+                const today = getUserToday(req.user.timezone);
+                const [y, m, d] = today.split('-').map(Number);
+                const dayOfWeek = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+                startDate = addDaysToYmd(today, -dayOfWeek);
+                endDate = addDaysToYmd(startDate, 6);
+            }
 
             const tasks = await Task.findByWeek(req.user.id, startDate, endDate);
             
