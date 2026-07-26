@@ -59,10 +59,14 @@ const taskService = {
     },
 
     /**
-     * Get week's tasks
+     * Get week's tasks. Pass an explicit range so the Week dashboard's task
+     * list aligns with its schedule range and weekly analytics.
      */
-    getWeekTasks: async () => {
-        return api.get('/tasks/week');
+    getWeekTasks: async (startDate, endDate) => {
+        const params = startDate && endDate
+            ? `?start_date=${startDate}&end_date=${endDate}`
+            : '';
+        return api.get(`/tasks/week${params}`);
     },
 
     /**

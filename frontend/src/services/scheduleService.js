@@ -4,7 +4,9 @@ const scheduleService = {
     getScheduleByDate: async (date) => api.get(`/schedules/${date}`),
     getTodaySchedule: async () => api.get('/schedules/today'),
     getTomorrowSchedule: async () => api.get('/schedules/tomorrow'),
-    getScheduleRange: async (startDate, endDate) => api.get(`/schedules/range?start_date=${startDate}&end_date=${endDate}`),
+    getScheduleRange: async (startDate, endDate, { materialize = true } = {}) => (
+        api.get(`/schedules/range?start_date=${startDate}&end_date=${endDate}${materialize ? '' : '&materialize=false'}`)
+    ),
     saveSchedule: async (payload) => api.post('/schedules', payload),
     replaceSchedule: async (date, payload) => api.put(`/schedules/${date}`, payload),
     updateScheduleTask: async (id, payload) => api.patch(`/schedules/tasks/${id}`, payload),
