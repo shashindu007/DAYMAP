@@ -1,311 +1,122 @@
 /* ==========================================================================
    Week view
-   (task cards, status/priority pills and section shells live in
-    src/styles/task-card.css — shared with Today and Tasks. Only the hero and
-    week-specific layout are defined here. The hero mirrors TodayView.css so the
-    two dashboards read as one system; the class names only ever load on /week.)
+
+   Task cards and section shells live in src/styles/task-card.css. Stat panels
+   and progress bars live in src/styles/stats.css — both shared with Today.
+   Only week-specific layout belongs here.
    ========================================================================== */
 
 .week-container {
-    padding: 0.5rem 0 1rem;
+    padding: var(--space-2) 0 var(--space-4);
     max-width: 960px;
     margin: 0 auto;
 }
 
-.loading-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 320px;
-}
-
 /* ---------- Header ---------- */
 .week-header {
-    margin-bottom: 1.75rem;
+    margin-bottom: var(--space-6);
 }
 
 .week-header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
     flex-wrap: wrap;
 }
 
 .week-actions {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: var(--space-3);
     flex-wrap: wrap;
 }
 
-.week-header h1 {
-    margin-bottom: 0;
-    background: linear-gradient(120deg, #0ea5e9, #6366f1 60%, #ec4899);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
 .week-subtitle {
-    margin: 0.35rem 0 0;
+    margin: var(--space-1) 0 0;
     color: var(--text-secondary);
-    font-size: 0.92rem;
-}
-
-/* ---------- Hero (stats + chart) ---------- */
-.week-hero {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 1.25rem;
-}
-
-.stats {
-    position: relative;
-    background: var(--surface-raised);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    display: grid;
-    gap: 1rem;
-    align-content: center;
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-}
-
-.stats::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--primary-gradient);
+    font-size: var(--text-sm);
 }
 
 .week-range-line {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.6rem;
+    gap: var(--space-3);
     font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
 }
 
-.stat-row {
-    display: flex;
-    gap: 1.5rem;
-    flex-wrap: wrap;
-}
+/* ==========================================================================
+   Daily completion strip — the single weekly visualization.
 
-.stat-row--focus {
-    border-top: 1px solid var(--divider);
-    padding-top: 0.9rem;
-}
-
-.stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.1rem;
-}
-
-.stat-value {
-    font-size: 1.85rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-variant-numeric: tabular-nums;
-}
-
-.stat-value small {
-    font-size: 0.9rem;
-    font-weight: 700;
-}
-
-.stat-label {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.progress-bar {
-    height: 0.6rem;
-    background: var(--surface-sunken);
-    border: 1px solid var(--divider);
-    border-radius: var(--radius-pill);
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(90deg, #6366f1, #22d3ee 55%, #34d399 100%);
-    transition: width var(--dur-slow) var(--ease-out);
-}
-
-.week-chart {
-    position: relative;
-    background: var(--surface-raised);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-}
-
-.week-chart::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--secondary-gradient);
-}
-
-.chart-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.chart-header h3 {
-    margin: 0;
-    font-size: 1.02rem;
-}
-
-.chart-header p {
-    margin: 0.3rem 0 0;
-    color: var(--text-secondary);
-    font-size: 0.83rem;
-}
-
-.chart-total {
-    background: var(--secondary-soft);
-    color: var(--secondary-dark);
-    padding: 0.35rem 0.8rem;
-    border-radius: var(--radius-pill);
-    font-weight: 700;
-    font-size: 0.83rem;
-    white-space: nowrap;
-}
-
-.chart-bars {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-    align-items: end;
-    min-height: 180px;
-}
-
-.chart-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    height: 100%;
-    justify-content: flex-end;
-}
-
-.chart-bar-fill {
-    width: 100%;
-    border-radius: var(--radius-md) var(--radius-md) 0.3rem 0.3rem;
-    min-height: 18px;
-    transition: height var(--dur-slow) var(--ease-out), filter var(--dur) var(--ease);
-    box-shadow: var(--shadow-sm);
-}
-
-.chart-bar:hover .chart-bar-fill {
-    filter: saturate(1.25) brightness(1.06);
-}
-
-.chart-bar-label {
-    font-size: 0.68rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    font-weight: 600;
-    color: var(--text-secondary);
-    text-align: center;
-}
-
-.chart-bar-value {
-    font-weight: 800;
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-}
-
-.chart-bar-completed { background: linear-gradient(180deg, #34d399, #059669); }
-.chart-bar-incomplete { background: linear-gradient(180deg, #fb7185, #e11d48); }
-.chart-bar-review { background: linear-gradient(180deg, #fbbf24, #d97706); }
-.chart-bar-upcoming { background: linear-gradient(180deg, #60a5fa, #2563eb); }
-
-/* ---------- Panels (day strip + trends) ---------- */
+   This replaces three overlapping views of the same numbers: the four-bar
+   "Weekly Task Breakdown" and the near-identical "Weekly Productivity Trends"
+   grid both restated what this strip already shows.
+   ========================================================================== */
 .week-strip-card {
-    position: relative;
     background: var(--surface-raised);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 1.35rem 1.5rem;
+    padding: var(--space-5) var(--space-6);
     box-shadow: var(--shadow-md);
-    margin-bottom: 1.5rem;
+    margin-bottom: var(--space-6);
 }
 
 .week-panel-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
 }
 
 .week-panel-header h2 {
     margin: 0;
-    font-size: 1.05rem;
 }
 
 .week-strip {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 0.55rem;
+    gap: var(--space-2);
 }
 
 .week-strip-item {
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    padding: 0.65rem 0.7rem;
+    padding: var(--space-3);
     background: var(--surface-solid);
     display: grid;
-    gap: 0.4rem;
-    font-size: 0.82rem;
-    transition: transform var(--dur) var(--ease-out),
-                border-color var(--dur) var(--ease),
-                box-shadow var(--dur) var(--ease);
+    gap: var(--space-2);
+    font-size: var(--text-xs);
 }
 
-.week-strip-item:hover {
-    transform: translateY(-2px);
+/* The day you're actually on — the only coloured tile in the strip. */
+.week-strip-item--today {
     border-color: var(--primary);
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--ring);
+}
+
+.week-strip-day {
+    color: var(--text-secondary);
+    font-weight: 600;
 }
 
 .week-strip-meta {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.35rem;
+    gap: var(--space-1);
 }
 
 .week-strip-meta strong {
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     font-variant-numeric: tabular-nums;
 }
 
 .week-strip-bar {
-    height: 6px;
+    height: 5px;
     border-radius: var(--radius-pill);
     background: var(--surface-sunken);
     overflow: hidden;
@@ -314,43 +125,7 @@
 .week-strip-bar span {
     display: block;
     height: 100%;
-    background: linear-gradient(90deg, #6366f1, #22d3ee);
-    border-radius: var(--radius-pill);
-    transition: width var(--dur-slow) var(--ease-out);
-}
-
-.week-trend-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.75rem;
-}
-
-.week-trend-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 0.8rem 0.9rem;
-    background: var(--surface-solid);
-    display: grid;
-    gap: 0.4rem;
-    transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease);
-}
-
-.week-trend-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-sm);
-}
-
-.week-trend-bar {
-    height: 7px;
-    border-radius: var(--radius-pill);
-    background: var(--surface-sunken);
-    overflow: hidden;
-}
-
-.week-trend-bar span {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, #34d399, #0ea5e9);
+    background: var(--success);
     border-radius: var(--radius-pill);
     transition: width var(--dur-slow) var(--ease-out);
 }
@@ -359,47 +134,34 @@
 .week-lists {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 1.5rem;
+    gap: var(--space-6);
     align-items: start;
 }
 
 .week-list-column {
     display: grid;
-    gap: 0.75rem;
+    gap: var(--space-3);
 }
 
 .week-list-heading {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.25rem;
+    gap: var(--space-3);
+    margin-bottom: var(--space-1);
 }
 
 .week-list-heading h2 {
     margin: 0;
-    font-size: 1.1rem;
 }
 
-.week-error {
-    padding: 0.8rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: var(--radius-md);
-    background: var(--danger-soft);
-    border: 1px solid var(--danger);
-    color: var(--danger-dark);
-    font-weight: 500;
-}
-
-.muted {
-    color: var(--text-secondary);
+/* "Tasks by Category" used to render one full section shell per category with
+   no cap — eight categories meant eight stacked panels. */
+.week-show-more {
+    justify-self: start;
 }
 
 @media (max-width: 820px) {
-    .week-hero {
-        grid-template-columns: 1fr;
-    }
-
     .week-strip {
         grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
     }

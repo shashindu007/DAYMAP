@@ -46,32 +46,35 @@ const getWeekRange = (baseDate = new Date()) => {
 // Replaces the old full-page spinner + 30s polling that made loads feel slow.
 let weekCache = null; // { key, payload }
 
+/** How many category groups render before the "show more" cutoff. */
+const CATEGORY_PAGE_SIZE = 3;
+
 const WeekView = () => {
     const navigate = useNavigate();
     const { startYmd, endYmd } = useMemo(() => getWeekRange(), []);
+    const todayYmd = useMemo(() => toYmd(new Date()), []);
     const cacheKey = `${startYmd}:${endYmd}`;
     const seeded = weekCache && weekCache.key === cacheKey ? weekCache.payload : null;
 
     const [weekItems, setWeekItems] = useState(seeded?.weekItems || []);
     const [routines, setRoutines] = useState(seeded?.routines || []);
     const [weeklyAnalytics, setWeeklyAnalytics] = useState(seeded?.weeklyAnalytics || null);
-    const [weeklyTrends, setWeeklyTrends] = useState(seeded?.weeklyTrends || []);
     const [loading, setLoading] = useState(!seeded);
     const [error, setError] = useState('');
+    const [visibleCategories, setVisibleCategories] = useState(CATEGORY_PAGE_SIZE);
 
     const loadWeekData = useCallback(async ({ silent = false } = {}) => {
         try {
             if (!silent) setLoading(true);
             setError('');
 
-            const [tasksResponse, scheduleResponse, routinesResponse, weeklyResponse, trendsResponse] = await Promise.all([
+            const [tasksResponse, scheduleResponse, routinesResponse, weeklyResponse] = await Promise.all([
                 taskService.getWeekTasks(startYmd, endYmd),
                 // Read-only: the week summary only displays schedule tasks, it
                 // must not trigger the per-day routine materialization writes.
                 scheduleService.getScheduleRange(startYmd, endYmd, { materialize: false }),
                 routineService.getAllRoutines(),
-                analyticsService.getWeeklyAnalytics(startYmd, endYmd),
-                analyticsService.getTrends(7)
+                analyticsService.getWeeklyAnalytics(startYmd, endYmd)
             ]);
 
             const taskPayload = tasksResponse?.data?.data || tasksResponse?.data || tasksResponse;
@@ -104,21 +107,16 @@ const WeekView = () => {
             const weeklyPayload = weeklyResponse?.data?.data || weeklyResponse?.data || weeklyResponse;
             const nextWeeklyAnalytics = weeklyPayload?.data || weeklyPayload;
 
-            const trendsPayload = trendsResponse?.data?.data || trendsResponse?.data || trendsResponse;
-            const nextTrends = trendsPayload?.trends || trendsPayload?.data?.trends || [];
-
             setWeekItems(withDates);
             setRoutines(nextRoutines);
             setWeeklyAnalytics(nextWeeklyAnalytics);
-            setWeeklyTrends(nextTrends);
 
             weekCache = {
                 key: cacheKey,
                 payload: {
                     weekItems: withDates,
                     routines: nextRoutines,
-                    weeklyAnalytics: nextWeeklyAnalytics,
-                    weeklyTrends: nextTrends
+                    weeklyAnalytics: nextWeeklyAnalytics
                 }
             };
         } catch (loadError) {
@@ -254,76 +252,37 @@ const WeekView = () => {
                     </div>
                 </div>
 
-                <div className="week-hero">
-                    <div className="stats">
-                        <div className="week-range-line">
-                            <span className="stat-label">Week Range</span>
-                            <strong>{startYmd} → {endYmd}</strong>
+                {/* Three numbers and a bar. The hero used to carry six numbers
+                    plus a four-bar chart restating the same completion split. */}
+                <div className="stats">
+                    <div className="week-range-line">
+                        <span className="stat-label">Week range</span>
+                        <strong>{startYmd} → {endYmd}</strong>
+                    </div>
+                    <div className="stat-row">
+                        <div className="stat-item">
+                            <span className="stat-value">{weeklyStats.completed}</span>
+                            <span className="stat-label">Completed</span>
                         </div>
-                        <div className="stat-row">
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyStats.completed}</span>
-                                <span className="stat-label">Completed</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyStats.remaining}</span>
-                                <span className="stat-label">Remaining</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyStats.total}</span>
-                                <span className="stat-label">Total tasks</span>
-                            </div>
+                        <div className="stat-item">
+                            <span className="stat-value">{weeklyStats.remaining}</span>
+                            <span className="stat-label">Remaining</span>
                         </div>
-                        <div className="progress-bar">
-                            <div className="progress-fill" style={{ width: `${weeklyStats.completionRate}%` }}></div>
-                        </div>
-                        <div className="stat-row stat-row--focus">
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyFocusMinutes}<small> min</small></span>
-                                <span className="stat-label">Focus · {weeklyFocusSessions} session(s)</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyFocusSuccessRate}%</span>
-                                <span className="stat-label">Focus success</span>
-                            </div>
+                        <div className="stat-item">
+                            <span className="stat-value">{weeklyStats.completionRate}%</span>
+                            <span className="stat-label">Completion</span>
                         </div>
                     </div>
-
-                    <div className="week-chart">
-                        <div className="chart-header">
-                            <div>
-                                <h3>Weekly Task Breakdown</h3>
-                                <p>Completed vs in progress vs pending vs cancelled</p>
-                            </div>
-                            <span className="chart-total">{weeklyStats.total} tasks</span>
-                        </div>
-                        <div className="chart-bars">
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-completed" style={{ height: `${(weeklyStats.completed / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">Completed</span>
-                                <span className="chart-bar-value">{weeklyStats.completed}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-review" style={{ height: `${(weeklyStats.inProgress / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">In Progress</span>
-                                <span className="chart-bar-value">{weeklyStats.inProgress}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-upcoming" style={{ height: `${(weeklyStats.pending / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">Pending</span>
-                                <span className="chart-bar-value">{weeklyStats.pending}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-incomplete" style={{ height: `${(weeklyStats.cancelled / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">Cancelled</span>
-                                <span className="chart-bar-value">{weeklyStats.cancelled}</span>
-                            </div>
-                        </div>
+                    <div className="progress-bar">
+                        <div
+                            className="progress-fill progress-fill--success"
+                            style={{ width: `${weeklyStats.completionRate}%` }}
+                        ></div>
                     </div>
                 </div>
             </div>
 
-            {error && <p className="week-error">{error}</p>}
+            {error && <p className="alert alert-error">{error}</p>}
 
             {isInitialLoading ? (
                 <div className="loading-container">
@@ -331,18 +290,26 @@ const WeekView = () => {
                 </div>
             ) : (
                 <>
+                    {/* The one weekly visualization. "Weekly Productivity
+                        Trends" used to sit directly below this showing the same
+                        seven days over again. */}
                     <section className="week-strip-card">
                         <div className="week-panel-header">
-                            <h2>Daily Completion</h2>
-                            <span className="muted">This week</span>
+                            <h2>Daily completion</h2>
+                            <span className="muted">
+                                {weeklyFocusMinutes} min focus · {weeklyFocusSessions} session{weeklyFocusSessions === 1 ? '' : 's'} · {weeklyFocusSuccessRate}% success
+                            </span>
                         </div>
                         <div className="week-strip">
                             {dailyCounts.map((day) => (
-                                <div key={day.date} className="week-strip-item">
-                                    <span>{day.label}</span>
+                                <div
+                                    key={day.date}
+                                    className={`week-strip-item ${day.date === todayYmd ? 'week-strip-item--today' : ''}`}
+                                >
+                                    <span className="week-strip-day">{day.label}</span>
                                     <div className="week-strip-meta">
-                                        <strong>{day.count}</strong>
-                                        <small>{day.completed}/{day.count || 0} · {day.completionRate}%</small>
+                                        <strong>{day.completed}</strong>
+                                        <small>/{day.count}</small>
                                     </div>
                                     <div className="week-strip-bar">
                                         <span style={{ width: `${day.completionRate}%` }} />
@@ -350,29 +317,6 @@ const WeekView = () => {
                                 </div>
                             ))}
                         </div>
-                    </section>
-
-                    <section className="week-strip-card">
-                        <div className="week-panel-header">
-                            <h2>Weekly Productivity Trends</h2>
-                            <span className="muted">Last 7 days</span>
-                        </div>
-                        {weeklyTrends.length === 0 ? (
-                            <p className="muted">No trend data yet.</p>
-                        ) : (
-                            <div className="week-trend-grid">
-                                {weeklyTrends.slice(-7).map((trend) => (
-                                    <div key={trend.date} className="week-trend-card">
-                                        <span className="muted">{trend.date}</span>
-                                        <strong>{trend.completed_tasks}/{trend.total_tasks}</strong>
-                                        <div className="week-trend-bar">
-                                            <span style={{ width: `${Math.min(100, Math.round(trend.completion_rate || 0))}%` }} />
-                                        </div>
-                                        <small>{Number(trend.completion_rate || 0).toFixed(1)}% · {trend.time_spent_hours}h</small>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
                     </section>
 
                     <div className="week-lists">
@@ -384,24 +328,39 @@ const WeekView = () => {
                             {tasksByCategory.length === 0 ? (
                                 <p className="muted">No tasks scheduled for this week.</p>
                             ) : (
-                                tasksByCategory.map((group) => (
-                                    <TaskSection
-                                        key={group.category}
-                                        title={group.category}
-                                        count={group.items.length}
-                                        emptyText="No tasks in this category."
-                                    >
-                                        {group.items.map((item) => (
-                                            <TaskCard
-                                                key={item.key}
-                                                item={item}
-                                                variant={item.status === 'completed' ? 'completed' : 'upcoming'}
-                                                badge={badgeFor(item.status)}
-                                                routineName={item.isRoutine ? 'Routine' : null}
-                                            />
-                                        ))}
-                                    </TaskSection>
-                                ))
+                                <>
+                                    {/* Uncapped, eight categories meant eight
+                                        full section panels stacked down the page. */}
+                                    {tasksByCategory.slice(0, visibleCategories).map((group) => (
+                                        <TaskSection
+                                            key={group.category}
+                                            title={group.category}
+                                            count={group.items.length}
+                                            emptyText="No tasks in this category."
+                                        >
+                                            {group.items.map((item) => (
+                                                <TaskCard
+                                                    key={item.key}
+                                                    item={item}
+                                                    variant={item.status === 'completed' ? 'completed' : 'upcoming'}
+                                                    badge={badgeFor(item.status)}
+                                                    routineName={item.isRoutine ? 'Routine' : null}
+                                                />
+                                            ))}
+                                        </TaskSection>
+                                    ))}
+
+                                    {tasksByCategory.length > visibleCategories && (
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm btn-outline week-show-more"
+                                            onClick={() => setVisibleCategories(tasksByCategory.length)}
+                                        >
+                                            Show {tasksByCategory.length - visibleCategories} more categor
+                                            {tasksByCategory.length - visibleCategories === 1 ? 'y' : 'ies'}
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
 
