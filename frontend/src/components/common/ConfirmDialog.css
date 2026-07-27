@@ -1,0 +1,52 @@
+/* ==========================================================================
+   Confirmation dialog — the app's single confirm surface.
+   ========================================================================== */
+
+.confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-5);
+    background: var(--overlay);
+    -webkit-backdrop-filter: blur(3px);
+    backdrop-filter: blur(3px);
+    animation: confirm-fade var(--dur) var(--ease);
+}
+
+.confirm-dialog {
+    width: min(420px, 100%);
+    display: grid;
+    gap: var(--space-3);
+    animation: confirm-pop var(--dur) var(--ease-spring);
+}
+
+.confirm-dialog h3 {
+    margin: 0;
+}
+
+.confirm-dialog p {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    margin: 0;
+}
+
+.confirm-dialog-actions {
+    margin-top: var(--space-3);
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+@keyframes confirm-fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes confirm-pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}

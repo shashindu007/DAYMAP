@@ -1,6 +1,8 @@
 import React from 'react';
 import Button from '../common/Button';
 
+const LOUD_PRIORITIES = new Set(['high', 'urgent']);
+
 /**
  * One task row. Emits the existing .task-item class contract from
  * styles/task-card.css, so it drops into any of Today's sections.
@@ -44,21 +46,23 @@ const TaskCard = ({
                 <div className="task-meta">
                     {item.startLabel && (
                         <span className="task-time">
-                            ⏰ {item.startLabel}{item.endLabel ? ` - ${item.endLabel}` : ''}
+                            {item.startLabel}{item.endLabel ? `–${item.endLabel}` : ''}
                         </span>
                     )}
                     {item.actualMinutes ? (
-                        <span className="task-duration">⏱ {item.actualMinutes} min</span>
+                        <span className="task-duration">{item.actualMinutes} min</span>
                     ) : item.durationMinutes ? (
-                        <span className="task-duration">⏱ {item.durationMinutes} min</span>
+                        <span className="task-duration">{item.durationMinutes} min</span>
                     ) : null}
-                    {item.priority && (
+                    {/* Only priorities that actually change what you do next.
+                        Tagging every row "medium" is noise, not information. */}
+                    {LOUD_PRIORITIES.has(item.priority) && (
                         <span className={`task-priority priority-${item.priority}`}>
                             {item.priority}
                         </span>
                     )}
                     {routineName && (
-                        <span className="task-badge-routine">🔁 {routineName}</span>
+                        <span className="task-badge-routine">{routineName}</span>
                     )}
                 </div>
 

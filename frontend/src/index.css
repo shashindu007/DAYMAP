@@ -19,7 +19,11 @@ body {
     min-height: 100vh;
 }
 
-/* Ambient aurora backdrop — fixed so it never scrolls with content */
+/* Ambient backdrop — fixed so it never scrolls with content.
+
+   This used to run at 0.16–0.20 alpha with a 28s drift animation, which put
+   four moving colours behind every page and fought with the content on top of
+   it. Kept at a fraction of the strength, and static. */
 body::before {
     content: '';
     position: fixed;
@@ -27,14 +31,12 @@ body::before {
     z-index: -1;
     pointer-events: none;
     background:
-        radial-gradient(38vmax 38vmax at 12% 12%, rgba(124, 58, 237, 0.20), transparent 60%),
-        radial-gradient(34vmax 34vmax at 88% 16%, rgba(14, 165, 233, 0.20), transparent 60%),
-        radial-gradient(36vmax 36vmax at 24% 88%, rgba(16, 185, 129, 0.16), transparent 60%),
-        radial-gradient(30vmax 30vmax at 84% 84%, rgba(244, 114, 182, 0.16), transparent 60%);
+        radial-gradient(38vmax 38vmax at 12% 12%, rgba(124, 58, 237, 0.07), transparent 60%),
+        radial-gradient(34vmax 34vmax at 88% 16%, rgba(14, 165, 233, 0.06), transparent 60%);
     filter: blur(10px);
-    animation: aurora-drift 28s ease-in-out infinite alternate;
 }
 
+/* Still used by the Dashboard clock hero */
 @keyframes aurora-drift {
     0%   { transform: translate3d(0, 0, 0) scale(1); }
     50%  { transform: translate3d(2%, -1.5%, 0) scale(1.06); }

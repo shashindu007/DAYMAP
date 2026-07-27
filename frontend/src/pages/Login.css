@@ -68,7 +68,7 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: 5px;
-    background: linear-gradient(90deg, #8b5cf6, #6366f1, #0ea5e9, #10b981, #f59e0b, #ec4899);
+    background: var(--primary);
 }
 
 .auth-header {
@@ -84,25 +84,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.7rem;
+    font-size: var(--text-2xl);
     background: var(--primary-gradient);
     box-shadow: var(--shadow-glow);
     animation: pop-in var(--dur-slow) var(--ease-spring) both;
 }
 
 .auth-header h1 {
-    font-size: 1.85rem;
+    font-size: var(--text-2xl);
     font-weight: 800;
     margin-bottom: 0.45rem;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .auth-header p {
     color: var(--text-secondary);
-    font-size: 0.93rem;
+    font-size: var(--text-sm);
 }
 
 .auth-form {
@@ -112,7 +109,7 @@
 .auth-form .btn {
     margin-top: 0.4rem;
     padding: 0.8rem 1.3rem;
-    font-size: 0.98rem;
+    font-size: var(--text-base);
 }
 
 .auth-footer {
@@ -123,7 +120,7 @@
 
 .auth-footer p {
     color: var(--text-secondary);
-    font-size: 0.88rem;
+    font-size: var(--text-sm);
 }
 
 .auth-link {
