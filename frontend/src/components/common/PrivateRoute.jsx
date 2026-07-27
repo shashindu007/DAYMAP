@@ -2,20 +2,22 @@ import React, { useEffect, useState } from 'react';
 import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useScheduleEditor } from '../../context/ScheduleEditorContext';
 import './PrivateRoute.css';
 
 const NAV_LINKS = [
-    { path: '/dashboard', label: 'Dashboard', icon: '🏠', tone: 'violet' },
-    { path: '/today', label: 'Today', icon: '☀️', tone: 'amber' },
-    { path: '/week', label: 'Week', icon: '🗓️', tone: 'cyan' },
-    { path: '/tasks', label: 'Tasks', icon: '✅', tone: 'green' },
-    { path: '/routines', label: 'Routines', icon: '🔁', tone: 'indigo' },
-    { path: '/analytics', label: 'Analytics', icon: '📊', tone: 'pink' }
+    { path: '/dashboard', label: 'Dashboard', icon: '🏠' },
+    { path: '/today', label: 'Today', icon: '☀️' },
+    { path: '/week', label: 'Week', icon: '🗓️' },
+    { path: '/tasks', label: 'Tasks', icon: '✅' },
+    { path: '/routines', label: 'Routines', icon: '🔁' },
+    { path: '/analytics', label: 'Analytics', icon: '📊' }
 ];
 
 const PrivateRoute = ({ children }) => {
     const { isAuthenticated, loading, logout, user } = useAuth();
     const { darkMode, toggleDarkMode } = useTheme();
+    const { openEditor } = useScheduleEditor();
     const location = useLocation();
     const navigate = useNavigate();
     const [now, setNow] = useState(new Date());
@@ -84,7 +86,6 @@ const PrivateRoute = ({ children }) => {
                         <Link
                             key={link.path}
                             to={link.path}
-                            data-tone={link.tone}
                             className={`nav-item ${location.pathname.startsWith(link.path) ? 'active' : ''}`}
                         >
                             <span className="nav-icon" aria-hidden>{link.icon}</span>
@@ -94,6 +95,14 @@ const PrivateRoute = ({ children }) => {
                 </nav>
 
                 <div className="header-actions">
+                    <button
+                        className="btn btn-sm btn-primary header-new-task"
+                        type="button"
+                        onClick={() => openEditor()}
+                    >
+                        New task
+                    </button>
+
                     <div className="header-time-badge">
                         <span className="header-time-dot" aria-hidden />
                         <span className="header-time-text">

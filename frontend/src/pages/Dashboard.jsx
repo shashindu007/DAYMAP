@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import { useSchedule } from '../context/ScheduleContext';
-import ScheduleEditor from '../components/schedule/ScheduleEditor';
+import { useScheduleEditor } from '../context/ScheduleEditorContext';
 import './Dashboard.css';
 
 const toYmd = (date) => {
@@ -26,7 +26,10 @@ const displayTaskDateTime = (task) => {
 };
 
 const Dashboard = () => {
-    const { scheduleByDate, fetchSchedule, saveSchedule, fetchScheduleRange } = useSchedule();
+    const { scheduleByDate, fetchSchedule, fetchScheduleRange } = useSchedule();
+    // The editor is now mounted once, above the router, so every page shares
+    // one instance instead of Dashboard owning the only copy.
+    const { openEditor, editingDate } = useScheduleEditor();
 
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -36,12 +39,13 @@ const Dashboard = () => {
     const [upcomingTasks, setUpcomingTasks] = useState([]);
     const [loadingUpcoming, setLoadingUpcoming] = useState(false);
     const [dashboardError, setDashboardError] = useState('');
-    const [editingDate, setEditingDate] = useState(null);
-    const [savingSchedule, setSavingSchedule] = useState(false);
 
     const selectedYmd = useMemo(() => toYmd(selectedDate), [selectedDate]);
 
-    const scheduleForSelectedDate = scheduleByDate[selectedYmd]?.tasks || [];
+    const scheduleForSelectedDate = useMemo(
+        () => scheduleByDate[selectedYmd]?.tasks || [],
+        [scheduleByDate, selectedYmd]
+    );
 
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000);
@@ -74,28 +78,33 @@ const Dashboard = () => {
         fetchSchedule(selectedYmd).catch(() => null);
     }, [fetchSchedule, selectedYmd]);
 
-    useEffect(() => {
-        if (editingDate) {
-            fetchSchedule(editingDate).catch(() => null);
-        }
-    }, [editingDate, fetchSchedule]);
-
+    // Keep the calendar in step with whatever date the editor is on.
     useEffect(() => {
         if (editingDate) {
             setSelectedDate(new Date(`${editingDate}T00:00:00`));
         }
     }, [editingDate]);
 
+    // Deep link (?edit=YYYY-MM-DD) still opens the editor straight away.
     useEffect(() => {
         const editDate = searchParams.get('edit');
         if (!editDate) return;
-        setEditingDate(editDate);
+        openEditor(editDate);
         setSelectedDate(new Date(`${editDate}T00:00:00`));
-    }, [searchParams]);
+
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('edit');
+        setSearchParams(nextParams, { replace: true });
+    }, [searchParams, setSearchParams, openEditor]);
 
     useEffect(() => {
         loadUpcomingSchedules();
     }, [loadUpcomingSchedules]);
+
+    // Refresh the "next up" list once the editor closes after a save.
+    useEffect(() => {
+        if (!editingDate) loadUpcomingSchedules();
+    }, [editingDate, loadUpcomingSchedules]);
 
     const selectedDateTaskCount = useMemo(() => (
         scheduleForSelectedDate.length
@@ -111,40 +120,12 @@ const Dashboard = () => {
     const handleScheduleTomorrow = () => {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowYmd = toYmd(tomorrow);
         setSelectedDate(tomorrow);
-        setEditingDate(tomorrowYmd);
+        openEditor(toYmd(tomorrow));
     };
 
     const handleEditSelectedDate = () => {
-        setEditingDate(selectedYmd);
-    };
-
-    const handleCloseEditor = () => {
-        setEditingDate(null);
-        if (searchParams.get('edit')) {
-            const nextParams = new URLSearchParams(searchParams);
-            nextParams.delete('edit');
-            setSearchParams(nextParams);
-        }
-    };
-
-    const handleSaveSchedule = async (slots) => {
-        if (!editingDate) return;
-        setDashboardError('');
-        try {
-            setSavingSchedule(true);
-            await saveSchedule(editingDate, slots, true);
-            await fetchSchedule(editingDate);
-            await loadUpcomingSchedules();
-            setSelectedDate(new Date(`${editingDate}T00:00:00`));
-            setEditingDate(null);
-        } catch (error) {
-            const validationMessage = error?.errors?.[0]?.message;
-            setDashboardError(validationMessage || error?.message || 'Failed to save schedule.');
-        } finally {
-            setSavingSchedule(false);
-        }
+        openEditor(selectedYmd);
     };
 
     return (
@@ -153,7 +134,7 @@ const Dashboard = () => {
                 <h1>Dashboard</h1>
             </div>
 
-            {dashboardError && <p className="dashboard-error">{dashboardError}</p>}
+            {dashboardError && <p className="alert alert-error">{dashboardError}</p>}
 
             <section className="dashboard-time-card card">
                 <div>
@@ -234,15 +215,7 @@ const Dashboard = () => {
                 )}
             </section>
 
-            {editingDate && (
-                <ScheduleEditor
-                    date={editingDate}
-                    tasks={scheduleByDate[editingDate]?.tasks || []}
-                    onSave={handleSaveSchedule}
-                    onClose={handleCloseEditor}
-                    saving={savingSchedule}
-                />
-            )}
+            {/* ScheduleEditor is rendered by ScheduleEditorProvider. */}
         </div>
     );
 };
