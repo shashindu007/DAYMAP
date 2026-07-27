@@ -18,10 +18,7 @@
 }
 
 .focus-header h1 {
-    background: linear-gradient(120deg, #f43f5e, #8b5cf6 55%, #3b82f6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .focus-layout {
@@ -37,7 +34,7 @@
 /* ---------- Hero (timer) ---------- */
 .focus-hero {
     position: relative;
-    background: linear-gradient(140deg, var(--primary-soft), var(--secondary-soft));
+    background: var(--surface-sunken);
     border: 1px solid var(--border-strong);
     overflow: hidden;
 }
@@ -47,7 +44,7 @@
     position: absolute;
     inset: 0 0 auto 0;
     height: 4px;
-    background: linear-gradient(90deg, #f43f5e, #8b5cf6, #3b82f6);
+    background: var(--primary);
 }
 
 .focus-hero-header {
@@ -91,10 +88,6 @@
     background: var(--primary-gradient);
 }
 
-.focus-insights-grid > div:nth-child(2)::before { background: var(--secondary-gradient); }
-.focus-insights-grid > div:nth-child(3)::before { background: var(--success-gradient); }
-.focus-insights-grid > div:nth-child(4)::before { background: var(--warning-gradient); }
-.focus-insights-grid > div:nth-child(5)::before { background: var(--danger-gradient); }
 
 .focus-insights-grid > div:hover {
     transform: translateY(-3px);
@@ -102,7 +95,7 @@
 }
 
 .profile-label {
-    font-size: 0.74rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -113,7 +106,7 @@
     margin-top: 0.4rem;
     color: var(--text-primary);
     font-weight: 800;
-    font-size: 1.15rem;
+    font-size: var(--text-lg);
     letter-spacing: -0.02em;
 }
 
@@ -142,7 +135,7 @@
 .focus-chart-card h3 {
     margin-top: 0;
     margin-bottom: 0.85rem;
-    font-size: 1rem;
+    font-size: var(--text-base);
     font-weight: 700;
 }
 
@@ -154,7 +147,7 @@
 .focus-goal-card {
     border-radius: var(--radius-md);
     padding: 0.95rem 1.1rem;
-    background: linear-gradient(135deg, var(--primary-soft), var(--secondary-soft));
+    background: var(--surface-sunken);
     border: 1px solid var(--border-strong);
     color: var(--text-primary);
     min-height: 120px;
@@ -190,19 +183,8 @@
 
 /* .focus-complete-banner now lives in components/focus/FocusSessionPanel.css */
 
-.dashboard-error {
-    padding: 0.8rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: var(--radius-md);
-    background: var(--danger-soft);
-    border: 1px solid var(--danger);
-    color: var(--danger-dark);
-    font-weight: 500;
-}
-
-.muted {
-    color: var(--text-secondary);
-}
+/* Errors use .alert-error and .muted lives in App.css — this file used to
+   redefine both. */
 
 @media (max-width: 768px) {
     .focus-header,

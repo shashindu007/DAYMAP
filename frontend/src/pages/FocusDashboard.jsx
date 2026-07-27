@@ -10,7 +10,9 @@ import {
     Legend
 } from 'chart.js';
 import { useFocus } from '../context/FocusContext';
+import { useTheme } from '../context/ThemeContext';
 import analyticsService from '../services/analyticsService';
+import { applyChartTheme, seriesColors } from '../utils/chartTheme';
 import { toYmd, extractFocusPayload, resolveFocusErrorMessage } from '../utils/focusTime';
 import './FocusDashboard.css';
 
@@ -40,16 +42,8 @@ const EMPTY_INSIGHTS = {
     insights: []
 };
 
-const CHART_COLORS = [
-    '#6366F1',
-    '#22C55E',
-    '#F97316',
-    '#06B6D4',
-    '#A855F7',
-    '#F43F5E',
-    '#EAB308',
-    '#14B8A6'
-];
+/* Series colours come from utils/chartTheme so they track the theme; this file
+   used to carry its own hardcoded palette that never changed in dark mode. */
 
 /**
  * The focus analytics page. The session engine itself lives in FocusContext
@@ -60,8 +54,16 @@ const FocusDashboard = () => {
     // sessionsVersion / lastSessionResponse are the engine's way of saying
     // "a session was logged" without knowing that charts exist.
     const { focusGoal, sessionsVersion, lastSessionResponse } = useFocus();
+    const { darkMode } = useTheme();
 
     const todayYmd = useMemo(() => toYmd(new Date()), []);
+
+    // Chart.js reads its defaults at render time, so re-theme on every flip.
+    useEffect(() => {
+        applyChartTheme(darkMode);
+    }, [darkMode]);
+
+    const palette = useMemo(() => seriesColors(darkMode), [darkMode]);
 
     const [focusPatterns, setFocusPatterns] = useState(EMPTY_PATTERNS);
     const [focusInsights, setFocusInsights] = useState(EMPTY_INSIGHTS);
@@ -169,11 +171,12 @@ const FocusDashboard = () => {
                 {
                     label: 'Focus minutes',
                     data: focusInsights.daily.map((item) => item.focus_time_spent_minutes || 0),
-                    backgroundColor: 'rgba(99, 102, 241, 0.6)'
+                    backgroundColor: palette[0],
+                    borderRadius: 4
                 }
             ]
         };
-    }, [focusInsights.daily]);
+    }, [focusInsights.daily, palette]);
 
     const weeklyChartData = useMemo(() => {
         if (!focusInsights.weekly?.length) return null;
@@ -183,11 +186,12 @@ const FocusDashboard = () => {
                 {
                     label: 'Weekly focus minutes',
                     data: focusInsights.weekly.map((item) => item.focus_time_spent_minutes || 0),
-                    backgroundColor: 'rgba(34, 197, 94, 0.6)'
+                    backgroundColor: palette[2],
+                    borderRadius: 4
                 }
             ]
         };
-    }, [focusInsights.weekly]);
+    }, [focusInsights.weekly, palette]);
 
     const categoryChartData = useMemo(() => {
         if (!focusInsights.byCategory?.length) return null;
@@ -197,11 +201,12 @@ const FocusDashboard = () => {
                 {
                     label: 'Category distribution',
                     data: focusInsights.byCategory.map((item) => item.minutes || 0),
-                    backgroundColor: focusInsights.byCategory.map((_, index) => CHART_COLORS[index % CHART_COLORS.length])
+                    backgroundColor: focusInsights.byCategory.map((_, index) => palette[index % palette.length]),
+                    borderWidth: 0
                 }
             ]
         };
-    }, [focusInsights.byCategory]);
+    }, [focusInsights.byCategory, palette]);
 
     const barOptions = useMemo(() => ({
         responsive: true,
@@ -230,7 +235,7 @@ const FocusDashboard = () => {
                     <h2>Focus Metrics</h2>
                     <p className="muted">Track your momentum across the last two weeks.</p>
 
-                    {focusInsightsError && <p className="dashboard-error">{focusInsightsError}</p>}
+                    {focusInsightsError && <p className="alert alert-error">{focusInsightsError}</p>}
 
                     {focusInsightsLoading && !focusInsights.daily.length ? (
                         <p className="muted">Loading focus insights...</p>
