@@ -1,324 +1,158 @@
 /* ==========================================================================
    Today view
-   (task cards, status/priority pills and empty states live in
-    src/styles/task-card.css — shared with the Tasks page)
+
+   Task cards, status/priority pills and empty states live in
+   src/styles/task-card.css. Stat panels and progress bars live in
+   src/styles/stats.css — both shared with the Week and Tasks pages.
+   Only Today-specific layout belongs here.
    ========================================================================== */
 
 .today-container {
-    padding: 0.5rem 0 1rem;
+    padding: var(--space-2) 0 var(--space-4);
     max-width: 960px;
     margin: 0 auto;
 }
 
 .today-header {
-    margin-bottom: 1.75rem;
-}
-
-.today-hero {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 1.25rem;
+    margin-bottom: var(--space-6);
 }
 
 .today-header-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.25rem;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
     flex-wrap: wrap;
 }
 
 .today-actions {
     display: flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: var(--space-3);
     flex-wrap: wrap;
 }
 
-.today-header h1 {
-    margin-bottom: 0;
-    background: linear-gradient(120deg, #f59e0b, #ec4899 60%, #8b5cf6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
 .today-subtitle {
-    margin: 0.35rem 0 0;
+    margin: var(--space-1) 0 0;
     color: var(--text-secondary);
-    font-size: 0.92rem;
-}
-
-.today-error {
-    padding: 0.8rem 1rem;
-    margin-bottom: 1rem;
-    border-radius: var(--radius-md);
-    background: var(--danger-soft);
-    border: 1px solid var(--danger);
-    color: var(--danger-dark);
-    font-weight: 500;
+    font-size: var(--text-sm);
 }
 
 /* ==========================================================================
-   Stats panel
+   Hero — one line of summary, no chart. The four-bar CSS chart that used to
+   live here restated the progress bar sitting directly above it.
    ========================================================================== */
-.stats {
-    position: relative;
+.today-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    flex-wrap: wrap;
     background: var(--surface-raised);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    display: grid;
-    gap: 1rem;
-    align-content: center;
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-}
-
-.stats::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--primary-gradient);
-}
-
-.stat-item {
-    display: flex;
-    align-items: baseline;
-    gap: 0.6rem;
-}
-
-.stat-value {
-    font-size: 2.4rem;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    background: var(--primary-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    font-variant-numeric: tabular-nums;
-}
-
-.stat-label {
-    font-size: 0.98rem;
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-.progress-bar {
-    height: 0.6rem;
-    background: var(--surface-sunken);
-    border: 1px solid var(--divider);
-    border-radius: var(--radius-pill);
-    overflow: hidden;
-}
-
-.progress-fill {
-    height: 100%;
-    border-radius: var(--radius-pill);
-    background: linear-gradient(90deg, #8b5cf6, #6366f1 45%, #22d3ee 100%);
-    transition: width var(--dur-slow) var(--ease-out);
-}
-
-/* ==========================================================================
-   Today's mini chart
-   ========================================================================== */
-.today-chart {
-    position: relative;
-    background: var(--surface-raised);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    box-shadow: var(--shadow-md);
-    overflow: hidden;
-}
-
-.today-chart::before {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--secondary-gradient);
-}
-
-.chart-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.chart-header h3 {
-    margin: 0;
-    font-size: 1.02rem;
-}
-
-.chart-header p {
-    margin: 0.3rem 0 0;
-    color: var(--text-secondary);
-    font-size: 0.83rem;
-}
-
-.chart-total {
-    background: var(--secondary-soft);
-    color: var(--secondary-dark);
-    padding: 0.35rem 0.8rem;
-    border-radius: var(--radius-pill);
-    font-weight: 700;
-    font-size: 0.83rem;
-    white-space: nowrap;
-}
-
-.chart-bars {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    align-items: end;
-    min-height: 180px;
-}
-
-.chart-bar {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    height: 100%;
-}
-
-.chart-bar-fill {
-    width: 100%;
-    border-radius: var(--radius-md) var(--radius-md) 0.3rem 0.3rem;
-    min-height: 18px;
-    transition: height var(--dur-slow) var(--ease-out), filter var(--dur) var(--ease);
+    padding: var(--space-5) var(--space-6);
     box-shadow: var(--shadow-sm);
 }
 
-.chart-bar:hover .chart-bar-fill {
-    filter: saturate(1.25) brightness(1.06);
+.today-summary-count {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    white-space: nowrap;
 }
 
-.chart-bar-label {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 600;
-    color: var(--text-secondary);
-}
-
-.chart-bar-value {
+.today-summary-count strong {
+    font-size: var(--text-3xl);
     font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.today-summary-count span {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.today-summary-bar {
+    flex: 1 1 200px;
+    min-width: 160px;
+}
+
+.today-summary-next {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.today-summary-next strong {
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 
-.chart-bar-completed { background: linear-gradient(180deg, #34d399, #059669); }
-.chart-bar-incomplete { background: linear-gradient(180deg, #fb7185, #e11d48); }
-.chart-bar-review { background: linear-gradient(180deg, #fbbf24, #d97706); }
-.chart-bar-upcoming { background: linear-gradient(180deg, #60a5fa, #2563eb); }
-
-/* Needs Review sits above the fold - give it a little emphasis */
+/* Needs Review is the one section that wants attention, so it gets the
+   warning hue. Both themes are covered by the token. */
 .task-section--review .task-section-header h2 {
-    color: #b45309;
-}
-
-.dark .task-section--review .task-section-header h2 {
-    color: #fcd34d;
+    color: var(--warning-dark);
 }
 
 /* ==========================================================================
-   Add / edit task modal
+   "Done today" accordion — Completed + Incomplete folded away by default.
    ========================================================================== */
-.task-modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: var(--overlay);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
+.today-done {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    overflow: hidden;
+}
+
+.today-done-toggle {
+    width: 100%;
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 1rem;
-    z-index: 1000;
-    animation: fade-in var(--dur) var(--ease) both;
-}
-
-@keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-
-.task-modal {
-    width: 100%;
-    max-width: 560px;
-    max-height: 90vh;
-    overflow-y: auto;
-    background: var(--surface-raised);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-    padding: 1.6rem;
-    box-shadow: var(--shadow-lg);
-    animation: pop-in var(--dur-slow) var(--ease-spring) both;
-}
-
-.task-modal h2 {
-    margin-bottom: 0.3rem;
-}
-
-.task-modal-subtitle {
-    color: var(--text-secondary);
-    margin-bottom: 1.15rem;
-    font-size: 0.9rem;
-}
-
-.task-form {
-    display: flex;
-    flex-direction: column;
-    gap: 0.85rem;
-}
-
-.task-form-label {
-    font-size: 0.85rem;
-    font-weight: 600;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: none;
+    border: none;
+    font-family: inherit;
+    font-size: var(--text-base);
+    font-weight: 700;
     color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+    transition: background-color var(--dur) var(--ease);
 }
 
-.task-form-input,
-.task-form-textarea {
-    width: 100%;
-    margin-top: 0.35rem;
+.today-done-toggle:hover {
+    background: var(--surface-hover);
 }
 
-.task-form-textarea {
-    resize: vertical;
-    min-height: 90px;
+.today-done-summary {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-left: auto;
+    margin-right: var(--space-2);
 }
 
-.task-form-grid {
+.today-done-chevron {
+    color: var(--text-muted);
+    transition: transform var(--dur) var(--ease);
+    font-size: var(--text-xs);
+}
+
+.today-done-toggle[aria-expanded='true'] .today-done-chevron {
+    transform: rotate(180deg);
+}
+
+.today-done-body {
+    padding: 0 var(--space-5) var(--space-4);
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.85rem;
-}
-
-.task-form-error {
-    color: var(--danger-dark);
-    background: var(--danger-soft);
-    border: 1px solid var(--danger);
-    border-radius: var(--radius-md);
-    font-size: 0.86rem;
-    padding: 0.7rem 0.85rem;
-    animation: pop-in var(--dur) var(--ease-spring) both;
-}
-
-.task-modal-actions {
-    margin-top: 0.6rem;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
+    gap: var(--space-4);
 }
 
 @media (max-width: 768px) {
@@ -331,19 +165,11 @@
         width: 100%;
     }
 
-    .today-hero {
-        grid-template-columns: 1fr;
+    .today-summary {
+        gap: var(--space-4);
     }
 
-    .task-form-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .task-modal-actions {
-        flex-direction: column-reverse;
-    }
-
-    .task-modal-actions .btn {
+    .today-summary-next {
         width: 100%;
     }
 }

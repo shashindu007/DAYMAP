@@ -21,6 +21,10 @@ const FocusSessionPanel = ({
     const focus = useFocus();
     const isCompact = variant === 'compact';
     const [optionsOpen, setOptionsOpen] = useState(!isCompact);
+    // On Today the compact panel used to render a second full dashboard inline
+    // — mode switch, disclosure, timer, ring and three meta stats — competing
+    // with the day's own hero. Idle, it is now a single strip.
+    const [expanded, setExpanded] = useState(false);
 
     const {
         focusEnabled,
@@ -234,6 +238,30 @@ const FocusSessionPanel = ({
         </>
     );
 
+    // Collapsed strip: only on Today, only while nothing is running.
+    if (isCompact && !isRunning && !expanded) {
+        return (
+            <div className="focus-strip">
+                <span className="focus-strip-label">Focus mode</span>
+                <span className="muted focus-strip-hint">
+                    {focusEnabled ? 'Ready when you are.' : 'Turn on to track your time.'}
+                </span>
+                <button
+                    className="btn btn-sm btn-outline"
+                    type="button"
+                    onClick={() => setExpanded(true)}
+                >
+                    Start a session
+                </button>
+                {onOpenFullView && (
+                    <button className="btn btn-sm btn-ghost" type="button" onClick={onOpenFullView}>
+                        Metrics
+                    </button>
+                )}
+            </div>
+        );
+    }
+
     return (
         <section className={`card focus-session-panel focus-session-panel--${variant}`}>
             <div className="focus-session-panel-header">
@@ -244,13 +272,22 @@ const FocusSessionPanel = ({
                     </span>
                 </div>
                 <div className="focus-session-panel-header-actions">
+                    {isCompact && !isRunning && (
+                        <button
+                            className="btn btn-sm btn-ghost"
+                            type="button"
+                            onClick={() => setExpanded(false)}
+                        >
+                            Collapse
+                        </button>
+                    )}
                     {isCompact && onOpenFullView && (
                         <button
-                            className="btn btn-secondary focus-open-full"
+                            className="btn btn-sm btn-outline focus-open-full"
                             type="button"
                             onClick={onOpenFullView}
                         >
-                            🎯 Focus Metrics
+                            Metrics
                         </button>
                     )}
                     <label className="focus-toggle">
@@ -349,7 +386,7 @@ const FocusSessionPanel = ({
                         )}
                     </div>
 
-                    {focusError && <p className="dashboard-error">{focusError}</p>}
+                    {focusError && <p className="alert alert-error">{focusError}</p>}
                     {focusMessage && <div className="focus-complete-banner">{focusMessage}</div>}
                 </>
             )}
