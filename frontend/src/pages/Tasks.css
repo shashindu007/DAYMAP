@@ -19,26 +19,32 @@
 }
 
 .tasks-page-header h1 {
-    background: linear-gradient(120deg, #10b981, #0ea5e9 60%, #6366f1);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
+}
+
+.tasks-subtitle {
+    margin: var(--space-1) 0 0;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
 }
 
 .tasks-header-actions {
     display: flex;
-    gap: 0.65rem;
+    gap: var(--space-3);
     flex-wrap: wrap;
 }
 
-/* ---------- Toolbar ---------- */
+/* ---------- Toolbar ----------
+   Wraps instead of holding a rigid four-column grid. The old
+   `1fr 220px 200px auto` only collapsed at 768px, so between roughly
+   770–950px the two fixed columns squeezed the search field to nothing. */
 .tasks-toolbar {
-    display: grid;
-    grid-template-columns: 1fr 220px 200px auto;
-    gap: 0.7rem;
-    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
     align-items: center;
-    padding: 0.85rem;
+    padding: var(--space-3);
     border-radius: var(--radius-lg);
     background: var(--surface);
     border: 1px solid var(--border);
@@ -47,11 +53,25 @@
     backdrop-filter: blur(12px);
 }
 
-.tasks-search,
+.tasks-search {
+    flex: 1 1 260px;
+    min-width: 180px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+}
+
 .tasks-filter {
-    width: 100%;
-    padding: 0.6rem 0.8rem;
-    font-size: 0.9rem;
+    flex: 0 1 170px;
+    min-width: 140px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+}
+
+.tasks-result-count {
+    margin: 0 0 var(--space-4);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Day grouping ---------- */
@@ -72,47 +92,19 @@
 
 .tasks-day-title {
     margin: 0;
-    font-size: 1.08rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .tasks-day-subtitle {
     color: var(--text-secondary);
-    font-size: 0.83rem;
+    font-size: var(--text-sm);
 }
 
-/* ---------- Feedback ---------- */
-.tasks-feedback {
-    margin: 0.5rem 0 1rem;
-    padding: 0.7rem 0.95rem;
-    border-radius: var(--radius-md);
-    background: var(--info-soft);
-    border: 1px solid var(--info);
-    color: var(--info-dark);
-    font-weight: 500;
-    animation: pop-in var(--dur) var(--ease-spring) both;
-}
-
-.tasks-error {
-    background: var(--danger-soft);
-    border-color: var(--danger);
-    color: var(--danger-dark);
-}
-
-.tasks-empty {
-    border: 2px dashed var(--border-strong);
-    border-radius: var(--radius-lg);
-    padding: 2.5rem 2rem;
-    text-align: center;
-    margin-bottom: 1rem;
-    background: linear-gradient(140deg, var(--primary-soft), var(--secondary-soft));
-}
-
-.tasks-empty p {
-    margin-bottom: 1.1rem;
-    color: var(--text-secondary);
-}
+/* Feedback uses the design system's .alert / .alert-error, and the empty state
+   uses .empty-state from styles/task-card.css. This file used to carry its own
+   near-duplicate of each. */
 
 /* Tasks page keeps completed items fully legible (they are the record) */
 .tasks-page .task-item.completed {
@@ -129,8 +121,9 @@
         align-items: flex-start;
     }
 
-    .tasks-toolbar {
-        grid-template-columns: 1fr;
+    .tasks-search,
+    .tasks-filter {
+        flex: 1 1 100%;
     }
 
     .tasks-header-actions {
