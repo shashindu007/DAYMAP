@@ -130,35 +130,102 @@
     transition: width var(--dur-slow) var(--ease-out);
 }
 
-/* ---------- Category / routine lists ---------- */
-.week-lists {
+/* ==========================================================================
+   Day rows — one row per date, tasks and routines together.
+
+   This replaces the two-column split ("Tasks by Category" beside "Routines by
+   Type"), where seeing what a single day held meant reading both columns and
+   matching the date printed on every card.
+   ========================================================================== */
+.week-days {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: var(--space-6);
-    align-items: start;
+    gap: var(--space-4);
 }
 
-.week-list-column {
-    display: grid;
-    gap: var(--space-3);
+.week-day {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4) var(--space-5);
+    box-shadow: var(--shadow-sm);
 }
 
-.week-list-heading {
+.week-day--today {
+    border-color: var(--primary);
+    box-shadow: var(--ring);
+}
+
+.week-day-header {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: var(--space-3);
-    margin-bottom: var(--space-1);
+    flex-wrap: wrap;
 }
 
-.week-list-heading h2 {
+.week-day-title {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.week-day-title h2 {
     margin: 0;
+    font-size: var(--text-lg);
 }
 
-/* "Tasks by Category" used to render one full section shell per category with
-   no cap — eight categories meant eight stacked panels. */
-.week-show-more {
-    justify-self: start;
+.week-day-date {
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.week-day-flag {
+    padding: 0.1rem 0.5rem;
+    border-radius: var(--radius-pill);
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.week-day-body {
+    display: grid;
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+}
+
+.week-day-group {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.week-day-group-label {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.week-day-group-label span {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+    color: var(--text-muted);
+}
+
+/* Quiet: an empty day is normal, not a problem to flag. */
+.week-day-empty {
+    margin: var(--space-2) 0 0;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
 }
 
 @media (max-width: 820px) {

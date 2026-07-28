@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRoutine } from '../context/RoutineContext';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { activeDaysFor } from '../utils/routineDays';
 import './Routines.css';
 
 const DEFAULT_ITEM = { title: '', notes: '', duration_minutes: '', start_time: '', end_time: '' };
@@ -15,22 +16,9 @@ const dayOptions = [
     { label: 'Sat', value: 6 }
 ];
 
-const WEEKDAYS = [1, 2, 3, 4, 5];
-const WEEKENDS = [0, 6];
-
-/**
- * Which weekdays a routine actually runs on. The list used to print a raw
- * lowercase enum ("Recurrence: daily") and custom day selections were invisible
- * — you had to open the editor to find out which days a routine ran.
- */
-const activeDaysFor = (recurrence) => {
-    switch (recurrence?.type) {
-        case 'weekdays': return WEEKDAYS;
-        case 'weekends': return WEEKENDS;
-        case 'custom': return recurrence.days_of_week || [];
-        default: return [0, 1, 2, 3, 4, 5, 6];
-    }
-};
+/* Which weekdays a routine actually runs on lives in utils/routineDays — the
+   list used to print a raw lowercase enum ("Recurrence: daily") and custom day
+   selections were invisible until you opened the editor. */
 
 const Routines = () => {
     const {
