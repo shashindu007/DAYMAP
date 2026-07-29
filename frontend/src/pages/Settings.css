@@ -18,10 +18,7 @@
 }
 
 .settings-header h1 {
-    background: linear-gradient(120deg, #6366f1, #0ea5e9);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .settings-card {
@@ -39,8 +36,6 @@
     background: var(--primary-gradient);
 }
 
-.settings-card ~ .settings-card::before { background: var(--warning-gradient); }
-.settings-card ~ .settings-card ~ .settings-card::before { background: var(--danger-gradient); }
 
 .settings-card h2 {
     color: var(--primary-dark);
@@ -50,7 +45,7 @@
 .settings-card-subtitle {
     margin: 0.35rem 0 0;
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
 }
 
 .settings-card-header {
@@ -81,7 +76,7 @@
     align-items: center;
     justify-content: center;
     font-weight: 800;
-    font-size: 1.3rem;
+    font-size: var(--text-xl);
     color: var(--primary);
     transition: transform var(--dur) var(--ease-spring);
 }
@@ -116,7 +111,7 @@
     color: var(--primary-dark);
     cursor: pointer;
     font-weight: 700;
-    font-size: 0.88rem;
+    font-size: var(--text-sm);
     background: var(--primary-soft);
     transition: transform var(--dur) var(--ease-spring),
                 background var(--dur) var(--ease),

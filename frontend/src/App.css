@@ -82,6 +82,28 @@
     --radius-xl: 1.5rem;
     --radius-pill: 999px;
 
+    /* --- Spacing (4px base) --- */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    /* --- Type scale ---
+       Eight steps, nothing in between. If a size isn't on this list it is a bug. */
+    --text-2xs: 0.6875rem;  /* uppercase pills, micro-labels   */
+    --text-xs: 0.75rem;     /* meta rows, captions             */
+    --text-sm: 0.875rem;    /* secondary body, buttons, inputs */
+    --text-base: 1rem;      /* body                            */
+    --text-lg: 1.125rem;    /* card titles (h3)                */
+    --text-xl: 1.375rem;    /* section headings (h2)           */
+    --text-2xl: 1.75rem;    /* page title (h1)                 */
+    --text-3xl: 2.25rem;    /* the ONE hero number per page    */
+
     /* --- Motion --- */
     --ease: cubic-bezier(0.4, 0, 0.2, 1);
     --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -144,6 +166,9 @@
     --text-primary: #eef1f9;
     --text-secondary: #a3adc8;
     --text-muted: #7b86a3;
+    /* --primary is a light lavender in dark mode, so text sitting on it has to
+       be dark ink, not white. */
+    --text-on-brand: #16192b;
 
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
     --shadow-sm: 0 4px 10px -4px rgba(0, 0, 0, 0.5);
@@ -186,21 +211,22 @@ h1, h2, h3, h4 {
 }
 
 h1 {
-    font-size: clamp(1.6rem, 1.2rem + 1.4vw, 2.1rem);
+    font-size: var(--text-2xl);
     font-weight: 800;
 }
 
 h2 {
-    font-size: clamp(1.15rem, 1rem + 0.5vw, 1.4rem);
+    font-size: var(--text-xl);
     font-weight: 700;
 }
 
 h3 {
-    font-size: 1.05rem;
+    font-size: var(--text-lg);
     font-weight: 700;
 }
 
-/* Headline accent used on page titles */
+/* Reserved for the "DayMap" wordmark only. Page titles are plain text — a
+   different gradient headline on every page is what made the app feel noisy. */
 .gradient-text {
     background: var(--primary-gradient);
     -webkit-background-clip: text;
@@ -228,7 +254,7 @@ a {
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
     font-weight: 600;
     line-height: 1.2;
     cursor: pointer;
@@ -283,36 +309,51 @@ a {
 
 .btn-sm {
     padding: 0.42rem 0.85rem;
-    font-size: 0.82rem;
+    font-size: var(--text-xs);
     border-radius: var(--radius-sm);
 }
 
+/* The gradient fill lives here and nowhere else in the app. Note there is no
+   glow by default — a list of 15 tasks must not render 15 glowing buttons.
+   Add .btn-hero for the single page-level CTA that earns the emphasis. */
 .btn-primary {
     background: var(--primary-gradient);
     color: #fff;
-    box-shadow: var(--shadow-glow);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-primary:hover:not(:disabled) {
     filter: saturate(1.15) brightness(1.05);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-hero {
+    box-shadow: var(--shadow-glow);
+}
+
+.btn-hero:hover:not(:disabled) {
     box-shadow: 0 16px 34px -12px rgba(124, 58, 237, 0.6);
 }
 
+/* Secondary is quiet by design: a filled neutral, not a second brand colour
+   competing with the primary. */
 .btn-secondary {
-    background: var(--secondary-gradient);
-    color: #fff;
-    box-shadow: 0 12px 30px -12px rgba(6, 182, 212, 0.55);
+    background: var(--surface-sunken);
+    border-color: var(--border);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-xs);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    filter: saturate(1.15) brightness(1.05);
-    box-shadow: 0 16px 34px -12px rgba(6, 182, 212, 0.65);
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-success {
-    background: var(--success-gradient);
+    background: var(--success);
     color: #fff;
-    box-shadow: 0 12px 30px -12px rgba(16, 185, 129, 0.55);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-success:hover:not(:disabled) {
@@ -320,19 +361,33 @@ a {
 }
 
 .btn-warning {
-    background: var(--warning-gradient);
+    background: var(--warning);
     color: #492804;
-    box-shadow: 0 12px 30px -12px rgba(245, 158, 11, 0.5);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-danger {
-    background: var(--danger-gradient);
+    background: var(--danger);
     color: #fff;
-    box-shadow: 0 12px 30px -12px rgba(244, 63, 94, 0.5);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-danger:hover:not(:disabled) {
     filter: saturate(1.15) brightness(1.05);
+}
+
+/* Quiet destructive action — the default for a delete sitting in a long list.
+   Only escalates to red on hover. */
+.btn-danger-quiet {
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-muted);
+    box-shadow: none;
+}
+
+.btn-danger-quiet:hover:not(:disabled) {
+    background: var(--danger-soft);
+    color: var(--danger-dark);
 }
 
 .btn-outline {
@@ -376,7 +431,7 @@ input[type="time"],
 select,
 textarea {
     font-family: inherit;
-    font-size: 0.925rem;
+    font-size: var(--text-sm);
     color: var(--text-primary);
     background: var(--surface-solid);
     border: 1.5px solid var(--border);
@@ -438,7 +493,13 @@ label {
                 border-color var(--dur) var(--ease);
 }
 
-.card:hover {
+/* Only cards you can actually click move. A static panel that lifts under the
+   cursor reads as interactive and isn't. */
+.card--interactive {
+    cursor: pointer;
+}
+
+.card--interactive:hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
     border-color: var(--border-strong);
@@ -478,7 +539,7 @@ label {
     gap: 0.3rem;
     padding: 0.25rem 0.65rem;
     border-radius: var(--radius-pill);
-    font-size: 0.75rem;
+    font-size: var(--text-2xs);
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: capitalize;
@@ -499,7 +560,7 @@ label {
     padding: 0.85rem 1rem;
     border-radius: var(--radius-md);
     margin-bottom: 1.25rem;
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
     font-weight: 500;
     border: 1px solid transparent;
     animation: pop-in var(--dur-slow) var(--ease-spring) both;

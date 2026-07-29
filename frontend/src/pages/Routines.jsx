@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRoutine } from '../context/RoutineContext';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import { activeDaysFor } from '../utils/routineDays';
 import './Routines.css';
 
 const DEFAULT_ITEM = { title: '', notes: '', duration_minutes: '', start_time: '', end_time: '' };
@@ -13,6 +15,10 @@ const dayOptions = [
     { label: 'Fri', value: 5 },
     { label: 'Sat', value: 6 }
 ];
+
+/* Which weekdays a routine actually runs on lives in utils/routineDays — the
+   list used to print a raw lowercase enum ("Recurrence: daily") and custom day
+   selections were invisible until you opened the editor. */
 
 const Routines = () => {
     const {
@@ -36,6 +42,9 @@ const Routines = () => {
     });
 
     const [editingId, setEditingId] = useState(null);
+    // The builder used to be permanently expanded above the list, so reading
+    // your routines meant scrolling past the entire creation form every visit.
+    const [builderOpen, setBuilderOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [localError, setLocalError] = useState('');
     const [pendingDelete, setPendingDelete] = useState(null);
@@ -56,6 +65,12 @@ const Routines = () => {
             items: [{ ...DEFAULT_ITEM }]
         });
         setEditingId(null);
+        setBuilderOpen(false);
+    };
+
+    const startCreate = () => {
+        resetForm();
+        setBuilderOpen(true);
     };
 
     const handleField = (event) => {
@@ -118,6 +133,9 @@ const Routines = () => {
 
     const startEdit = (routine) => {
         setEditingId(routine.id);
+        // Without this, Edit populated a form far off-screen and the visible
+        // page did not change at all — the button looked broken.
+        setBuilderOpen(true);
         setForm({
             name: routine.name,
             description: routine.description || '',
@@ -201,52 +219,72 @@ const Routines = () => {
 
     const activeCount = useMemo(() => templates.filter((item) => item.is_active).length, [templates]);
 
+    /* Deactivated routines used to interleave with active ones at full weight. */
+    const sortedTemplates = useMemo(() => (
+        [...templates].sort((a, b) => Number(b.is_active !== false) - Number(a.is_active !== false))
+    ), [templates]);
+
     return (
         <div className="routines-page">
+            {/* The "N routines • M active" line used to occupy a whole card of
+                its own, complete with shadow and hover lift. */}
             <div className="routines-header">
-                <h1>Routines</h1>
-                <p>Create reusable routine templates that power your daily schedule.</p>
+                <div>
+                    <h1>Routines</h1>
+                    <p>{templates.length} routine{templates.length === 1 ? '' : 's'} · {activeCount} active</p>
+                </div>
+                <button className="btn btn-primary" type="button" onClick={startCreate}>
+                    New routine
+                </button>
             </div>
 
-            <div className="routines-meta card">
-                <p><strong>{templates.length}</strong> routines • <strong>{activeCount}</strong> active</p>
-            </div>
-
+            {builderOpen && (
             <form className="card routine-form" onSubmit={handleSubmit} aria-busy={saving}>
-                <h2>{editingId ? 'Edit Routine Template' : 'Create Routine Template'}</h2>
-                <input
-                    className="input"
-                    name="name"
-                    value={form.name}
-                    onChange={handleField}
-                    placeholder="Routine name"
-                    maxLength={100}
-                    required
-                />
-                <textarea
-                    className="input"
-                    name="description"
-                    value={form.description}
-                    onChange={handleField}
-                    placeholder="Description (optional)"
-                    rows={2}
-                />
+                <h2>{editingId ? 'Edit routine' : 'New routine'}</h2>
+                <label className="routine-field">
+                    <span>Name</span>
+                    <input
+                        className="input"
+                        name="name"
+                        value={form.name}
+                        onChange={handleField}
+                        placeholder="e.g. Morning routine"
+                        maxLength={100}
+                        required
+                    />
+                </label>
+                <label className="routine-field">
+                    <span>Description <em>optional</em></span>
+                    <textarea
+                        className="input"
+                        name="description"
+                        value={form.description}
+                        onChange={handleField}
+                        rows={2}
+                    />
+                </label>
                 <div className="routine-form-row">
-                    <input
-                        className="input"
-                        type="color"
-                        name="color"
-                        value={form.color}
-                        onChange={handleField}
-                    />
-                    <input
-                        className="input"
-                        name="icon"
-                        value={form.icon}
-                        onChange={handleField}
-                        placeholder="Icon (emoji or text)"
-                        maxLength={20}
-                    />
+                    <label className="routine-field routine-field--color">
+                        <span>Colour</span>
+                        <input
+                            className="input"
+                            type="color"
+                            name="color"
+                            value={form.color}
+                            onChange={handleField}
+                        />
+                    </label>
+                    <label className="routine-field">
+                        <span>Icon <em>optional</em></span>
+                        <input
+                            className="input"
+                            name="icon"
+                            value={form.icon}
+                            onChange={handleField}
+                            placeholder="🌅"
+                            maxLength={20}
+                        />
+                    </label>
                     <label className="routine-toggle">
                         <input
                             type="checkbox"
@@ -284,66 +322,87 @@ const Routines = () => {
                     )}
                 </div>
 
-                <h3>Routine Items</h3>
+                <h3>Routine items</h3>
+                {/* Every control is labelled. These were six bare inputs with
+                    only placeholders, and the two type="time" fields had none
+                    at all — you could not tell start from end without clicking. */}
                 {form.items.map((item, idx) => (
                     <div className="routine-task-row" key={`template-item-${idx}`}>
-                        <input
-                            className="input"
-                            placeholder="Item title"
-                            value={item.title}
-                            onChange={(e) => handleItemChange(idx, 'title', e.target.value)}
-                            maxLength={255}
-                        />
-                        <input
-                            className="input"
-                            placeholder="Notes"
-                            value={item.notes}
-                            onChange={(e) => handleItemChange(idx, 'notes', e.target.value)}
-                        />
-                        <input
-                            className="input"
-                            type="time"
-                            value={item.start_time}
-                            onChange={(e) => handleItemChange(idx, 'start_time', e.target.value)}
-                        />
-                        <input
-                            className="input"
-                            type="time"
-                            value={item.end_time}
-                            onChange={(e) => handleItemChange(idx, 'end_time', e.target.value)}
-                        />
-                        <input
-                            className="input"
-                            type="number"
-                            min="1"
-                            max="1440"
-                            placeholder="Duration"
-                            value={item.duration_minutes}
-                            onChange={(e) => handleItemChange(idx, 'duration_minutes', e.target.value)}
-                        />
-                        <button className="btn btn-outline" type="button" onClick={() => removeItem(idx)}>
+                        <label className="routine-field">
+                            <span>Title</span>
+                            <input
+                                className="input"
+                                value={item.title}
+                                onChange={(e) => handleItemChange(idx, 'title', e.target.value)}
+                                maxLength={255}
+                            />
+                        </label>
+                        <label className="routine-field">
+                            <span>Notes</span>
+                            <input
+                                className="input"
+                                value={item.notes}
+                                onChange={(e) => handleItemChange(idx, 'notes', e.target.value)}
+                            />
+                        </label>
+                        <label className="routine-field">
+                            <span>Start</span>
+                            <input
+                                className="input"
+                                type="time"
+                                value={item.start_time}
+                                onChange={(e) => handleItemChange(idx, 'start_time', e.target.value)}
+                            />
+                        </label>
+                        <label className="routine-field">
+                            <span>End</span>
+                            <input
+                                className="input"
+                                type="time"
+                                value={item.end_time}
+                                onChange={(e) => handleItemChange(idx, 'end_time', e.target.value)}
+                            />
+                        </label>
+                        <label className="routine-field">
+                            <span>Minutes</span>
+                            <input
+                                className="input"
+                                type="number"
+                                min="1"
+                                max="1440"
+                                value={item.duration_minutes}
+                                onChange={(e) => handleItemChange(idx, 'duration_minutes', e.target.value)}
+                            />
+                        </label>
+                        <button
+                            className="btn btn-sm btn-danger-quiet routine-item-remove"
+                            type="button"
+                            onClick={() => removeItem(idx)}
+                            aria-label={`Remove item ${idx + 1}`}
+                        >
                             Remove
                         </button>
                     </div>
                 ))}
 
                 <div className="routine-form-actions">
-                    <button className="btn btn-secondary" type="button" onClick={addItem} disabled={saving}>
-                        Add Item
+                    <button className="btn btn-outline" type="button" onClick={addItem} disabled={saving}>
+                        Add item
                     </button>
-                    <button className="btn btn-primary" type="submit" disabled={saving}>
-                        {saving ? 'Saving...' : (editingId ? 'Update Routine' : 'Create Routine')}
-                    </button>
-                    {editingId && (
+                    <div className="routine-form-submit">
                         <button className="btn btn-outline" type="button" onClick={resetForm} disabled={saving}>
                             Cancel
                         </button>
-                    )}
+                        <button className="btn btn-primary" type="submit" disabled={saving}>
+                            {saving ? 'Saving...' : (editingId ? 'Update routine' : 'Create routine')}
+                        </button>
+                    </div>
                 </div>
             </form>
+            )}
 
             {(localError || error) && (
-                <p className="dashboard-error" role="alert" aria-live="polite">
+                <p className="alert alert-error" role="alert" aria-live="polite">
                     {localError || error}
                 </p>
             )}
@@ -352,87 +411,93 @@ const Routines = () => {
                 {loading ? (
                     <p className="muted">Loading routines...</p>
                 ) : templates.length === 0 ? (
-                    <p className="muted">No routines yet. Create your first template above.</p>
+                    <div className="empty-state">
+                        <p>No routines yet.</p>
+                        <button className="btn btn-primary" type="button" onClick={startCreate}>
+                            Create your first routine
+                        </button>
+                    </div>
                 ) : (
-                    templates.map((routine) => (
-                        <article className="card routine-item" key={routine.id}>
-                            <div className="routine-item-head">
-                                <div>
-                                    <h3>{routine.name}</h3>
-                                    <p>{routine.description || 'No description'}</p>
+                    sortedTemplates.map((routine) => {
+                        const activeDays = activeDaysFor(routine.recurrence);
+                        return (
+                            <article
+                                className={`card routine-item ${routine.is_active ? '' : 'routine-item--inactive'}`}
+                                key={routine.id}
+                                /* The colour picked in the builder was stored
+                                   and then never shown anywhere. */
+                                style={{ '--routine-color': routine.color || 'var(--primary)' }}
+                            >
+                                <div className="routine-item-head">
+                                    <div className="routine-item-title">
+                                        {routine.icon && (
+                                            <span className="routine-icon" aria-hidden>{routine.icon}</span>
+                                        )}
+                                        <div>
+                                            <h3>{routine.name}</h3>
+                                            {routine.description && <p>{routine.description}</p>}
+                                        </div>
+                                    </div>
+                                    <span className={`routine-status ${routine.is_active ? 'active' : 'inactive'}`}>
+                                        {routine.is_active ? 'Active' : 'Inactive'}
+                                    </span>
                                 </div>
-                                <span className={`routine-status ${routine.is_active ? 'active' : 'inactive'}`}>
-                                    {routine.is_active ? 'Active' : 'Inactive'}
-                                </span>
-                            </div>
-                            <p className="routine-type">Recurrence: {routine.recurrence?.type || 'daily'}</p>
 
-                            <ul className="routine-template-list">
-                                {(routine.items || []).map((item) => (
-                                    <li key={item.id}>
-                                        {item.title}
-                                        <span>{item.duration_minutes ? `${item.duration_minutes} min` : 'Flexible'}</span>
-                                    </li>
-                                ))}
-                            </ul>
+                                <div className="routine-day-chips" aria-label="Runs on">
+                                    {dayOptions.map((day) => (
+                                        <span
+                                            key={day.value}
+                                            className={`routine-day-chip ${activeDays.includes(day.value) ? 'is-on' : ''}`}
+                                        >
+                                            {day.label}
+                                        </span>
+                                    ))}
+                                </div>
 
-                            <div className="routine-item-actions">
-                                <button className="btn btn-secondary" type="button" onClick={() => startEdit(routine)}>
-                                    Edit
-                                </button>
-                                <button
-                                    className="btn btn-outline"
-                                    type="button"
-                                    onClick={() => updateTemplate(routine.id, { is_active: !routine.is_active })}
-                                >
-                                    {routine.is_active ? 'Deactivate' : 'Activate'}
-                                </button>
-                                <button className="btn btn-outline" type="button" onClick={() => setPendingDelete(routine)}>
-                                    Delete
-                                </button>
-                            </div>
-                        </article>
-                    ))
+                                <ul className="routine-template-list">
+                                    {(routine.items || []).map((item) => (
+                                        <li key={item.id}>
+                                            {item.title}
+                                            <span>{item.duration_minutes ? `${item.duration_minutes} min` : 'Flexible'}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+
+                                <div className="routine-item-actions">
+                                    <button className="btn btn-sm btn-outline" type="button" onClick={() => startEdit(routine)}>
+                                        Edit
+                                    </button>
+                                    <button
+                                        className="btn btn-sm btn-ghost"
+                                        type="button"
+                                        onClick={() => updateTemplate(routine.id, { is_active: !routine.is_active })}
+                                    >
+                                        {routine.is_active ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                    {/* Delete used to be styled identically to
+                                        Deactivate right next to it. */}
+                                    <button
+                                        className="btn btn-sm btn-danger-quiet"
+                                        type="button"
+                                        onClick={() => setPendingDelete(routine)}
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </article>
+                        );
+                    })
                 )}
             </section>
 
             {pendingDelete && (
-                <div
-                    className="routine-modal-overlay"
-                    role="presentation"
-                    onClick={() => !deleting && setPendingDelete(null)}
-                >
-                    <div
-                        className="routine-modal card"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="routine-delete-title"
-                        onClick={(event) => event.stopPropagation()}
-                    >
-                        <h3 id="routine-delete-title">Delete this routine?</h3>
-                        <p>
-                            "{pendingDelete.name}" and its scheduled items will be removed. This can’t be undone.
-                        </p>
-                        <div className="routine-modal-actions">
-                            <button
-                                className="btn btn-outline"
-                                type="button"
-                                onClick={() => setPendingDelete(null)}
-                                disabled={deleting}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                className="btn btn-danger"
-                                type="button"
-                                onClick={handleConfirmDelete}
-                                disabled={deleting}
-                            >
-                                {deleting ? 'Deleting...' : 'Delete'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <ConfirmDialog
+                    title="Delete this routine?"
+                    description={`"${pendingDelete.name}" and its scheduled items will be removed. This can’t be undone.`}
+                    busy={deleting}
+                    onConfirm={handleConfirmDelete}
+                    onCancel={() => setPendingDelete(null)}
+                />
             )}
         </div>
     );

@@ -1,0 +1,88 @@
+/* ==========================================================================
+   Stat panels & progress bars — shared by Today and Week.
+
+   These class names used to be defined twice, in TodayView.css and
+   WeekView.css, on the assumption that "the class names only ever load on
+   /week". That is not true: CRA concatenates every page stylesheet into one
+   bundle, so Week's rules were silently winning on Today. One definition,
+   here, is the fix.
+   ========================================================================== */
+
+.stats {
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    display: grid;
+    gap: var(--space-4);
+    align-content: center;
+    box-shadow: var(--shadow-md);
+}
+
+.stat-row {
+    display: flex;
+    gap: var(--space-8);
+    flex-wrap: wrap;
+}
+
+.stat-row--divided {
+    border-top: 1px solid var(--divider);
+    padding-top: var(--space-4);
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+}
+
+/* Plain text, not gradient-clipped. Three gradient numerals side by side give
+   no hierarchy — every one of them shouts. */
+.stat-value {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+}
+
+.stat-value small {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+/* The single focal number on a page. Use once per screen, never in a row. */
+.stat-value--hero {
+    font-size: var(--text-3xl);
+    color: var(--primary);
+}
+
+.stat-label {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* ---------- Progress ---------- */
+.progress-bar {
+    height: 0.5rem;
+    background: var(--surface-sunken);
+    border: 1px solid var(--divider);
+    border-radius: var(--radius-pill);
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--primary);
+    transition: width var(--dur-slow) var(--ease-out);
+}
+
+/* Completion is a state, so it gets the state colour. */
+.progress-fill--success {
+    background: var(--success);
+}

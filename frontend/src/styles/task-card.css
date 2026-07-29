@@ -9,13 +9,15 @@
     gap: 1.5rem;
 }
 
-/* ---------- Section shell ---------- */
+/* ---------- Section shell ----------
+   A quiet container. The tinted violet→cyan gradient it used to carry meant
+   every list sat on a coloured panel, holding white cards, inside another
+   card — three layers of chrome around each task title. */
 .task-section {
-    background: linear-gradient(140deg, var(--primary-soft), var(--secondary-soft));
+    background: var(--surface-sunken);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
-    padding: 1.35rem;
-    box-shadow: var(--shadow-sm);
+    padding: var(--space-5);
 }
 
 .task-section-header {
@@ -28,7 +30,7 @@
 
 .task-section-header h2 {
     margin: 0;
-    font-size: 1.08rem;
+    font-size: var(--text-base);
     display: flex;
     align-items: center;
     gap: 0.45rem;
@@ -36,7 +38,7 @@
 
 .task-section-header span {
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: var(--text-sm);
 }
 
 .task-section-count {
@@ -46,7 +48,7 @@
     padding: 0.2rem 0.7rem;
     border-radius: var(--radius-pill);
     font-weight: 700;
-    font-size: 0.82rem;
+    font-size: var(--text-sm);
 }
 
 .task-section-body {
@@ -60,7 +62,7 @@
     border-radius: var(--radius-md);
     border: 1px dashed var(--border-strong);
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: var(--text-sm);
     background: var(--surface);
     text-align: center;
 }
@@ -102,25 +104,27 @@
     width: 6px;
 }
 
-.task-item--past::before { background: linear-gradient(180deg, #fb923c, #ea580c); }
-.task-item--upcoming::before { background: linear-gradient(180deg, #60a5fa, #2563eb); }
-.task-item--current::before { background: linear-gradient(180deg, #34d399, #059669); }
-.task-item--anytime::before { background: linear-gradient(180deg, #a78bfa, #7c3aed); }
-.task-item--completed::before { background: linear-gradient(180deg, #34d399, #10b981); }
-.task-item--review::before { background: linear-gradient(180deg, #fbbf24, #d97706); }
-.task-item--missed::before { background: linear-gradient(180deg, #fb7185, #e11d48); }
+/* The rail is the card's state signal, so it uses the semantic tokens and
+   nothing else. Flat fills, not gradients: seven gradients in a vertical list
+   read as decoration and stopped meaning anything.
+   "Anytime" is not a state, so it stays neutral. */
+.task-item--past::before { background: var(--warning); }
+.task-item--upcoming::before { background: var(--info); }
+.task-item--current::before { background: var(--success); }
+.task-item--anytime::before { background: var(--border); }
+.task-item--completed::before { background: var(--success); }
+.task-item--review::before { background: var(--warning); }
+.task-item--missed::before { background: var(--danger); }
 
 /* Awaiting a decision - nudge the user without shouting */
 .task-item--review {
-    background: linear-gradient(135deg, var(--warning-soft, rgba(251, 191, 36, 0.14)), transparent 65%);
-    border-color: var(--warning, #f59e0b);
+    border-color: var(--warning);
 }
 
-/* The task happening right now gets a gentle glow */
+/* The task happening right now is the one card allowed to stand out. */
 .task-item--current {
-    background: linear-gradient(135deg, var(--success-soft), transparent 65%);
+    background: var(--success-soft);
     border-color: var(--success);
-    box-shadow: 0 14px 32px -18px rgba(16, 185, 129, 0.6);
 }
 
 .task-item.completed {
@@ -152,7 +156,7 @@
 
 .task-title {
     margin: 0 0 0.45rem 0;
-    font-size: 1.06rem;
+    font-size: var(--text-base);
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -166,7 +170,7 @@
 
 .task-description {
     margin: 0 0 0.75rem 0;
-    font-size: 0.875rem;
+    font-size: var(--text-sm);
     color: var(--text-secondary);
     line-height: 1.5;
 }
@@ -176,7 +180,7 @@
     gap: 0.85rem;
     flex-wrap: wrap;
     align-items: center;
-    font-size: 0.8rem;
+    font-size: var(--text-xs);
 }
 
 .task-time,
@@ -187,7 +191,7 @@
 
 .task-hint {
     margin-top: 0.7rem;
-    font-size: 0.8rem;
+    font-size: var(--text-xs);
     color: var(--text-secondary);
 }
 
@@ -199,7 +203,7 @@
 }
 
 .task-action-btn {
-    font-size: 0.8rem;
+    font-size: var(--text-xs);
     padding: 0.42rem 0.8rem;
     border-radius: var(--radius-sm);
 }
@@ -214,14 +218,14 @@
 
 .task-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #22d3ee, #3b82f6);
+    background: var(--primary);
     border-radius: var(--radius-pill);
     transition: width var(--dur-slow) var(--ease-out);
 }
 
 /* ---------- Status pills ---------- */
 .task-status-badge {
-    font-size: 0.7rem;
+    font-size: var(--text-2xs);
     font-weight: 800;
     padding: 0.22rem 0.65rem;
     border-radius: var(--radius-pill);
@@ -231,23 +235,21 @@
 }
 
 .status-current { background: var(--success-soft); color: var(--success-dark); }
-.status-past { background: rgba(249, 115, 22, 0.16); color: #c2410c; }
+.status-past { background: var(--warning-soft); color: var(--warning-dark); }
 .status-upcoming { background: var(--info-soft); color: var(--info-dark); }
-.status-anytime { background: var(--primary-soft); color: var(--primary-dark); }
+/* Neutral: "anytime" reports no state, so it should not read as a status. */
+.status-anytime { background: var(--surface-sunken); color: var(--text-secondary); }
 .status-completed { background: var(--success-soft); color: var(--success-dark); }
 .status-incomplete { background: var(--danger-soft); color: var(--danger-dark); }
 .status-missed { background: var(--danger-soft); color: var(--danger-dark); }
-.status-review { background: rgba(251, 191, 36, 0.18); color: #b45309; }
-
-.dark .status-past { color: #fdba74; }
-.dark .status-review { color: #fcd34d; }
+.status-review { background: var(--warning-soft); color: var(--warning-dark); }
 
 /* Marks a task that came from a routine template */
 .task-badge-routine {
     padding: 0.24rem 0.6rem;
     border-radius: var(--radius-pill);
     font-weight: 700;
-    font-size: 0.74rem;
+    font-size: var(--text-xs);
     background: var(--primary-soft);
     color: var(--primary-dark);
     white-space: nowrap;
@@ -258,31 +260,29 @@
     padding: 0.24rem 0.6rem;
     border-radius: var(--radius-pill);
     font-weight: 700;
-    font-size: 0.74rem;
+    font-size: var(--text-xs);
     text-transform: capitalize;
     white-space: nowrap;
 }
 
 .priority-low { background: var(--info-soft); color: var(--info-dark); }
 .priority-medium { background: var(--warning-soft); color: var(--warning-dark); }
-.priority-high { background: rgba(249, 115, 22, 0.16); color: #c2410c; }
+.priority-high { background: var(--warning-soft); color: var(--warning-dark); }
 .priority-urgent { background: var(--danger-soft); color: var(--danger-dark); }
-
-.dark .priority-high { color: #fdba74; }
 
 /* ---------- Empty & loading states ---------- */
 .empty-state {
     text-align: center;
-    padding: 3.5rem 2rem;
-    border: 2px dashed var(--border-strong);
+    padding: var(--space-10) var(--space-8);
+    border: 1px dashed var(--border-strong);
     border-radius: var(--radius-lg);
-    background: linear-gradient(140deg, var(--primary-soft), var(--secondary-soft));
+    background: var(--surface-sunken);
 }
 
 .empty-state p {
     margin-bottom: 1.35rem;
     color: var(--text-secondary);
-    font-size: 1.05rem;
+    font-size: var(--text-base);
 }
 
 .loading-container {

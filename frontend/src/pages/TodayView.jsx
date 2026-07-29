@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSchedule } from '../context/ScheduleContext';
 import { useRoutine } from '../context/RoutineContext';
 import { useTasks } from '../context/TaskContext';
+import { useScheduleEditor } from '../context/ScheduleEditorContext';
 import Button from '../components/common/Button';
 import TaskCard from '../components/tasks/TaskCard';
 import TaskSection from '../components/tasks/TaskSection';
@@ -40,9 +41,11 @@ const TodayView = () => {
         patchItemFromScheduleTask
     } = useRoutine();
     const { tasksByDate, fetchTasksForDate, patchTaskInDate } = useTasks();
+    const { openEditor } = useScheduleEditor();
     const navigate = useNavigate();
 
     const [now, setNow] = useState(new Date());
+    const [showDone, setShowDone] = useState(false);
     const todayYmd = useMemo(() => toYmd(now), [now]);
 
     const cachedSchedule = scheduleByDate[todayYmd];
@@ -124,19 +127,20 @@ const TodayView = () => {
         };
     }, [buckets.completed.length, dayItems.length]);
 
-    const analytics = useMemo(() => {
-        const completedCount = buckets.completed.length;
-        const incompleteCount = buckets.incomplete.length;
-        const reviewCount = buckets.needsReview.length;
-        const upcomingCount = buckets.upcoming.length;
-        return {
-            completedCount,
-            incompleteCount,
-            reviewCount,
-            upcomingCount,
-            maxValue: Math.max(completedCount, incompleteCount, reviewCount, upcomingCount, 1)
-        };
-    }, [buckets]);
+    /**
+     * Everything that is still ahead of you, in one time-ordered list:
+     * timed upcoming slots, then untimed "anytime" work, then routine items
+     * that never resolved to a slot. Splitting these across three sections
+     * meant the answer to "what's next" was in three places.
+     */
+    const upNext = useMemo(() => ([
+        ...buckets.upcoming,
+        ...buckets.anytime
+    ]), [buckets.anytime, buckets.upcoming]);
+
+    const nextStartLabel = useMemo(() => (
+        buckets.upcoming.find((item) => item.startLabel)?.startLabel || null
+    ), [buckets.upcoming]);
 
     /**
      * Route the status write by record type, then cross-patch the routine
@@ -202,6 +206,8 @@ const TodayView = () => {
     const isInitialLoading = loading && !cachedSchedule;
     const hasAnything = dayItems.length > 0 || unscheduledRoutineItems.length > 0;
 
+    const doneCount = buckets.completed.length + buckets.incomplete.length;
+
     return (
         <div className="today-container">
             <div className="today-header">
@@ -211,78 +217,36 @@ const TodayView = () => {
                         <p className="today-subtitle">Stay on track with a real-time view of today’s tasks.</p>
                     </div>
                     <div className="today-actions">
-                        <Button variant="secondary" onClick={() => navigate(`/dashboard?edit=${todayYmd}`)}>
+                        <Button variant="secondary" onClick={() => openEditor(todayYmd)}>
                             Edit Schedule
                         </Button>
                     </div>
                 </div>
 
-                <div className="today-hero">
-                    <div className="stats">
-                        <div className="stat-item">
-                            <span className="stat-value">{stats.completed}</span>
-                            <span className="stat-label">Completed</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-value">{stats.remaining}</span>
-                            <span className="stat-label">Remaining</span>
-                        </div>
-                        <div className="stat-item">
-                            <span className="stat-value">{stats.total}</span>
-                            <span className="stat-label">Total tasks</span>
-                        </div>
+                {/* One line, not a stat grid plus a bar chart. The four-bar
+                    chart that used to sit here restated this progress bar. */}
+                <div className="today-summary">
+                    <p className="today-summary-count">
+                        <strong>{stats.completed}</strong>
+                        <span>of {stats.total} done</span>
+                    </p>
+                    <div className="today-summary-bar">
                         <div className="progress-bar">
-                            <div className="progress-fill" style={{ width: `${stats.percentage}%` }}></div>
+                            <div
+                                className="progress-fill progress-fill--success"
+                                style={{ width: `${stats.percentage}%` }}
+                            ></div>
                         </div>
                     </div>
-
-                    <div className="today-chart">
-                        <div className="chart-header">
-                            <div>
-                                <h3>Today’s Task Analytics</h3>
-                                <p>Completed vs incomplete vs review vs upcoming</p>
-                            </div>
-                            <span className="chart-total">{stats.total} tasks</span>
-                        </div>
-                        <div className="chart-bars">
-                            <div className="chart-bar">
-                                <span
-                                    className="chart-bar-fill chart-bar-completed"
-                                    style={{ height: `${(analytics.completedCount / analytics.maxValue) * 100}%` }}
-                                ></span>
-                                <span className="chart-bar-label">Completed</span>
-                                <span className="chart-bar-value">{analytics.completedCount}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span
-                                    className="chart-bar-fill chart-bar-incomplete"
-                                    style={{ height: `${(analytics.incompleteCount / analytics.maxValue) * 100}%` }}
-                                ></span>
-                                <span className="chart-bar-label">Incomplete</span>
-                                <span className="chart-bar-value">{analytics.incompleteCount}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span
-                                    className="chart-bar-fill chart-bar-review"
-                                    style={{ height: `${(analytics.reviewCount / analytics.maxValue) * 100}%` }}
-                                ></span>
-                                <span className="chart-bar-label">Review</span>
-                                <span className="chart-bar-value">{analytics.reviewCount}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span
-                                    className="chart-bar-fill chart-bar-upcoming"
-                                    style={{ height: `${(analytics.upcomingCount / analytics.maxValue) * 100}%` }}
-                                ></span>
-                                <span className="chart-bar-label">Upcoming</span>
-                                <span className="chart-bar-value">{analytics.upcomingCount}</span>
-                            </div>
-                        </div>
-                    </div>
+                    {nextStartLabel && (
+                        <p className="today-summary-next">
+                            Next at <strong>{nextStartLabel}</strong>
+                        </p>
+                    )}
                 </div>
             </div>
 
-            {error && <p className="today-error">{error}</p>}
+            {error && <p className="alert alert-error">{error}</p>}
 
             <FocusSessionPanel
                 variant="compact"
@@ -299,7 +263,7 @@ const TodayView = () => {
                 ) : !hasAnything ? (
                     <div className="empty-state">
                         <p>No scheduled slots for today yet.</p>
-                        <Button variant="primary" onClick={() => navigate(`/dashboard?edit=${todayYmd}`)}>
+                        <Button variant="primary" onClick={() => openEditor(todayYmd)}>
                             Schedule Today
                         </Button>
                     </div>
@@ -346,149 +310,115 @@ const TodayView = () => {
                             ))}
                         </TaskSection>
 
+                        {/* Upcoming, Anytime and unscheduled routine items were
+                            three separate sections answering the same question. */}
                         <TaskSection
-                            title="Upcoming Tasks"
-                            subtitle="Next on your schedule"
-                            count={buckets.upcoming.length}
-                            emptyText="No upcoming tasks scheduled."
+                            title="Up next"
+                            subtitle="Still ahead of you today"
+                            count={upNext.length + unscheduledRoutineItems.length}
+                            emptyText="Nothing left on the schedule."
                             alwaysShow
                         >
-                            {buckets.upcoming.map((item) => (
+                            {upNext.map((item) => (
                                 <TaskCard
                                     key={item.key}
                                     item={item}
-                                    variant="upcoming"
-                                    badge={{ label: 'Upcoming', className: 'status-upcoming' }}
-                                    progressPercent={0}
+                                    variant={item.startLabel ? 'upcoming' : 'anytime'}
+                                    badge={item.startLabel
+                                        ? { label: 'Upcoming', className: 'status-upcoming' }
+                                        : { label: 'Anytime', className: 'status-anytime' }}
                                     routineName={routineNameFor(item)}
-                                    actions={[{
-                                        key: 'edit',
-                                        label: 'Edit Details',
-                                        variant: 'secondary',
-                                        onClick: () => navigate(`/dashboard?edit=${todayYmd}`)
-                                    }]}
+                                    actions={reviewActions(item)}
                                 />
                             ))}
-                        </TaskSection>
 
-                        <TaskSection
-                            title="Completed"
-                            subtitle="Done today"
-                            count={buckets.completed.length}
-                            emptyText="Nothing completed yet."
-                            alwaysShow
-                        >
-                            {buckets.completed.map((item) => (
+                            {unscheduledRoutineItems.map((item) => (
                                 <TaskCard
-                                    key={item.key}
-                                    item={item}
-                                    variant="completed"
-                                    badge={{ label: 'Complete', className: 'status-completed' }}
-                                    progressPercent={100}
-                                    routineName={routineNameFor(item)}
-                                    actions={undoAction(item)}
-                                />
-                            ))}
-                        </TaskSection>
-
-                        <TaskSection
-                            title="Incomplete"
-                            subtitle="Marked as not done"
-                            count={buckets.incomplete.length}
-                            emptyText="Nothing marked incomplete."
-                        >
-                            {buckets.incomplete.map((item) => (
-                                <TaskCard
-                                    key={item.key}
-                                    item={item}
-                                    variant="missed"
-                                    badge={{
-                                        label: STATUS_LABELS[item.status] || 'Missed',
-                                        className: STATUS_BADGE_CLASSES[item.status] || 'status-missed'
+                                    key={`routine:${item.instanceId}:${item.id}`}
+                                    item={{
+                                        title: item.title,
+                                        description: item.notes,
+                                        status: item.status,
+                                        durationMinutes: item.duration_minutes,
+                                        startLabel: item.start_time ? formatDisplayTime(item.start_time) : null
                                     }}
-                                    progressPercent={100}
-                                    routineName={routineNameFor(item)}
-                                    actions={[
+                                    variant="anytime"
+                                    badge={{ label: 'Routine', className: 'status-anytime' }}
+                                    routineName={item.routineName}
+                                    actions={item.status === 'completed' || item.status === 'skipped' ? [] : [
                                         {
                                             key: 'complete',
-                                            label: 'Actually did it',
+                                            label: 'Complete',
                                             variant: 'primary',
-                                            onClick: () => handleStatusUpdate(item, 'completed')
+                                            onClick: () => handleRoutineStatusUpdate(item.instanceId, item.id, 'completed')
                                         },
-                                        ...undoAction(item)
+                                        {
+                                            key: 'skip',
+                                            label: 'Skip',
+                                            variant: 'secondary',
+                                            onClick: () => handleRoutineStatusUpdate(item.instanceId, item.id, 'skipped')
+                                        }
                                     ]}
                                 />
                             ))}
                         </TaskSection>
 
-                        <TaskSection
-                            title="Anytime"
-                            subtitle="No fixed time"
-                            count={buckets.anytime.length}
-                            emptyText="Nothing without a time."
-                        >
-                            {buckets.anytime.map((item) => (
-                                <TaskCard
-                                    key={item.key}
-                                    item={item}
-                                    variant="anytime"
-                                    badge={{ label: 'Anytime', className: 'status-upcoming' }}
-                                    routineName={routineNameFor(item)}
-                                    actions={reviewActions(item)}
-                                />
-                            ))}
-                        </TaskSection>
-
-                        <TaskSection
-                            title="Unscheduled Routine Items"
-                            subtitle="No resolvable time — track them here"
-                            count={unscheduledRoutineItems.length}
-                            emptyText=""
-                        >
-                            {unscheduledRoutineItems.map((item) => (
-                                <div
-                                    key={`routine:${item.instanceId}:${item.id}`}
-                                    className={`task-item task-item--anytime ${item.status === 'completed' ? 'completed' : ''}`}
+                        {/* Settled work, folded away. It is a record, not
+                            something you need to act on. */}
+                        {doneCount > 0 && (
+                            <div className="today-done">
+                                <button
+                                    type="button"
+                                    className="today-done-toggle"
+                                    aria-expanded={showDone}
+                                    onClick={() => setShowDone((open) => !open)}
                                 >
-                                    <div className="task-content">
-                                        <div className="task-title-row">
-                                            <h3 className="task-title">{item.title}</h3>
-                                            <span className="task-status-badge status-upcoming">
-                                                {item.status === 'completed'
-                                                    ? 'Done'
-                                                    : item.status === 'skipped' ? 'Skipped' : 'Routine'}
-                                            </span>
-                                        </div>
-                                        {item.notes && <p className="task-description">{item.notes}</p>}
-                                        <div className="task-meta">
-                                            {item.duration_minutes && (
-                                                <span className="task-duration">⏱ {item.duration_minutes} min</span>
-                                            )}
-                                            {item.start_time && (
-                                                <span className="task-time">⏰ {formatDisplayTime(item.start_time)}</span>
-                                            )}
-                                            <span className="task-badge-routine">🔁 {item.routineName}</span>
-                                        </div>
-                                        <div className="task-actions">
-                                            <Button
-                                                variant="primary"
-                                                className="task-action-btn"
-                                                onClick={() => handleRoutineStatusUpdate(item.instanceId, item.id, 'completed')}
-                                            >
-                                                Complete
-                                            </Button>
-                                            <Button
-                                                variant="secondary"
-                                                className="task-action-btn"
-                                                onClick={() => handleRoutineStatusUpdate(item.instanceId, item.id, 'skipped')}
-                                            >
-                                                Skip
-                                            </Button>
-                                        </div>
+                                    Done today
+                                    <span className="today-done-summary">
+                                        {buckets.completed.length} done
+                                        {buckets.incomplete.length > 0 && ` · ${buckets.incomplete.length} missed`}
+                                    </span>
+                                    <span className="today-done-chevron" aria-hidden>▼</span>
+                                </button>
+
+                                {showDone && (
+                                    <div className="today-done-body">
+                                        {buckets.completed.map((item) => (
+                                            <TaskCard
+                                                key={item.key}
+                                                item={item}
+                                                variant="completed"
+                                                badge={{ label: 'Complete', className: 'status-completed' }}
+                                                routineName={routineNameFor(item)}
+                                                actions={undoAction(item)}
+                                            />
+                                        ))}
+
+                                        {buckets.incomplete.map((item) => (
+                                            <TaskCard
+                                                key={item.key}
+                                                item={item}
+                                                variant="missed"
+                                                badge={{
+                                                    label: STATUS_LABELS[item.status] || 'Missed',
+                                                    className: STATUS_BADGE_CLASSES[item.status] || 'status-missed'
+                                                }}
+                                                routineName={routineNameFor(item)}
+                                                actions={[
+                                                    {
+                                                        key: 'complete',
+                                                        label: 'Actually did it',
+                                                        variant: 'primary',
+                                                        onClick: () => handleStatusUpdate(item, 'completed')
+                                                    },
+                                                    ...undoAction(item)
+                                                ]}
+                                            />
+                                        ))}
                                     </div>
-                                </div>
-                            ))}
-                        </TaskSection>
+                                )}
+                            </div>
+                        )}
                     </>
                 )}
             </div>

@@ -5,9 +5,9 @@ import routineService from '../services/routineService';
 import scheduleService from '../services/scheduleService';
 import analyticsService from '../services/analyticsService';
 import Button from '../components/common/Button';
-import TaskSection from '../components/tasks/TaskSection';
 import TaskCard from '../components/tasks/TaskCard';
-import { normalizeDayItem } from '../utils/dayItems';
+import { normalizeDayItem, sortByStart } from '../utils/dayItems';
+import { activeDaysFor } from '../utils/routineDays';
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from '../utils/taskStatus';
 import './WeekView.css';
 
@@ -49,13 +49,13 @@ let weekCache = null; // { key, payload }
 const WeekView = () => {
     const navigate = useNavigate();
     const { startYmd, endYmd } = useMemo(() => getWeekRange(), []);
+    const todayYmd = useMemo(() => toYmd(new Date()), []);
     const cacheKey = `${startYmd}:${endYmd}`;
     const seeded = weekCache && weekCache.key === cacheKey ? weekCache.payload : null;
 
     const [weekItems, setWeekItems] = useState(seeded?.weekItems || []);
     const [routines, setRoutines] = useState(seeded?.routines || []);
     const [weeklyAnalytics, setWeeklyAnalytics] = useState(seeded?.weeklyAnalytics || null);
-    const [weeklyTrends, setWeeklyTrends] = useState(seeded?.weeklyTrends || []);
     const [loading, setLoading] = useState(!seeded);
     const [error, setError] = useState('');
 
@@ -64,14 +64,13 @@ const WeekView = () => {
             if (!silent) setLoading(true);
             setError('');
 
-            const [tasksResponse, scheduleResponse, routinesResponse, weeklyResponse, trendsResponse] = await Promise.all([
+            const [tasksResponse, scheduleResponse, routinesResponse, weeklyResponse] = await Promise.all([
                 taskService.getWeekTasks(startYmd, endYmd),
                 // Read-only: the week summary only displays schedule tasks, it
                 // must not trigger the per-day routine materialization writes.
                 scheduleService.getScheduleRange(startYmd, endYmd, { materialize: false }),
                 routineService.getAllRoutines(),
-                analyticsService.getWeeklyAnalytics(startYmd, endYmd),
-                analyticsService.getTrends(7)
+                analyticsService.getWeeklyAnalytics(startYmd, endYmd)
             ]);
 
             const taskPayload = tasksResponse?.data?.data || tasksResponse?.data || tasksResponse;
@@ -87,16 +86,13 @@ const WeekView = () => {
                 .map((task) => normalizeDayItem(task, 'task'))
                 .filter(Boolean);
 
-            // Surface the calendar date on each card (Today only ever shows one
-            // day, so its startLabel is time-only; a week spans seven days).
-            const withDates = [...normalizedScheduleItems, ...normalizedTaskItems].map((item) => {
-                const date = item.raw?.scheduled_date || null;
-                return {
-                    ...item,
-                    date,
-                    startLabel: [date, item.startLabel].filter(Boolean).join(' • ')
-                };
-            });
+            // The calendar date is what the page groups by, so carry it on each
+            // item. It no longer gets glued onto startLabel — every card now
+            // sits under a row that already names its day.
+            const withDates = [...normalizedScheduleItems, ...normalizedTaskItems].map((item) => ({
+                ...item,
+                date: item.raw?.scheduled_date || null
+            }));
 
             const nextRoutinePayload = routinesResponse?.data?.data || routinesResponse?.data || routinesResponse;
             const nextRoutines = nextRoutinePayload?.routines || nextRoutinePayload?.data?.routines || [];
@@ -104,21 +100,16 @@ const WeekView = () => {
             const weeklyPayload = weeklyResponse?.data?.data || weeklyResponse?.data || weeklyResponse;
             const nextWeeklyAnalytics = weeklyPayload?.data || weeklyPayload;
 
-            const trendsPayload = trendsResponse?.data?.data || trendsResponse?.data || trendsResponse;
-            const nextTrends = trendsPayload?.trends || trendsPayload?.data?.trends || [];
-
             setWeekItems(withDates);
             setRoutines(nextRoutines);
             setWeeklyAnalytics(nextWeeklyAnalytics);
-            setWeeklyTrends(nextTrends);
 
             weekCache = {
                 key: cacheKey,
                 payload: {
                     weekItems: withDates,
                     routines: nextRoutines,
-                    weeklyAnalytics: nextWeeklyAnalytics,
-                    weeklyTrends: nextTrends
+                    weeklyAnalytics: nextWeeklyAnalytics
                 }
             };
         } catch (loadError) {
@@ -148,41 +139,68 @@ const WeekView = () => {
         };
     }, [loadWeekData]);
 
-    const tasksByCategory = useMemo(() => {
-        const grouped = new Map();
+    /**
+     * One row per day of the week, each holding that day's tasks and routines.
+     *
+     * The page used to split into two side-by-side columns — tasks grouped by
+     * category on the left, routine templates grouped by recurrence type on the
+     * right — so answering "what does Tuesday look like?" meant reading both
+     * columns and matching dates by eye.
+     *
+     * Routines appear twice over in the data: as materialized schedule items
+     * (item.isRoutine) once a day has been generated, and as a template that
+     * merely *will* run on that weekday. Days ahead of materialization would
+     * otherwise look empty, so unmaterialized templates render as "Planned" —
+     * deduped against the templates that already produced an item that day.
+     */
+    const daySections = useMemo(() => {
+        const { start } = getWeekRange();
+        const itemsByDate = new Map();
         weekItems.forEach((item) => {
-            const key = item.category?.trim() || 'Uncategorized';
-            if (!grouped.has(key)) grouped.set(key, []);
-            grouped.get(key).push(item);
+            if (!item.date) return;
+            if (!itemsByDate.has(item.date)) itemsByDate.set(item.date, []);
+            itemsByDate.get(item.date).push(item);
         });
 
-        return Array.from(grouped.entries())
-            .map(([category, items]) => ({
-                category,
-                items: items.sort((a, b) => {
-                    const dateCompare = (a.date || '').localeCompare(b.date || '');
-                    if (dateCompare !== 0) return dateCompare;
-                    return (a.startLabel || '').localeCompare(b.startLabel || '');
-                })
-            }))
-            .sort((a, b) => a.category.localeCompare(b.category));
-    }, [weekItems]);
+        const days = [];
+        for (let i = 0; i < 7; i += 1) {
+            const date = new Date(start);
+            date.setDate(start.getDate() + i);
+            const ymd = toYmd(date);
+            const dayItems = itemsByDate.get(ymd) || [];
 
-    const routinesByType = useMemo(() => {
-        const grouped = new Map();
-        routines.forEach((routine) => {
-            const key = routine.recurrence?.type || 'daily';
-            if (!grouped.has(key)) grouped.set(key, []);
-            grouped.get(key).push(routine);
-        });
+            const tasks = dayItems.filter((item) => !item.isRoutine).sort(sortByStart);
+            const routineItems = dayItems.filter((item) => item.isRoutine).sort(sortByStart);
 
-        return Array.from(grouped.entries())
-            .map(([type, items]) => ({
-                type,
-                items: items.sort((a, b) => (a.name || '').localeCompare(b.name || ''))
-            }))
-            .sort((a, b) => a.type.localeCompare(b.type));
-    }, [routines]);
+            const materializedTemplates = new Set(
+                routineItems.map((item) => item.raw?.routine_template_id).filter(Boolean)
+            );
+            const plannedRoutines = routines
+                .filter((routine) => (
+                    routine.is_active !== false
+                    && activeDaysFor(routine.recurrence).includes(date.getDay())
+                    && !materializedTemplates.has(routine.id)
+                ))
+                .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+            const tracked = dayItems.filter((item) => item.status !== 'cancelled');
+            const completed = tracked.filter((item) => item.status === 'completed').length;
+
+            days.push({
+                date: ymd,
+                weekdayLabel: date.toLocaleDateString(undefined, { weekday: 'long' }),
+                dateLabel: date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+                isToday: ymd === todayYmd,
+                tasks,
+                routineItems,
+                plannedRoutines,
+                total: tracked.length,
+                completed,
+                isEmpty: dayItems.length === 0 && plannedRoutines.length === 0
+            });
+        }
+        return days;
+    }, [weekItems, routines, todayYmd]);
 
     const weeklyStats = useMemo(() => {
         const filtered = weekItems.filter((item) => item.status !== 'cancelled');
@@ -247,83 +265,44 @@ const WeekView = () => {
                 <div className="week-header-top">
                     <div>
                         <h1>Week Dashboard</h1>
-                        <p className="week-subtitle">Your weekly progress — this week&apos;s tasks and routines, grouped by category.</p>
+                        <p className="week-subtitle">Your weekly progress — this week&apos;s tasks and routines, day by day.</p>
                     </div>
                     <div className="week-actions">
                         <Button variant="secondary" onClick={() => navigate('/analytics')}>View Analytics</Button>
                     </div>
                 </div>
 
-                <div className="week-hero">
-                    <div className="stats">
-                        <div className="week-range-line">
-                            <span className="stat-label">Week Range</span>
-                            <strong>{startYmd} → {endYmd}</strong>
+                {/* Three numbers and a bar. The hero used to carry six numbers
+                    plus a four-bar chart restating the same completion split. */}
+                <div className="stats">
+                    <div className="week-range-line">
+                        <span className="stat-label">Week range</span>
+                        <strong>{startYmd} → {endYmd}</strong>
+                    </div>
+                    <div className="stat-row">
+                        <div className="stat-item">
+                            <span className="stat-value">{weeklyStats.completed}</span>
+                            <span className="stat-label">Completed</span>
                         </div>
-                        <div className="stat-row">
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyStats.completed}</span>
-                                <span className="stat-label">Completed</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyStats.remaining}</span>
-                                <span className="stat-label">Remaining</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyStats.total}</span>
-                                <span className="stat-label">Total tasks</span>
-                            </div>
+                        <div className="stat-item">
+                            <span className="stat-value">{weeklyStats.remaining}</span>
+                            <span className="stat-label">Remaining</span>
                         </div>
-                        <div className="progress-bar">
-                            <div className="progress-fill" style={{ width: `${weeklyStats.completionRate}%` }}></div>
-                        </div>
-                        <div className="stat-row stat-row--focus">
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyFocusMinutes}<small> min</small></span>
-                                <span className="stat-label">Focus · {weeklyFocusSessions} session(s)</span>
-                            </div>
-                            <div className="stat-item">
-                                <span className="stat-value">{weeklyFocusSuccessRate}%</span>
-                                <span className="stat-label">Focus success</span>
-                            </div>
+                        <div className="stat-item">
+                            <span className="stat-value">{weeklyStats.completionRate}%</span>
+                            <span className="stat-label">Completion</span>
                         </div>
                     </div>
-
-                    <div className="week-chart">
-                        <div className="chart-header">
-                            <div>
-                                <h3>Weekly Task Breakdown</h3>
-                                <p>Completed vs in progress vs pending vs cancelled</p>
-                            </div>
-                            <span className="chart-total">{weeklyStats.total} tasks</span>
-                        </div>
-                        <div className="chart-bars">
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-completed" style={{ height: `${(weeklyStats.completed / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">Completed</span>
-                                <span className="chart-bar-value">{weeklyStats.completed}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-review" style={{ height: `${(weeklyStats.inProgress / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">In Progress</span>
-                                <span className="chart-bar-value">{weeklyStats.inProgress}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-upcoming" style={{ height: `${(weeklyStats.pending / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">Pending</span>
-                                <span className="chart-bar-value">{weeklyStats.pending}</span>
-                            </div>
-                            <div className="chart-bar">
-                                <span className="chart-bar-fill chart-bar-incomplete" style={{ height: `${(weeklyStats.cancelled / weeklyStats.maxValue) * 100}%` }}></span>
-                                <span className="chart-bar-label">Cancelled</span>
-                                <span className="chart-bar-value">{weeklyStats.cancelled}</span>
-                            </div>
-                        </div>
+                    <div className="progress-bar">
+                        <div
+                            className="progress-fill progress-fill--success"
+                            style={{ width: `${weeklyStats.completionRate}%` }}
+                        ></div>
                     </div>
                 </div>
             </div>
 
-            {error && <p className="week-error">{error}</p>}
+            {error && <p className="alert alert-error">{error}</p>}
 
             {isInitialLoading ? (
                 <div className="loading-container">
@@ -331,18 +310,26 @@ const WeekView = () => {
                 </div>
             ) : (
                 <>
+                    {/* The one weekly visualization. "Weekly Productivity
+                        Trends" used to sit directly below this showing the same
+                        seven days over again. */}
                     <section className="week-strip-card">
                         <div className="week-panel-header">
-                            <h2>Daily Completion</h2>
-                            <span className="muted">This week</span>
+                            <h2>Daily completion</h2>
+                            <span className="muted">
+                                {weeklyFocusMinutes} min focus · {weeklyFocusSessions} session{weeklyFocusSessions === 1 ? '' : 's'} · {weeklyFocusSuccessRate}% success
+                            </span>
                         </div>
                         <div className="week-strip">
                             {dailyCounts.map((day) => (
-                                <div key={day.date} className="week-strip-item">
-                                    <span>{day.label}</span>
+                                <div
+                                    key={day.date}
+                                    className={`week-strip-item ${day.date === todayYmd ? 'week-strip-item--today' : ''}`}
+                                >
+                                    <span className="week-strip-day">{day.label}</span>
                                     <div className="week-strip-meta">
-                                        <strong>{day.count}</strong>
-                                        <small>{day.completed}/{day.count || 0} · {day.completionRate}%</small>
+                                        <strong>{day.completed}</strong>
+                                        <small>/{day.count}</small>
                                     </div>
                                     <div className="week-strip-bar">
                                         <span style={{ width: `${day.completionRate}%` }} />
@@ -352,93 +339,101 @@ const WeekView = () => {
                         </div>
                     </section>
 
-                    <section className="week-strip-card">
-                        <div className="week-panel-header">
-                            <h2>Weekly Productivity Trends</h2>
-                            <span className="muted">Last 7 days</span>
-                        </div>
-                        {weeklyTrends.length === 0 ? (
-                            <p className="muted">No trend data yet.</p>
-                        ) : (
-                            <div className="week-trend-grid">
-                                {weeklyTrends.slice(-7).map((trend) => (
-                                    <div key={trend.date} className="week-trend-card">
-                                        <span className="muted">{trend.date}</span>
-                                        <strong>{trend.completed_tasks}/{trend.total_tasks}</strong>
-                                        <div className="week-trend-bar">
-                                            <span style={{ width: `${Math.min(100, Math.round(trend.completion_rate || 0))}%` }} />
-                                        </div>
-                                        <small>{Number(trend.completion_rate || 0).toFixed(1)}% · {trend.time_spent_hours}h</small>
+                    {/* One row per day — tasks and routines together, in date
+                        order, instead of two columns you had to cross-reference. */}
+                    <div className="week-days">
+                        {daySections.map((day) => (
+                            <section
+                                key={day.date}
+                                className={`week-day ${day.isToday ? 'week-day--today' : ''}`}
+                            >
+                                <header className="week-day-header">
+                                    <div className="week-day-title">
+                                        <h2>{day.weekdayLabel}</h2>
+                                        <span className="week-day-date">{day.dateLabel}</span>
+                                        {day.isToday && <span className="week-day-flag">Today</span>}
                                     </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
+                                    <span className="muted">
+                                        {day.total > 0
+                                            ? `${day.completed}/${day.total} done`
+                                            : 'Nothing scheduled'}
+                                    </span>
+                                </header>
 
-                    <div className="week-lists">
-                        <div className="week-list-column">
-                            <div className="week-list-heading">
-                                <h2>Tasks by Category</h2>
-                                <span className="muted">{weekItems.length} tasks</span>
-                            </div>
-                            {tasksByCategory.length === 0 ? (
-                                <p className="muted">No tasks scheduled for this week.</p>
-                            ) : (
-                                tasksByCategory.map((group) => (
-                                    <TaskSection
-                                        key={group.category}
-                                        title={group.category}
-                                        count={group.items.length}
-                                        emptyText="No tasks in this category."
-                                    >
-                                        {group.items.map((item) => (
-                                            <TaskCard
-                                                key={item.key}
-                                                item={item}
-                                                variant={item.status === 'completed' ? 'completed' : 'upcoming'}
-                                                badge={badgeFor(item.status)}
-                                                routineName={item.isRoutine ? 'Routine' : null}
-                                            />
-                                        ))}
-                                    </TaskSection>
-                                ))
-                            )}
-                        </div>
-
-                        <div className="week-list-column">
-                            <div className="week-list-heading">
-                                <h2>Routines by Type</h2>
-                                <span className="muted">{routines.length} routines</span>
-                            </div>
-                            {routinesByType.length === 0 ? (
-                                <p className="muted">No routines available yet.</p>
-                            ) : (
-                                routinesByType.map((group) => (
-                                    <TaskSection
-                                        key={group.type}
-                                        title={titleCase(group.type)}
-                                        count={group.items.length}
-                                        emptyText="No routines of this type."
-                                    >
-                                        {group.items.map((routine) => (
-                                            <div key={routine.id} className="task-item task-item--anytime">
-                                                <div className="task-content">
-                                                    <div className="task-title-row">
-                                                        <h3 className="task-title">{routine.name}</h3>
-                                                        <span className={`task-status-badge ${routine.is_active ? 'status-completed' : 'status-missed'}`}>
-                                                            {routine.is_active ? 'Active' : 'Paused'}
-                                                        </span>
-                                                    </div>
-                                                    {routine.description && (
-                                                        <p className="task-description">{routine.description}</p>
-                                                    )}
-                                                </div>
+                                {day.isEmpty ? (
+                                    <p className="week-day-empty">No tasks or routines on this day.</p>
+                                ) : (
+                                    <div className="week-day-body">
+                                        {day.tasks.length > 0 && (
+                                            <div className="week-day-group">
+                                                <h3 className="week-day-group-label">
+                                                    Tasks <span>{day.tasks.length}</span>
+                                                </h3>
+                                                {day.tasks.map((item) => (
+                                                    <TaskCard
+                                                        key={item.key}
+                                                        item={item}
+                                                        variant={item.status === 'completed' ? 'completed' : 'upcoming'}
+                                                        badge={badgeFor(item.status)}
+                                                    />
+                                                ))}
                                             </div>
-                                        ))}
-                                    </TaskSection>
-                                ))
-                            )}
-                        </div>
+                                        )}
+
+                                        {(day.routineItems.length > 0 || day.plannedRoutines.length > 0) && (
+                                            <div className="week-day-group">
+                                                <h3 className="week-day-group-label">
+                                                    Routines <span>{day.routineItems.length + day.plannedRoutines.length}</span>
+                                                </h3>
+                                                {day.routineItems.map((item) => (
+                                                    <TaskCard
+                                                        key={item.key}
+                                                        item={item}
+                                                        variant={item.status === 'completed' ? 'completed' : 'upcoming'}
+                                                        badge={badgeFor(item.status)}
+                                                        routineName="Routine"
+                                                    />
+                                                ))}
+                                                {day.plannedRoutines.map((routine) => (
+                                                    <div
+                                                        key={`${day.date}:${routine.id}`}
+                                                        className="task-item task-item--anytime"
+                                                    >
+                                                        <div className="task-content">
+                                                            <div className="task-title-row">
+                                                                <h3 className="task-title">
+                                                                    {routine.icon && (
+                                                                        <span aria-hidden>{routine.icon} </span>
+                                                                    )}
+                                                                    {routine.name}
+                                                                </h3>
+                                                                {/* Neutral badge: this day has not been
+                                                                    generated yet, so there is no status
+                                                                    to report — only an intent. */}
+                                                                <span className="task-status-badge status-anytime">Planned</span>
+                                                            </div>
+                                                            {routine.description && (
+                                                                <p className="task-description">{routine.description}</p>
+                                                            )}
+                                                            <div className="task-meta">
+                                                                <span className="task-badge-routine">
+                                                                    {titleCase(routine.recurrence?.type || 'daily')}
+                                                                </span>
+                                                                {routine.items?.length > 0 && (
+                                                                    <span className="task-duration">
+                                                                        {routine.items.length} step{routine.items.length === 1 ? '' : 's'}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </section>
+                        ))}
                     </div>
                 </>
             )}

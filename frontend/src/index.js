@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import './App.css';
 import './styles/task-card.css';
+import './styles/stats.css';
 import App from './App';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));

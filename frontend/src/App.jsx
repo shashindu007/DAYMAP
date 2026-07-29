@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { AuthProvider } from './context/AuthContext';
 import { TaskProvider } from './context/TaskContext';
 import { ScheduleProvider } from './context/ScheduleContext';
+import { ScheduleEditorProvider } from './context/ScheduleEditorContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RoutineProvider } from './context/RoutineContext';
 import { FocusProvider } from './context/FocusContext';
@@ -46,6 +47,9 @@ function App() {
                                     session must survive navigation between
                                     /today and /focus. */}
                                 <FocusProvider>
+                                {/* Above Routes so any page can open the task
+                                    editor without navigating away. */}
+                                <ScheduleEditorProvider>
                                 <div className="App">
                                     <RouteUsageTracker />
                                     <Routes>
@@ -100,6 +104,7 @@ function App() {
                                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
                                     </Routes>
                                 </div>
+                                </ScheduleEditorProvider>
                                 </FocusProvider>
                             </Router>
                         </ScheduleProvider>

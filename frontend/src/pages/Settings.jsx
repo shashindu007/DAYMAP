@@ -196,7 +196,7 @@ const Settings = () => {
 
                     <div className="settings-actions">
                         <p
-                            className={profileMessage.toLowerCase().includes('fail') ? 'dashboard-error' : 'muted'}
+                            className={profileMessage.toLowerCase().includes('fail') ? 'alert alert-error' : 'muted'}
                             role="status"
                             aria-live="polite"
                         >
@@ -246,7 +246,7 @@ const Settings = () => {
                     </div>
                     <div className="settings-actions">
                         <p
-                            className={passwordMessage.toLowerCase().includes('fail') || passwordMessage.toLowerCase().includes('match') ? 'dashboard-error' : 'muted'}
+                            className={passwordMessage.toLowerCase().includes('fail') || passwordMessage.toLowerCase().includes('match') ? 'alert alert-error' : 'muted'}
                             role="status"
                             aria-live="polite"
                         >

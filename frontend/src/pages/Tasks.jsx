@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useTasks } from '../context/TaskContext';
 import Button from '../components/common/Button';
+import ConfirmDialog from '../components/common/ConfirmDialog';
+import { useScheduleEditor } from '../context/ScheduleEditorContext';
+import TaskCard from '../components/tasks/TaskCard';
 import './Tasks.css';
 
 const DAY_WINDOW = 7;
@@ -46,11 +48,13 @@ const getRelativeLabel = (dateString) => {
 };
 
 const Tasks = () => {
-    const navigate = useNavigate();
+    const { openEditor } = useScheduleEditor();
     const { tasks, loading, error, fetchTasks, updateTask, deleteTask } = useTasks();
     const [statusFilter, setStatusFilter] = useState('all');
     const [query, setQuery] = useState('');
     const [dateFilter, setDateFilter] = useState('all');
+    const [pendingDelete, setPendingDelete] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const formatDisplayTime = (timeValue) => {
         if (!timeValue) return '';
@@ -80,14 +84,16 @@ const Tasks = () => {
         }
     };
 
-    const handleDelete = async (taskId) => {
-        const shouldDelete = window.confirm('Delete this task? This action cannot be undone.');
-        if (!shouldDelete) return;
-
+    const handleConfirmDelete = async () => {
+        if (!pendingDelete) return;
         try {
-            await deleteTask(taskId);
+            setDeleting(true);
+            await deleteTask(pendingDelete.id);
+            setPendingDelete(null);
         } catch (deleteError) {
             console.error('Failed to delete task:', deleteError);
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -139,14 +145,27 @@ const Tasks = () => {
             }));
     }, [filteredTasks, dateFilter, last7DayStrings]);
 
-    const canMarkComplete = (task) => {
-        if (task.status === 'completed') return false;
+    /* Filters used to give no feedback at all — with only per-day counts you
+       could not tell how much a filter had hidden. */
+    const visibleTaskCount = useMemo(
+        () => groupedTasks.reduce((sum, group) => sum + group.tasks.length, 0),
+        [groupedTasks]
+    );
+
+    /**
+     * Why a task can't be completed from here, or null when it can.
+     * The button used to disable for two different reasons and explain only
+     * one of them ("unlocks after 24 hours" — never true for a stale task,
+     * and simply wrong for one that hasn't started yet).
+     */
+    const completeBlockedReason = (task) => {
+        if (task.status === 'completed') return null;
         const taskDateTime = getTaskDateTime(task);
-        if (!taskDateTime) return true;
-        const now = new Date();
-        const diff = now - taskDateTime;
-        if (diff < 0) return false;
-        return diff <= HOURS_24_MS;
+        if (!taskDateTime) return null;
+        const diff = new Date() - taskDateTime;
+        if (diff < 0) return "Hasn't started yet.";
+        if (diff > HOURS_24_MS) return 'Too old to change — the 24-hour window has passed.';
+        return null;
     };
 
     const getStatusBadge = (status) => {
@@ -164,11 +183,16 @@ const Tasks = () => {
 
     return (
         <div className="tasks-page">
+            {/* Named for what it actually is. The fetch and the filter are both
+                hard-locked to DAY_WINDOW, so "All Tasks" was never true. */}
             <div className="tasks-page-header">
-                <h1>All Tasks</h1>
+                <div>
+                    <h1>Task log</h1>
+                    <p className="tasks-subtitle">The last {DAY_WINDOW} days.</p>
+                </div>
                 <div className="tasks-header-actions">
-                    <Button variant="primary" onClick={() => navigate('/today')}>
-                        + New Task
+                    <Button variant="primary" onClick={() => openEditor()}>
+                        New task
                     </Button>
                 </div>
             </div>
@@ -197,7 +221,9 @@ const Tasks = () => {
                     value={dateFilter}
                     onChange={(e) => setDateFilter(e.target.value)}
                 >
-                    <option value="all">Last 7 days</option>
+                    {/* "Last 7 days" as the reset option, sitting among seven
+                        specific dates, read like a range rather than "no filter". */}
+                    <option value="all">Any day</option>
                     {last7DayStrings.map((date) => (
                         <option key={date} value={date}>
                             {formatDateLabel(date)}
@@ -209,17 +235,22 @@ const Tasks = () => {
                 </Button>
             </div>
 
-            {loading && <p className="tasks-feedback">Loading tasks...</p>}
+            <p className="tasks-result-count" aria-live="polite">
+                {loading
+                    ? 'Loading tasks…'
+                    : `${visibleTaskCount} task${visibleTaskCount === 1 ? '' : 's'}`}
+            </p>
+
             {error && (
-                <p className="tasks-feedback tasks-error" role="alert" aria-live="polite">
+                <p className="alert alert-error" role="alert" aria-live="polite">
                     {error}
                 </p>
             )}
 
-            {!loading && filteredTasks.length === 0 && (
-                <div className="tasks-empty">
-                    <p>No tasks found in the last 7 days for the current filter.</p>
-                    <Button variant="primary" onClick={() => navigate('/today')}>
+            {!loading && visibleTaskCount === 0 && (
+                <div className="empty-state">
+                    <p>No tasks match these filters.</p>
+                    <Button variant="primary" onClick={() => openEditor()}>
                         Create a task
                     </Button>
                 </div>
@@ -237,65 +268,61 @@ const Tasks = () => {
                         </div>
                         <div className="task-section-body">
                             {group.tasks.map((task) => {
-                                const allowComplete = canMarkComplete(task);
-                                const statusBadge = getStatusBadge(task.status);
+                                const blockedReason = completeBlockedReason(task);
+                                const isDone = task.status === 'completed';
                                 return (
-                                    <div
+                                    <TaskCard
                                         key={task.id}
-                                        className={`task-item task-item--anytime ${task.status === 'completed' ? 'completed' : ''}`}
-                                    >
-                                        <div className="task-content">
-                                            <div className="task-title-row">
-                                                <h3 className="task-title">{task.title}</h3>
-                                                <span className={`task-status-badge ${statusBadge.className}`}>{statusBadge.label}</span>
-                                            </div>
-
-                                            {task.description && (
-                                                <p className="task-description">{task.description}</p>
-                                            )}
-
-                                            <div className="task-meta">
-                                                {task.scheduled_date && <span className="task-time">📅 {task.scheduled_date}</span>}
-                                                {task.scheduled_time && <span className="task-time">⏰ {formatDisplayTime(task.scheduled_time)}</span>}
-                                                {task.duration_minutes && <span className="task-duration">⏱ {task.duration_minutes} min</span>}
-                                                {task.priority && (
-                                                    <span className={`task-priority priority-${task.priority}`}>
-                                                        {task.priority}
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            {!allowComplete && task.status !== 'completed' && (
-                                                <div className="task-hint">Status updates unlock after 24 hours.</div>
-                                            )}
-
-                                            <div className="task-actions">
-                                                {task.status !== 'completed' && (
-                                                    <Button
-                                                        variant="primary"
-                                                        className="task-action-btn"
-                                                        onClick={() => handleStatusChange(task, 'completed')}
-                                                        disabled={!allowComplete}
-                                                    >
-                                                        Mark done
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    variant="danger"
-                                                    className="task-action-btn"
-                                                    onClick={() => handleDelete(task.id)}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
+                                        item={{
+                                            title: task.title,
+                                            description: task.description,
+                                            status: task.status,
+                                            priority: task.priority,
+                                            durationMinutes: task.duration_minutes,
+                                            // No date here: the group header
+                                            // above already gives it twice.
+                                            startLabel: task.scheduled_time
+                                                ? formatDisplayTime(task.scheduled_time)
+                                                : null
+                                        }}
+                                        variant={isDone ? 'completed' : 'upcoming'}
+                                        badge={getStatusBadge(task.status)}
+                                        hint={!isDone ? blockedReason : null}
+                                        actions={[
+                                            ...(isDone ? [] : [{
+                                                key: 'done',
+                                                label: 'Mark done',
+                                                variant: 'primary',
+                                                disabled: Boolean(blockedReason),
+                                                onClick: () => handleStatusChange(task, 'completed')
+                                            }]),
+                                            {
+                                                key: 'delete',
+                                                // Quiet by default — a row of
+                                                // saturated red buttons down the
+                                                // page outshouted "Mark done".
+                                                label: 'Delete',
+                                                variant: 'danger-quiet',
+                                                onClick: () => setPendingDelete(task)
+                                            }
+                                        ]}
+                                    />
                                 );
                             })}
                         </div>
                     </section>
                 ))}
             </div>
+
+            {pendingDelete && (
+                <ConfirmDialog
+                    title="Delete this task?"
+                    description={`"${pendingDelete.title}" will be removed. This can’t be undone.`}
+                    busy={deleting}
+                    onConfirm={handleConfirmDelete}
+                    onCancel={() => setPendingDelete(null)}
+                />
+            )}
         </div>
     );
 };
