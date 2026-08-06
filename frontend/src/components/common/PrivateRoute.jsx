@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { useScheduleEditor } from '../../context/ScheduleEditorContext';
 import NotificationBell from './NotificationBell';
+import UserMenu from './UserMenu';
 import './PrivateRoute.css';
 
 const NAV_LINKS = [
@@ -16,16 +16,16 @@ const NAV_LINKS = [
 ];
 
 const PrivateRoute = ({ children }) => {
-    const { isAuthenticated, loading, logout, user } = useAuth();
-    const { darkMode, toggleDarkMode } = useTheme();
+    const { isAuthenticated, loading, user } = useAuth();
     const { openEditor } = useScheduleEditor();
     const location = useLocation();
-    const navigate = useNavigate();
     const [now, setNow] = useState(new Date());
     const [menuOpen, setMenuOpen] = useState(false);
 
+    // 30s, not 1s: the badge shows minutes now, so a per-second re-render of
+    // the whole shell bought nothing but a clock that twitched in the corner.
     useEffect(() => {
-        const interval = setInterval(() => setNow(new Date()), 1000);
+        const interval = setInterval(() => setNow(new Date()), 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -33,11 +33,6 @@ const PrivateRoute = ({ children }) => {
     useEffect(() => {
         setMenuOpen(false);
     }, [location.pathname]);
-
-    const handleLogout = async () => {
-        await logout();
-        navigate('/login');
-    };
 
     if (loading) {
         return (
@@ -54,28 +49,15 @@ const PrivateRoute = ({ children }) => {
         return <Navigate to="/login" replace />;
     }
 
-    const headerInitials = (() => {
-        const normalized = (user?.name || '').trim();
-        if (!normalized) return 'U';
-        const parts = normalized.split(/\s+/).filter(Boolean);
-        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-        return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-    })();
-
     const hour = now.getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
     return (
         <div className="app-shell">
             <header className="app-header">
+                {/* The avatar lives in the account menu on the right now, where
+                    people go looking for it - so the brand is just the brand. */}
                 <div className="header-brand">
-                    <div className="brand-avatar">
-                        {user?.profile_image ? (
-                            <img src={user.profile_image} alt="Profile" />
-                        ) : (
-                            <span>{headerInitials}</span>
-                        )}
-                    </div>
                     <div className="brand-text">
                         <span className="brand-title">DayMap</span>
                         <span className="brand-greeting">{greeting}, {user?.name?.split(' ')[0] || 'there'} 👋</span>
@@ -104,6 +86,10 @@ const PrivateRoute = ({ children }) => {
                         New task
                     </button>
 
+                    {/* Date only. The running clock redrew the header every
+                        second to duplicate what the OS taskbar already shows;
+                        which day you are looking at is the part that matters
+                        in a day planner. */}
                     <div className="header-time-badge">
                         <span className="header-time-dot" aria-hidden />
                         <span className="header-time-text">
@@ -112,35 +98,12 @@ const PrivateRoute = ({ children }) => {
                                 month: 'short',
                                 day: 'numeric'
                             })}
-                            {', '}
-                            {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                     </div>
 
                     <NotificationBell />
 
-                    <button
-                        onClick={toggleDarkMode}
-                        className="icon-btn theme-toggle"
-                        title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                        aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-                    >
-                        <span aria-hidden>{darkMode ? '☀️' : '🌙'}</span>
-                    </button>
-
-                    <button
-                        onClick={() => navigate('/settings')}
-                        className="icon-btn settings-btn"
-                        title="Settings"
-                        aria-label="Settings"
-                    >
-                        <span aria-hidden>⚙️</span>
-                    </button>
-
-                    <button onClick={handleLogout} className="nav-logout-btn" title="Log out">
-                        <span aria-hidden>↪</span>
-                        <span className="logout-label">Log Out</span>
-                    </button>
+                    <UserMenu />
 
                     <button
                         className="icon-btn menu-toggle"
