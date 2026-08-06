@@ -1,5 +1,6 @@
 const { body, param, query, validationResult } = require('express-validator');
 const { SCHEDULE_TASK_STATUSES, ROUTINE_ITEM_STATUSES } = require('../utils/statusMapping');
+const { HHMM_PATTERN } = require('../utils/notificationPrefs');
 
 /**
  * Handle validation errors
@@ -103,6 +104,33 @@ const updateProfileValidation = [
         .optional({ nullable: true })
         .trim()
         .isLength({ max: 120 }).withMessage('Location must not exceed 120 characters'),
+    // Notification preferences. The HH:MM pattern here is deliberately
+    // stricter than the HH:MM(:SS)? used for task times - these are
+    // minute-granular by design.
+    body('notification_preferences')
+        .optional({ nullable: true })
+        .isObject().withMessage('notification_preferences must be an object'),
+    body('notification_preferences.enabled')
+        .optional().isBoolean().withMessage('enabled must be a boolean').toBoolean(),
+    body('notification_preferences.lead_minutes')
+        .optional().isInt({ min: 0, max: 240 })
+        .withMessage('lead_minutes must be between 0 and 240').toInt(),
+    body('notification_preferences.notify_on_start')
+        .optional().isBoolean().withMessage('notify_on_start must be a boolean').toBoolean(),
+    body('notification_preferences.notify_on_end')
+        .optional().isBoolean().withMessage('notify_on_end must be a boolean').toBoolean(),
+    body('notification_preferences.daily_digest')
+        .optional().isBoolean().withMessage('daily_digest must be a boolean').toBoolean(),
+    body('notification_preferences.digest_time')
+        .optional().matches(HHMM_PATTERN).withMessage('digest_time must be in HH:MM format'),
+    body('notification_preferences.quiet_hours.enabled')
+        .optional().isBoolean().withMessage('quiet_hours.enabled must be a boolean').toBoolean(),
+    body('notification_preferences.quiet_hours.start')
+        .optional().matches(HHMM_PATTERN).withMessage('quiet_hours.start must be in HH:MM format'),
+    body('notification_preferences.quiet_hours.end')
+        .optional().matches(HHMM_PATTERN).withMessage('quiet_hours.end must be in HH:MM format'),
+    body('notification_preferences.browser_push')
+        .optional().isBoolean().withMessage('browser_push must be a boolean').toBoolean(),
     handleValidationErrors
 ];
 

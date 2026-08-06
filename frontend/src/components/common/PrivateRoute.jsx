@@ -3,6 +3,7 @@ import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useScheduleEditor } from '../../context/ScheduleEditorContext';
+import NotificationBell from './NotificationBell';
 import './PrivateRoute.css';
 
 const NAV_LINKS = [
@@ -115,6 +116,8 @@ const PrivateRoute = ({ children }) => {
                             {now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </span>
                     </div>
+
+                    <NotificationBell />
 
                     <button
                         onClick={toggleDarkMode}

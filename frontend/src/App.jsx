@@ -7,6 +7,8 @@ import { ScheduleEditorProvider } from './context/ScheduleEditorContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RoutineProvider } from './context/RoutineContext';
 import { FocusProvider } from './context/FocusContext';
+import { ToastProvider } from './context/ToastContext';
+import { NotificationProvider } from './context/NotificationContext';
 import PrivateRoute from './components/common/PrivateRoute';
 import usageService from './services/usageService';
 
@@ -50,6 +52,12 @@ function App() {
                                 {/* Above Routes so any page can open the task
                                     editor without navigating away. */}
                                 <ScheduleEditorProvider>
+                                {/* Toast wraps Notification: the reminder
+                                    engine delivers through useToast(). Both sit
+                                    inside Router because a clicked desktop
+                                    notification navigates to /today. */}
+                                <ToastProvider>
+                                <NotificationProvider>
                                 <div className="App">
                                     <RouteUsageTracker />
                                     <Routes>
@@ -104,6 +112,8 @@ function App() {
                                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
                                     </Routes>
                                 </div>
+                                </NotificationProvider>
+                                </ToastProvider>
                                 </ScheduleEditorProvider>
                                 </FocusProvider>
                             </Router>

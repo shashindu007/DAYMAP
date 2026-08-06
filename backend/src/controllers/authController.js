@@ -139,7 +139,10 @@ class AuthController {
      */
     static async updateProfile(req, res) {
         try {
-            const { name, email, timezone, profile_image, bio, phone, location } = req.body;
+            const {
+                name, email, timezone, profile_image, bio, phone, location,
+                notification_preferences
+            } = req.body;
             
             // If email is being changed, check if it's already taken
             if (email && email !== req.user.email) {
@@ -159,7 +162,8 @@ class AuthController {
                 profile_image,
                 bio,
                 phone,
-                location
+                location,
+                notification_preferences
             });
             
             res.json({

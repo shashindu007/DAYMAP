@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useNotifications } from '../context/NotificationContext';
 import Button from '../components/common/Button';
+import { LEAD_MINUTE_OPTIONS, mergeNotificationPrefs } from '../utils/notificationPrefs';
 import './Dashboard.css';
 import './Settings.css';
 
@@ -60,10 +62,51 @@ const Settings = () => {
         newPassword: '',
         confirmPassword: ''
     });
+    const [notifPrefs, setNotifPrefs] = useState(
+        () => mergeNotificationPrefs(user?.notification_preferences)
+    );
     const [profileMessage, setProfileMessage] = useState('');
     const [passwordMessage, setPasswordMessage] = useState('');
+    const [notifMessage, setNotifMessage] = useState('');
     const [savingProfile, setSavingProfile] = useState(false);
     const [savingPassword, setSavingPassword] = useState(false);
+    const [savingNotifs, setSavingNotifs] = useState(false);
+
+    const { permission, canUseBrowserNotifications, requestBrowserPermission } = useNotifications();
+
+    // The engine reads preferences off the user record, so re-sync whenever it
+    // changes underneath us (login, /auth/me revalidation, another tab).
+    useEffect(() => {
+        setNotifPrefs(mergeNotificationPrefs(user?.notification_preferences));
+    }, [user?.notification_preferences]);
+
+    const setNotifField = (field, value) => setNotifPrefs((prev) => ({ ...prev, [field]: value }));
+    const setQuietField = (field, value) => setNotifPrefs((prev) => ({
+        ...prev,
+        quiet_hours: { ...prev.quiet_hours, [field]: value }
+    }));
+
+    const handleNotifSubmit = async (event) => {
+        event.preventDefault();
+        setSavingNotifs(true);
+        setNotifMessage('');
+        try {
+            // Send the profile alongside: User.update $sets the preference
+            // subdocument wholesale, so a partial payload would drop fields.
+            await updateProfile({ ...profileForm, notification_preferences: notifPrefs });
+            setNotifMessage('Notification settings saved.');
+        } catch (error) {
+            setNotifMessage(error?.response?.data?.message || 'Failed to save notification settings.');
+        } finally {
+            setSavingNotifs(false);
+        }
+    };
+
+    /** Turning the toggle on is the user gesture that lets us prompt. */
+    const handleBrowserPushToggle = async (checked) => {
+        setNotifField('browser_push', checked);
+        if (checked && permission === 'default') await requestBrowserPermission();
+    };
 
     const initials = useMemo(() => {
         const normalized = (profileForm.name || '').trim();
@@ -253,6 +296,182 @@ const Settings = () => {
                             {passwordMessage}
                         </p>
                         <Button type="submit" disabled={savingPassword}>{savingPassword ? 'Updating...' : 'Change Password'}</Button>
+                    </div>
+                </form>
+            </div>
+
+            <div className="card settings-card">
+                <div className="settings-card-header">
+                    <div>
+                        <h2>Notifications</h2>
+                        <p className="settings-card-subtitle">
+                            Reminders fire while DayMap is open in a tab, including in the background.
+                        </p>
+                    </div>
+                </div>
+                <form className="settings-form" onSubmit={handleNotifSubmit} aria-busy={savingNotifs}>
+                    <label className="notif-toggle">
+                        <input
+                            type="checkbox"
+                            checked={notifPrefs.enabled}
+                            onChange={(event) => setNotifField('enabled', event.target.checked)}
+                        />
+                        <span>
+                            <strong>Enable reminders</strong>
+                            <em>Turn everything below on or off in one place.</em>
+                        </span>
+                    </label>
+
+                    <fieldset className="notif-fieldset" disabled={!notifPrefs.enabled}>
+                        <div className="notif-field">
+                            <label htmlFor="lead-minutes">Remind me before a task starts</label>
+                            <select
+                                id="lead-minutes"
+                                className="input"
+                                value={notifPrefs.lead_minutes}
+                                onChange={(event) => setNotifField('lead_minutes', Number(event.target.value))}
+                            >
+                                <option value={0}>Don&apos;t remind me early</option>
+                                {LEAD_MINUTE_OPTIONS.map((minutes) => (
+                                    <option key={minutes} value={minutes}>{minutes} minutes before</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <label className="notif-toggle">
+                            <input
+                                type="checkbox"
+                                checked={notifPrefs.notify_on_start}
+                                onChange={(event) => setNotifField('notify_on_start', event.target.checked)}
+                            />
+                            <span>
+                                <strong>Ping me when a task starts</strong>
+                                <em>A second nudge at the exact start time.</em>
+                            </span>
+                        </label>
+
+                        <label className="notif-toggle">
+                            <input
+                                type="checkbox"
+                                checked={notifPrefs.notify_on_end}
+                                onChange={(event) => setNotifField('notify_on_end', event.target.checked)}
+                            />
+                            <span>
+                                <strong>Ask me when a task ends</strong>
+                                <em>&ldquo;Did you finish?&rdquo; with mark-done buttons, so nothing piles up in Needs Review.</em>
+                            </span>
+                        </label>
+
+                        <label className="notif-toggle">
+                            <input
+                                type="checkbox"
+                                checked={notifPrefs.daily_digest}
+                                onChange={(event) => setNotifField('daily_digest', event.target.checked)}
+                            />
+                            <span>
+                                <strong>Morning summary of the day</strong>
+                                <em>Delivered the first time you open DayMap at or after this time.</em>
+                            </span>
+                        </label>
+
+                        <div className="notif-field">
+                            <label htmlFor="digest-time">Summary time</label>
+                            <input
+                                id="digest-time"
+                                className="input"
+                                type="time"
+                                value={notifPrefs.digest_time}
+                                onChange={(event) => setNotifField('digest_time', event.target.value)}
+                                disabled={!notifPrefs.daily_digest}
+                            />
+                        </div>
+
+                        <label className="notif-toggle">
+                            <input
+                                type="checkbox"
+                                checked={notifPrefs.quiet_hours.enabled}
+                                onChange={(event) => setQuietField('enabled', event.target.checked)}
+                            />
+                            <span>
+                                <strong>Quiet hours</strong>
+                                <em>Nothing interrupts during this window. Reminders still appear in the bell.</em>
+                            </span>
+                        </label>
+
+                        <div className="notif-field notif-field--pair">
+                            <div>
+                                <label htmlFor="quiet-start">Quiet from</label>
+                                <input
+                                    id="quiet-start"
+                                    className="input"
+                                    type="time"
+                                    value={notifPrefs.quiet_hours.start}
+                                    onChange={(event) => setQuietField('start', event.target.value)}
+                                    disabled={!notifPrefs.quiet_hours.enabled}
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="quiet-end">until</label>
+                                <input
+                                    id="quiet-end"
+                                    className="input"
+                                    type="time"
+                                    value={notifPrefs.quiet_hours.end}
+                                    onChange={(event) => setQuietField('end', event.target.value)}
+                                    disabled={!notifPrefs.quiet_hours.enabled}
+                                />
+                            </div>
+                        </div>
+
+                        {canUseBrowserNotifications ? (
+                            <>
+                                <label className="notif-toggle">
+                                    <input
+                                        type="checkbox"
+                                        checked={notifPrefs.browser_push}
+                                        disabled={permission === 'denied'}
+                                        onChange={(event) => handleBrowserPushToggle(event.target.checked)}
+                                    />
+                                    <span>
+                                        <strong>Desktop notifications</strong>
+                                        <em>
+                                            {permission === 'granted'
+                                                ? 'Allowed by your browser.'
+                                                : permission === 'denied'
+                                                    ? 'Blocked in your browser settings — re-enable it from the padlock icon in the address bar.'
+                                                    : 'Your browser will ask for permission when you turn this on.'}
+                                        </em>
+                                    </span>
+                                </label>
+
+                                {notifPrefs.browser_push && permission === 'default' && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-secondary notif-permission-btn"
+                                        onClick={requestBrowserPermission}
+                                    >
+                                        Ask for permission again
+                                    </button>
+                                )}
+                            </>
+                        ) : (
+                            <p className="muted">
+                                Your browser doesn&apos;t support desktop notifications. In-app reminders still work.
+                            </p>
+                        )}
+                    </fieldset>
+
+                    <div className="settings-actions">
+                        <p
+                            className={notifMessage.toLowerCase().includes('fail') ? 'alert alert-error' : 'muted'}
+                            role="status"
+                            aria-live="polite"
+                        >
+                            {notifMessage}
+                        </p>
+                        <Button type="submit" disabled={savingNotifs}>
+                            {savingNotifs ? 'Saving...' : 'Save Notifications'}
+                        </Button>
                     </div>
                 </form>
             </div>

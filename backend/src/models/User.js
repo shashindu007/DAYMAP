@@ -1,5 +1,25 @@
 const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
+const { normalizeNotificationPreferences } = require('../utils/notificationPrefs');
+
+// _id: false on both subschemas - otherwise Mongoose injects ObjectIds into
+// the JSON the frontend receives and round-trips back on save.
+const quietHoursSchema = new mongoose.Schema({
+    enabled: { type: Boolean, default: false },
+    start: { type: String, default: '22:00', maxlength: 5 },
+    end: { type: String, default: '07:00', maxlength: 5 }
+}, { _id: false });
+
+const notificationPreferencesSchema = new mongoose.Schema({
+    enabled: { type: Boolean, default: true },
+    lead_minutes: { type: Number, default: 30, min: 0, max: 240 },
+    notify_on_start: { type: Boolean, default: true },
+    notify_on_end: { type: Boolean, default: true },
+    daily_digest: { type: Boolean, default: true },
+    digest_time: { type: String, default: '07:00', maxlength: 5 },
+    quiet_hours: { type: quietHoursSchema, default: () => ({}) },
+    browser_push: { type: Boolean, default: false }
+}, { _id: false });
 
 // NOTE: Major migration change - SQL table -> Mongoose schema.
 const userSchema = new mongoose.Schema(
@@ -9,6 +29,7 @@ const userSchema = new mongoose.Schema(
         password_hash: { type: String, required: true },
         name: { type: String, required: true, minlength: 2, maxlength: 100, trim: true },
         timezone: { type: String, default: 'UTC', maxlength: 50 },
+        notification_preferences: { type: notificationPreferencesSchema, default: () => ({}) },
         profile_image: { type: String, default: null, maxlength: 3000000 },
         bio: { type: String, default: null, maxlength: 500 },
         phone: { type: String, default: null, maxlength: 30 },
@@ -65,6 +86,9 @@ class User {
         const user = toPlain(await UserDocument.findOne({ id }).lean());
         if (!user) return null;
         delete user.password_hash; // Don't return password hash
+        // Accounts created before notifications shipped have no preference
+        // subtree - schema defaults only fire on create, not on read.
+        user.notification_preferences = normalizeNotificationPreferences(user.notification_preferences);
         return user;
     }
     
@@ -95,21 +119,40 @@ class User {
      * @returns {Object} Updated user
      */
     static async update(id, userData) {
-        const allowedFields = ['name', 'email', 'timezone', 'profile_image', 'bio', 'phone', 'location'];
+        const allowedFields = [
+            'name', 'email', 'timezone', 'profile_image', 'bio', 'phone', 'location',
+            'notification_preferences'
+        ];
         const updates = {};
-        
+
         for (const [key, value] of Object.entries(userData)) {
-            if (allowedFields.includes(key)) {
+            if (value === undefined || !allowedFields.includes(key)) continue;
+
+            if (key === 'notification_preferences') {
+                // $set on an object field REPLACES the whole subdocument, so a
+                // partial payload like { lead_minutes: 45 } would drop every
+                // other preference. Merge over what is stored, then normalize,
+                // so a partial update changes only what it names.
+                const existing = await this.findById(id);
+                updates[key] = normalizeNotificationPreferences({
+                    ...(existing?.notification_preferences || {}),
+                    ...value,
+                    quiet_hours: {
+                        ...(existing?.notification_preferences?.quiet_hours || {}),
+                        ...(value.quiet_hours || {})
+                    }
+                });
+            } else {
                 updates[key] = key === 'email' && typeof value === 'string' ? value.toLowerCase() : value;
             }
         }
-        
+
         if (Object.keys(updates).length === 0) {
             return await this.findById(id);
         }
 
         await UserDocument.updateOne({ id }, { $set: updates });
-        
+
         return await this.findById(id);
     }
     
