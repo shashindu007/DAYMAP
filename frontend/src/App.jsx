@@ -6,7 +6,10 @@ import { ScheduleProvider } from './context/ScheduleContext';
 import { ScheduleEditorProvider } from './context/ScheduleEditorContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { RoutineProvider } from './context/RoutineContext';
+import { WalletProvider } from './context/WalletContext';
 import { FocusProvider } from './context/FocusContext';
+import { ToastProvider } from './context/ToastContext';
+import { NotificationProvider } from './context/NotificationContext';
 import PrivateRoute from './components/common/PrivateRoute';
 import usageService from './services/usageService';
 
@@ -20,6 +23,7 @@ import WeekView from './pages/WeekView';
 import Tasks from './pages/Tasks';
 import Routines from './pages/Routines';
 import Analytics from './pages/Analytics';
+import Wallet from './pages/Wallet';
 import Settings from './pages/Settings';
 
 // App.css (the design system) is imported in index.js so that it loads before
@@ -41,6 +45,10 @@ function App() {
             <AuthProvider>
                 <TaskProvider>
                     <RoutineProvider>
+                        {/* A plain data provider, so it sits outside Router
+                            with the others - that is what keeps today's spend
+                            alive across navigation without refetching. */}
+                        <WalletProvider>
                         <ScheduleProvider>
                             <Router>
                                 {/* Inside Router but above Routes: a focus
@@ -50,6 +58,12 @@ function App() {
                                 {/* Above Routes so any page can open the task
                                     editor without navigating away. */}
                                 <ScheduleEditorProvider>
+                                {/* Toast wraps Notification: the reminder
+                                    engine delivers through useToast(). Both sit
+                                    inside Router because a clicked desktop
+                                    notification navigates to /today. */}
+                                <ToastProvider>
+                                <NotificationProvider>
                                 <div className="App">
                                     <RouteUsageTracker />
                                     <Routes>
@@ -93,6 +107,11 @@ function App() {
                                         <Analytics />
                                     </PrivateRoute>
                                 } />
+                                <Route path="/wallet" element={
+                                    <PrivateRoute>
+                                        <Wallet />
+                                    </PrivateRoute>
+                                } />
                                 <Route path="/settings" element={
                                     <PrivateRoute>
                                         <Settings />
@@ -104,10 +123,13 @@ function App() {
                                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
                                     </Routes>
                                 </div>
+                                </NotificationProvider>
+                                </ToastProvider>
                                 </ScheduleEditorProvider>
                                 </FocusProvider>
                             </Router>
                         </ScheduleProvider>
+                        </WalletProvider>
                     </RoutineProvider>
                 </TaskProvider>
             </AuthProvider>

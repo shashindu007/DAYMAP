@@ -2,6 +2,7 @@ require('dotenv').config();
 const app = require('./app');
 const config = require('./config/env');
 const { testConnection } = require('./config/database');
+const { ensureIndexes } = require('./utils/ensureIndexes');
 
 const PORT = config.port;
 
@@ -10,7 +11,10 @@ const startServer = async () => {
     try {
         // Test database connection
         await testConnection();
-        
+
+        // Drop indexes a schema no longer declares. Non-fatal by design.
+        await ensureIndexes();
+
         // Start server
         app.listen(PORT, () => {
             console.log(`

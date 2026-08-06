@@ -4,6 +4,7 @@ const CategoryController = require('../controllers/categoryController');
 const authMiddleware = require('../middleware/authMiddleware');
 const {
     categoryValidation,
+    categoryKindQueryValidation,
     uuidParamValidation
 } = require('../middleware/validator');
 
@@ -11,7 +12,7 @@ const {
 router.use(authMiddleware);
 
 // Category CRUD routes
-router.get('/', CategoryController.getAllCategories);
+router.get('/', categoryKindQueryValidation, CategoryController.getAllCategories);
 router.get('/:id', uuidParamValidation, CategoryController.getCategory);
 router.post('/', categoryValidation, CategoryController.createCategory);
 router.put('/:id', uuidParamValidation, categoryValidation, CategoryController.updateCategory);

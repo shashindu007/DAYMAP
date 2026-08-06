@@ -1,5 +1,8 @@
 const { body, param, query, validationResult } = require('express-validator');
 const { SCHEDULE_TASK_STATUSES, ROUTINE_ITEM_STATUSES } = require('../utils/statusMapping');
+const { HHMM_PATTERN } = require('../utils/notificationPrefs');
+const { SUPPORTED_CURRENCY_CODES } = require('../utils/currency');
+const { YM_PATTERN } = require('../utils/date');
 
 /**
  * Handle validation errors
@@ -103,6 +106,39 @@ const updateProfileValidation = [
         .optional({ nullable: true })
         .trim()
         .isLength({ max: 120 }).withMessage('Location must not exceed 120 characters'),
+    // Notification preferences. The HH:MM pattern here is deliberately
+    // stricter than the HH:MM(:SS)? used for task times - these are
+    // minute-granular by design.
+    body('notification_preferences')
+        .optional({ nullable: true })
+        .isObject().withMessage('notification_preferences must be an object'),
+    body('notification_preferences.enabled')
+        .optional().isBoolean().withMessage('enabled must be a boolean').toBoolean(),
+    body('notification_preferences.lead_minutes')
+        .optional().isInt({ min: 0, max: 240 })
+        .withMessage('lead_minutes must be between 0 and 240').toInt(),
+    body('notification_preferences.notify_on_start')
+        .optional().isBoolean().withMessage('notify_on_start must be a boolean').toBoolean(),
+    body('notification_preferences.notify_on_end')
+        .optional().isBoolean().withMessage('notify_on_end must be a boolean').toBoolean(),
+    body('notification_preferences.daily_digest')
+        .optional().isBoolean().withMessage('daily_digest must be a boolean').toBoolean(),
+    body('notification_preferences.digest_time')
+        .optional().matches(HHMM_PATTERN).withMessage('digest_time must be in HH:MM format'),
+    body('notification_preferences.quiet_hours.enabled')
+        .optional().isBoolean().withMessage('quiet_hours.enabled must be a boolean').toBoolean(),
+    body('notification_preferences.quiet_hours.start')
+        .optional().matches(HHMM_PATTERN).withMessage('quiet_hours.start must be in HH:MM format'),
+    body('notification_preferences.quiet_hours.end')
+        .optional().matches(HHMM_PATTERN).withMessage('quiet_hours.end must be in HH:MM format'),
+    body('notification_preferences.browser_push')
+        .optional().isBoolean().withMessage('browser_push must be a boolean').toBoolean(),
+    body('currency')
+        .optional()
+        .trim()
+        .toUpperCase()
+        .isIn(SUPPORTED_CURRENCY_CODES)
+        .withMessage(`Currency must be one of: ${SUPPORTED_CURRENCY_CODES.join(', ')}`),
     handleValidationErrors
 ];
 
@@ -458,6 +494,118 @@ const categoryValidation = [
         .optional()
         .trim()
         .isLength({ max: 50 }).withMessage('Icon must not exceed 50 characters'),
+    body('kind')
+        .optional()
+        .isIn(['task', 'spend']).withMessage("kind must be 'task' or 'spend'"),
+    handleValidationErrors
+];
+
+/**
+ * Validation rules for GET /api/categories?kind=
+ */
+const categoryKindQueryValidation = [
+    query('kind')
+        .optional()
+        .isIn(['task', 'spend']).withMessage("kind must be 'task' or 'spend'"),
+    handleValidationErrors
+];
+
+/**
+ * Wallet validation.
+ *
+ * Money crosses this API as INTEGER MINOR UNITS, always. A decimal like 12.34
+ * is rejected outright by .isInt() rather than quietly rounded, which keeps the
+ * float-to-integer decision in exactly one place: the pure, tested
+ * parseMoneyInput in frontend/src/utils/money.js.
+ */
+const AMOUNT_CENTS_MAX = 99999999999;
+
+const expenseValidation = [
+    body('amount_cents')
+        .exists().withMessage('amount_cents is required')
+        .bail()
+        // isInt BEFORE toInt, and never the reverse: express-validator runs
+        // these in declaration order, so a leading .toInt() would truncate
+        // "12.34" to 12 and then happily validate the truncated value -
+        // silently storing an amount 100x wrong instead of rejecting it.
+        .isInt({ min: 1, max: AMOUNT_CENTS_MAX })
+        .withMessage(`amount_cents must be a whole number of minor units between 1 and ${AMOUNT_CENTS_MAX}`)
+        .bail()
+        .toInt(),
+    body('category_id')
+        .optional({ nullable: true })
+        .trim(),
+    body('date')
+        .optional()
+        .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('date must be in YYYY-MM-DD format'),
+    body('note')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 200 }).withMessage('Note must not exceed 200 characters'),
+    handleValidationErrors
+];
+
+const expenseUpdateValidation = [
+    body('amount_cents')
+        .optional()
+        .isInt({ min: 1, max: AMOUNT_CENTS_MAX })
+        .withMessage(`amount_cents must be a whole number of minor units between 1 and ${AMOUNT_CENTS_MAX}`)
+        .bail()
+        .toInt(),
+    body('category_id')
+        .optional({ nullable: true })
+        .trim(),
+    body('date')
+        .optional()
+        .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('date must be in YYYY-MM-DD format'),
+    body('note')
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 200 }).withMessage('Note must not exceed 200 characters'),
+    handleValidationErrors
+];
+
+const budgetValidation = [
+    body('category_id')
+        .trim()
+        .notEmpty().withMessage('category_id is required'),
+    body('amount_cents')
+        .exists().withMessage('amount_cents is required')
+        .bail()
+        // isInt BEFORE toInt, and never the reverse: express-validator runs
+        // these in declaration order, so a leading .toInt() would truncate
+        // "12.34" to 12 and then happily validate the truncated value -
+        // silently storing an amount 100x wrong instead of rejecting it.
+        .isInt({ min: 1, max: AMOUNT_CENTS_MAX })
+        .withMessage(`amount_cents must be a whole number of minor units between 1 and ${AMOUNT_CENTS_MAX}`)
+        .bail()
+        .toInt(),
+    body('period')
+        .optional()
+        .matches(YM_PATTERN).withMessage('period must be in YYYY-MM format'),
+    handleValidationErrors
+];
+
+/** Only the amount is writable - see Budget.update for why. */
+const budgetUpdateValidation = [
+    body('amount_cents')
+        .exists().withMessage('amount_cents is required')
+        .bail()
+        // isInt BEFORE toInt, and never the reverse: express-validator runs
+        // these in declaration order, so a leading .toInt() would truncate
+        // "12.34" to 12 and then happily validate the truncated value -
+        // silently storing an amount 100x wrong instead of rejecting it.
+        .isInt({ min: 1, max: AMOUNT_CENTS_MAX })
+        .withMessage(`amount_cents must be a whole number of minor units between 1 and ${AMOUNT_CENTS_MAX}`)
+        .bail()
+        .toInt(),
+    handleValidationErrors
+];
+
+const walletPeriodQueryValidation = [
+    query('period')
+        .optional()
+        .matches(YM_PATTERN).withMessage('period must be in YYYY-MM format'),
     handleValidationErrors
 ];
 
@@ -674,6 +822,12 @@ module.exports = {
     scheduleTaskStatusValidation,
     scheduleTaskUpdateValidation,
     categoryValidation,
+    categoryKindQueryValidation,
+    expenseValidation,
+    expenseUpdateValidation,
+    budgetValidation,
+    budgetUpdateValidation,
+    walletPeriodQueryValidation,
     routineValidation,
     routineTemplateCreateValidation,
     routineTemplateUpdateValidation,

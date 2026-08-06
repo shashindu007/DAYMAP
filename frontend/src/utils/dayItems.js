@@ -124,6 +124,37 @@ export const bucketDayItems = (items, nowMinutes) => {
     return buckets;
 };
 
+/**
+ * One derivation of "how does today look", shared by the at-a-glance line on
+ * Today's Dashboard and by the morning digest notification - so the two can
+ * never quote different numbers at each other.
+ */
+export const summarizeDay = (items, nowMinutes) => {
+    const buckets = bucketDayItems(items, nowMinutes);
+
+    const scheduledMinutes = items.reduce((sum, item) => {
+        const { startMinutes, endMinutes } = item;
+        const hasSpan = Number.isFinite(startMinutes)
+            && Number.isFinite(endMinutes)
+            && endMinutes > startMinutes;
+        return hasSpan ? sum + (endMinutes - startMinutes) : sum;
+    }, 0);
+
+    const hours = Math.floor(scheduledMinutes / 60);
+    const minutes = scheduledMinutes % 60;
+
+    return {
+        total: items.length,
+        completed: buckets.completed.length,
+        remaining: buckets.current.length + buckets.upcoming.length + buckets.anytime.length,
+        needsReview: buckets.needsReview.length,
+        anytime: buckets.anytime.length,
+        scheduledMinutes,
+        scheduledLabel: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`,
+        firstUp: [...buckets.current, ...buckets.upcoming].sort(sortByStart)[0] || null
+    };
+};
+
 export const getProgressPercent = (item, nowMinutes) => {
     const { startMinutes, endMinutes } = item;
     if (!Number.isFinite(startMinutes) || !Number.isFinite(endMinutes) || endMinutes <= startMinutes) {

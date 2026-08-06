@@ -1,0 +1,24 @@
+/**
+ * Sits inside .today-summary, under the progress bar. Deliberately a single
+ * muted line rather than a stat grid - the grid that used to live in this
+ * block just restated the progress bar.
+ */
+.today-glance {
+    /* .today-summary is a wrapping flex row - a full basis forces this onto
+       its own line under the progress bar instead of squeezing in beside it. */
+    flex: 1 0 100%;
+    margin: 0;
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--border);
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.today-glance-fact {
+    white-space: nowrap;
+}
+
+.today-glance-sep {
+    opacity: 0.55;
+}

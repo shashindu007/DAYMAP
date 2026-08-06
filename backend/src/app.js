@@ -10,6 +10,7 @@ const { generalLimiter } = require('./middleware/rateLimiter');
 const authRoutes = require('./routes/authRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const walletRoutes = require('./routes/walletRoutes');
 const routineRoutes = require('./routes/routineRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const scheduleRoutes = require('./routes/scheduleRoutes');
@@ -75,6 +76,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/wallet', walletRoutes);
 app.use('/api/routines', routineRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/schedules', scheduleRoutes);
@@ -90,6 +92,7 @@ app.get('/', (req, res) => {
             auth: '/api/auth',
             tasks: '/api/tasks',
             categories: '/api/categories',
+            wallet: '/api/wallet',
             routines: '/api/routines',
             analytics: '/api/analytics',
             schedules: '/api/schedules'

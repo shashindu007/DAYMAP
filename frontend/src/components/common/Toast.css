@@ -1,0 +1,112 @@
+/* ==========================================================================
+   Toasts — the app's transient feedback surface.
+
+   Everything here is token-only, so dark mode is inherited from the single
+   .dark {} block in App.css with no per-rule overrides.
+   ========================================================================== */
+
+.toast-viewport {
+    position: fixed;
+    bottom: var(--space-6);
+    right: var(--space-6);
+    display: flex;
+    /* Newest card sits closest to the corner, where the eye already is. */
+    flex-direction: column-reverse;
+    gap: var(--space-3);
+    /* Above the sticky header (100), below ConfirmDialog (1000) and the
+       schedule editor (1200) — a modal must never be obscured by a toast. */
+    z-index: 900;
+    max-width: min(400px, calc(100vw - 2 * var(--space-6)));
+    pointer-events: none;
+}
+
+.toast {
+    pointer-events: auto;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+    background: var(--surface-raised);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    color: var(--text-primary);
+    animation: toast-in var(--dur, 200ms) var(--ease-spring, ease-out);
+}
+
+.toast--success { border-left-color: var(--success); }
+.toast--warning { border-left-color: var(--warning); }
+.toast--danger  { border-left-color: var(--danger); }
+.toast--muted   { border-left-color: var(--border-strong, var(--border)); }
+
+.toast-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.toast-title {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.toast-text {
+    margin: var(--space-1) 0 0;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.toast-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+}
+
+.toast-dismiss {
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition: background var(--dur, 200ms) ease, color var(--dur, 200ms) ease;
+}
+
+.toast-dismiss:hover {
+    background: var(--surface);
+    color: var(--text-primary);
+}
+
+.toast-dismiss:focus-visible {
+    outline: none;
+    box-shadow: var(--ring);
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(0.75rem) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .toast {
+        animation: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .toast-viewport {
+        left: var(--space-4);
+        right: var(--space-4);
+        bottom: var(--space-4);
+        max-width: none;
+    }
+}

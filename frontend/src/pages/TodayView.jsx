@@ -1,116 +1,49 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useSchedule } from '../context/ScheduleContext';
-import { useRoutine } from '../context/RoutineContext';
-import { useTasks } from '../context/TaskContext';
 import { useScheduleEditor } from '../context/ScheduleEditorContext';
+import useTodayItems from '../hooks/useTodayItems';
 import Button from '../components/common/Button';
 import TaskCard from '../components/tasks/TaskCard';
 import TaskSection from '../components/tasks/TaskSection';
+import TodayGlance from '../components/today/TodayGlance';
+import TodaySpendLine from '../components/today/TodaySpendLine';
 import FocusSessionPanel from '../components/focus/FocusSessionPanel';
-import taskService from '../services/taskService';
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from '../utils/taskStatus';
 import {
-    normalizeDayItem,
     bucketDayItems,
     getProgressPercent,
     formatDisplayTime
 } from '../utils/dayItems';
 import './TodayView.css';
 
-const toYmd = (date) => {
-    const year = date.getFullYear();
-    const month = `${date.getMonth() + 1}`.padStart(2, '0');
-    const day = `${date.getDate()}`.padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
 const TodayView = () => {
-    const {
-        scheduleByDate,
-        loading,
-        error,
-        fetchSchedule,
-        updateScheduleTaskStatus,
-        patchTaskFromRoutineItem
-    } = useSchedule();
-    const {
-        dailyByDate,
-        fetchDailyRoutine,
-        completeInstanceItem,
-        patchItemFromScheduleTask
-    } = useRoutine();
-    const { tasksByDate, fetchTasksForDate, patchTaskInDate } = useTasks();
     const { openEditor } = useScheduleEditor();
     const navigate = useNavigate();
 
     const [now, setNow] = useState(new Date());
     const [showDone, setShowDone] = useState(false);
-    const todayYmd = useMemo(() => toYmd(now), [now]);
-
-    const cachedSchedule = scheduleByDate[todayYmd];
-    const scheduleTasks = useMemo(() => cachedSchedule?.tasks || [], [cachedSchedule]);
-    const dailyRoutine = dailyByDate[todayYmd];
-    const routineInstances = useMemo(() => dailyRoutine?.routines || [], [dailyRoutine]);
-    const dayTasks = useMemo(() => tasksByDate[todayYmd] || [], [tasksByDate, todayYmd]);
 
     useEffect(() => {
         const interval = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(interval);
     }, []);
 
-    useEffect(() => {
-        if (!cachedSchedule) fetchSchedule(todayYmd).catch(() => null);
-    }, [fetchSchedule, todayYmd, cachedSchedule]);
-
-    useEffect(() => {
-        if (!dailyRoutine) fetchDailyRoutine(todayYmd).catch(() => null);
-    }, [fetchDailyRoutine, todayYmd, dailyRoutine]);
-
-    useEffect(() => {
-        if (!tasksByDate[todayYmd]) fetchTasksForDate(todayYmd).catch(() => null);
-    }, [fetchTasksForDate, tasksByDate, todayYmd]);
-
-    // Safety net for the two caches drifting: any tab switch or refocus
-    // re-reads the day, covering multi-tab edits and any missed local patch.
-    useEffect(() => {
-        const refresh = () => {
-            if (document.visibilityState !== 'visible') return;
-            fetchSchedule(todayYmd).catch(() => null);
-            fetchDailyRoutine(todayYmd).catch(() => null);
-            fetchTasksForDate(todayYmd).catch(() => null);
-        };
-        window.addEventListener('focus', refresh);
-        document.addEventListener('visibilitychange', refresh);
-        return () => {
-            window.removeEventListener('focus', refresh);
-            document.removeEventListener('visibilitychange', refresh);
-        };
-    }, [fetchDailyRoutine, fetchSchedule, fetchTasksForDate, todayYmd]);
-
-    /** Routine instance name by id, for the pill on routine-derived tasks. */
-    const routineNameById = useMemo(() => {
-        const map = {};
-        routineInstances.forEach((instance) => { map[instance.id] = instance.name; });
-        return map;
-    }, [routineInstances]);
-
     /**
-     * Routine items that never became schedule tasks - computeItemSlot could
-     * not resolve a time for them, so they would otherwise vanish from the day.
+     * autoFetch stays off here: NotificationProvider sits above every private
+     * route and already owns the fetching, so claiming it again would double
+     * every request on mount.
      */
-    const unscheduledRoutineItems = useMemo(() => (
-        routineInstances.flatMap((instance) => (
-            (instance.items || [])
-                .filter((item) => !item.scheduled_task_id)
-                .map((item) => ({ ...item, instanceId: instance.id, routineName: instance.name }))
-        ))
-    ), [routineInstances]);
-
-    const dayItems = useMemo(() => ([
-        ...scheduleTasks.map((task) => normalizeDayItem(task, 'schedule')),
-        ...dayTasks.map((task) => normalizeDayItem(task, 'task'))
-    ].filter(Boolean)), [dayTasks, scheduleTasks]);
+    const {
+        todayYmd,
+        dayItems,
+        unscheduledRoutineItems,
+        routineNameById,
+        handleStatusUpdate,
+        handleRoutineStatusUpdate,
+        loading,
+        error,
+        hydrated
+    } = useTodayItems({ now });
 
     const nowMinutes = useMemo(() => (now.getHours() * 60) + now.getMinutes(), [now]);
 
@@ -142,41 +75,6 @@ const TodayView = () => {
         buckets.upcoming.find((item) => item.startLabel)?.startLabel || null
     ), [buckets.upcoming]);
 
-    /**
-     * Route the status write by record type, then cross-patch the routine
-     * cache so /routines does not drift until a reload. The server already
-     * writes both sides; this only keeps the client in step.
-     */
-    const handleStatusUpdate = useCallback(async (item, status) => {
-        try {
-            if (item.kind === 'schedule') {
-                const updated = await updateScheduleTaskStatus(item.id, status);
-                if (updated?.routine_instance_id && patchItemFromScheduleTask) {
-                    patchItemFromScheduleTask(updated);
-                }
-            } else {
-                const response = await taskService.updateStatus(item.id, status);
-                const updated = response?.data?.data || response?.data || response;
-                patchTaskInDate(todayYmd, updated?.id ? updated : { ...item.raw, status });
-            }
-        } catch (updateError) {
-            console.error('Failed to update task status:', updateError);
-        }
-    }, [patchItemFromScheduleTask, patchTaskInDate, todayYmd, updateScheduleTaskStatus]);
-
-    const handleRoutineStatusUpdate = useCallback(async (instanceId, itemId, status) => {
-        try {
-            const updated = await completeInstanceItem(instanceId, itemId, status);
-            const items = updated?.items || [];
-            const changed = items.find((entry) => entry.id === itemId);
-            if (changed?.scheduled_task_id && patchTaskFromRoutineItem) {
-                patchTaskFromRoutineItem(todayYmd, changed);
-            }
-        } catch (updateError) {
-            console.error('Failed to update routine item status:', updateError);
-        }
-    }, [completeInstanceItem, patchTaskFromRoutineItem, todayYmd]);
-
     const reviewActions = useCallback((item) => ([
         {
             key: 'complete',
@@ -203,7 +101,7 @@ const TodayView = () => {
 
     const routineNameFor = (item) => (item.isRoutine ? routineNameById[item.routineInstanceId] : null);
 
-    const isInitialLoading = loading && !cachedSchedule;
+    const isInitialLoading = loading && !hydrated;
     const hasAnything = dayItems.length > 0 || unscheduledRoutineItems.length > 0;
 
     const doneCount = buckets.completed.length + buckets.incomplete.length;
@@ -243,6 +141,8 @@ const TodayView = () => {
                             Next at <strong>{nextStartLabel}</strong>
                         </p>
                     )}
+                    <TodayGlance items={dayItems} nowMinutes={nowMinutes} />
+                    <TodaySpendLine />
                 </div>
             </div>
 

@@ -37,7 +37,10 @@ const authMiddleware = async (req, res, next) => {
                 id: user.id,
                 email: user.email,
                 name: user.name,
-                timezone: user.timezone || 'UTC'
+                timezone: user.timezone || 'UTC',
+                // User.findById already normalizes this, so it is always a
+                // supported code even for accounts predating the wallet.
+                currency: user.currency
             };
             
             next();
