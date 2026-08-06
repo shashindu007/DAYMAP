@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import Button from '../components/common/Button';
 import { LEAD_MINUTE_OPTIONS, mergeNotificationPrefs } from '../utils/notificationPrefs';
+import { CURRENCY_OPTIONS, DEFAULT_CURRENCY } from '../utils/money';
 import './Dashboard.css';
 import './Settings.css';
 
@@ -52,6 +53,10 @@ const Settings = () => {
         name: user?.name || '',
         email: user?.email || '',
         timezone: user?.timezone || 'UTC',
+        // Lives in profileForm, not its own form: the notifications save at
+        // line ~96 spreads profileForm, so a separately-held currency would be
+        // clobbered back to its old value every time preferences were saved.
+        currency: user?.currency || DEFAULT_CURRENCY,
         bio: user?.bio || '',
         phone: user?.phone || '',
         location: user?.location || '',
@@ -79,6 +84,17 @@ const Settings = () => {
     useEffect(() => {
         setNotifPrefs(mergeNotificationPrefs(user?.notification_preferences));
     }, [user?.notification_preferences]);
+
+    // Narrow on purpose: keyed to the server value alone, so it only fires when
+    // that actually changes (login, /auth/me revalidation, another tab). An
+    // unsaved selection here is never overwritten, and no other profile field
+    // is touched.
+    useEffect(() => {
+        if (!user?.currency) return;
+        setProfileForm((prev) => (
+            prev.currency === user.currency ? prev : { ...prev, currency: user.currency }
+        ));
+    }, [user?.currency]);
 
     const setNotifField = (field, value) => setNotifPrefs((prev) => ({ ...prev, [field]: value }));
     const setQuietField = (field, value) => setNotifPrefs((prev) => ({
@@ -232,6 +248,19 @@ const Settings = () => {
                         <input className="input" name="name" value={profileForm.name} onChange={handleProfileChange} placeholder="Name" required />
                         <input className="input" name="email" value={profileForm.email} onChange={handleProfileChange} placeholder="Email" required />
                         <input className="input" name="timezone" value={profileForm.timezone} onChange={handleProfileChange} placeholder="Timezone" />
+                        <select
+                            className="input"
+                            name="currency"
+                            value={profileForm.currency}
+                            onChange={handleProfileChange}
+                            aria-label="Currency"
+                        >
+                            {CURRENCY_OPTIONS.map((option) => (
+                                <option key={option.code} value={option.code}>
+                                    {option.code} — {option.label}
+                                </option>
+                            ))}
+                        </select>
                         <input className="input" name="phone" value={profileForm.phone} onChange={handleProfileChange} placeholder="Phone" />
                         <input className="input" name="location" value={profileForm.location} onChange={handleProfileChange} placeholder="Location" />
                         <input className="input" name="bio" value={profileForm.bio} onChange={handleProfileChange} placeholder="Short bio" />

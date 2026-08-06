@@ -12,6 +12,7 @@ const NAV_LINKS = [
     { path: '/week', label: 'Week', icon: '🗓️' },
     { path: '/tasks', label: 'Tasks', icon: '✅' },
     { path: '/routines', label: 'Routines', icon: '🔁' },
+    { path: '/wallet', label: 'Wallet', icon: '👛' },
     { path: '/analytics', label: 'Analytics', icon: '📊' }
 ];
 

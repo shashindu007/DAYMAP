@@ -1,6 +1,7 @@
 const { mongoose } = require('../config/database');
 const { v4: uuidv4 } = require('uuid');
 const { normalizeNotificationPreferences } = require('../utils/notificationPrefs');
+const { DEFAULT_CURRENCY, normalizeCurrency } = require('../utils/currency');
 
 // _id: false on both subschemas - otherwise Mongoose injects ObjectIds into
 // the JSON the frontend receives and round-trips back on save.
@@ -29,6 +30,10 @@ const userSchema = new mongoose.Schema(
         password_hash: { type: String, required: true },
         name: { type: String, required: true, minlength: 2, maxlength: 100, trim: true },
         timezone: { type: String, default: 'UTC', maxlength: 50 },
+        // One currency per user. Wallet amounts are integer minor units and are
+        // never converted - changing this reinterprets stored numbers, it does
+        // not convert them.
+        currency: { type: String, default: DEFAULT_CURRENCY, maxlength: 3 },
         notification_preferences: { type: notificationPreferencesSchema, default: () => ({}) },
         profile_image: { type: String, default: null, maxlength: 3000000 },
         bio: { type: String, default: null, maxlength: 500 },
@@ -89,6 +94,8 @@ class User {
         // Accounts created before notifications shipped have no preference
         // subtree - schema defaults only fire on create, not on read.
         user.notification_preferences = normalizeNotificationPreferences(user.notification_preferences);
+        // Same trap: accounts predating the wallet have no currency at all.
+        user.currency = normalizeCurrency(user.currency);
         return user;
     }
     
@@ -119,16 +126,23 @@ class User {
      * @returns {Object} Updated user
      */
     static async update(id, userData) {
+        // A field missing from this list is silently dropped on save - the
+        // request still returns 200 with the unchanged user, which is the
+        // hardest kind of bug to notice. Adding a field here is not optional.
         const allowedFields = [
             'name', 'email', 'timezone', 'profile_image', 'bio', 'phone', 'location',
-            'notification_preferences'
+            'notification_preferences', 'currency'
         ];
         const updates = {};
 
         for (const [key, value] of Object.entries(userData)) {
             if (value === undefined || !allowedFields.includes(key)) continue;
 
-            if (key === 'notification_preferences') {
+            if (key === 'currency') {
+                // Reject an unsupported code by falling back rather than
+                // storing something Intl.NumberFormat will later throw on.
+                updates[key] = normalizeCurrency(value);
+            } else if (key === 'notification_preferences') {
                 // $set on an object field REPLACES the whole subdocument, so a
                 // partial payload like { lead_minutes: 45 } would drop every
                 // other preference. Merge over what is stored, then normalize,

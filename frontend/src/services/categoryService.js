@@ -2,10 +2,11 @@ import api from './api';
 
 const categoryService = {
     /**
-     * Get all categories
+     * Get all categories. Omit `kind` for every kind, or pass 'task'/'spend'
+     * to filter - omitting it returns exactly what it always has.
      */
-    getAllCategories: async () => {
-        return api.get('/categories');
+    getAllCategories: async (kind = null) => {
+        return api.get(kind ? `/categories?kind=${encodeURIComponent(kind)}` : '/categories');
     },
 
     /**

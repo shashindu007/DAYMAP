@@ -141,7 +141,7 @@ class AuthController {
         try {
             const {
                 name, email, timezone, profile_image, bio, phone, location,
-                notification_preferences
+                notification_preferences, currency
             } = req.body;
             
             // If email is being changed, check if it's already taken
@@ -163,7 +163,8 @@ class AuthController {
                 bio,
                 phone,
                 location,
-                notification_preferences
+                notification_preferences,
+                currency
             });
             
             res.json({

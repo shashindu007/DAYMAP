@@ -1,0 +1,386 @@
+/* ==========================================================================
+   Wallet - spending and monthly budgets.
+
+   Every selector here is prefixed .wallet-. CRA concatenates every page
+   stylesheet into one bundle, so an unprefixed .card / .stat-value / .progress-
+   rule would silently restyle Today, Week and Analytics. The only global
+   classes used are read-only reuses from App.css (.card, .btn, .input, .badge,
+   .alert, .muted).
+
+   State modifiers are written as two-class selectors (.wallet-fill.is-over) so
+   they win on specificity rather than on bundle order, which CRA does not
+   guarantee.
+   ========================================================================== */
+
+.wallet-page {
+    display: grid;
+    gap: var(--space-6);
+}
+
+/* ---------- Header + month stepper ---------- */
+.wallet-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.wallet-header h1 {
+    margin: 0;
+}
+
+.wallet-subtitle {
+    margin: var(--space-1) 0 0;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+.wallet-header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.wallet-month {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1);
+    border-radius: var(--radius-pill);
+    background: var(--surface-sunken);
+    border: 1px solid var(--divider);
+}
+
+.wallet-month-label {
+    min-width: 9.5rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+}
+
+.wallet-month-btn {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    line-height: 1;
+    transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.wallet-month-btn:hover:not(:disabled) {
+    background: var(--primary-soft);
+    border-color: var(--primary);
+}
+
+.wallet-month-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+/* ---------- KPI tiles ---------- */
+.wallet-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.9rem;
+}
+
+.wallet-cards .card {
+    padding: var(--space-5);
+}
+
+.wallet-cards h3 {
+    margin: 0;
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    font-weight: 700;
+}
+
+.wallet-value {
+    margin: var(--space-2) 0 0;
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+}
+
+.wallet-card-note {
+    display: block;
+    margin-top: var(--space-1);
+}
+
+/* Signed states. Colour is never the only channel - the label always says
+   "left" or "over" in words too. */
+.wallet-over { color: var(--danger-dark); }
+.wallet-under { color: var(--success-dark); }
+
+/* ---------- Section shell ---------- */
+.wallet-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+}
+
+.wallet-section-head h2 {
+    margin: 0;
+    font-size: var(--text-lg);
+}
+
+.wallet-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+}
+
+@media (max-width: 900px) {
+    .wallet-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* ---------- Budget rows ---------- */
+.wallet-budget-list {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.wallet-budget-row {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.wallet-budget-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+}
+
+.wallet-budget-name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    min-width: 0;
+}
+
+.wallet-dot {
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--primary);
+}
+
+.wallet-budget-amounts {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Own track, deliberately not the shared .progress-bar - that lives in
+   styles/stats.css and is owned by Today and Week. */
+.wallet-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--surface-sunken);
+    border: 1px solid var(--divider);
+    overflow: hidden;
+}
+
+.wallet-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--success);
+    transition: width var(--dur-slow) var(--ease-out), background-color var(--dur) var(--ease);
+}
+
+.wallet-fill.is-near { background: var(--warning); }
+.wallet-fill.is-over { background: var(--danger); }
+.wallet-fill.is-none { background: var(--border-strong); }
+
+.wallet-budget-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+}
+
+.wallet-budget-actions {
+    display: inline-flex;
+    gap: var(--space-2);
+}
+
+.wallet-inline-form {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.wallet-inline-form .input {
+    max-width: 9rem;
+}
+
+/* ---------- Chart ---------- */
+.wallet-chart {
+    position: relative;
+    height: 260px;
+}
+
+/* ---------- Expense list ---------- */
+.wallet-expense-list {
+    display: grid;
+    gap: var(--space-1);
+}
+
+.wallet-expense {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    transition: background-color var(--dur) var(--ease);
+}
+
+.wallet-expense:hover {
+    background: var(--surface-hover);
+}
+
+.wallet-expense-date {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.wallet-expense-main {
+    min-width: 0;
+}
+
+.wallet-expense-note {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wallet-expense-cat {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.wallet-expense-amount {
+    font-weight: 700;
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.wallet-expense-actions {
+    display: inline-flex;
+    gap: var(--space-1);
+    opacity: 0;
+    transition: opacity var(--dur) var(--ease);
+}
+
+/* Keyboard users must be able to reach them, so focus-within counts too. */
+.wallet-expense:hover .wallet-expense-actions,
+.wallet-expense:focus-within .wallet-expense-actions {
+    opacity: 1;
+}
+
+@media (max-width: 640px) {
+    .wallet-expense-actions { opacity: 1; }
+    .wallet-expense { grid-template-columns: 4rem minmax(0, 1fr) auto; }
+    .wallet-expense-actions { grid-column: 1 / -1; justify-content: flex-end; }
+}
+
+/* ---------- Forms ---------- */
+.wallet-form {
+    display: grid;
+    gap: var(--space-4);
+}
+
+.wallet-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-4);
+}
+
+.wallet-field {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.wallet-field label {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.wallet-form-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+/* ---------- Empty state ---------- */
+.wallet-empty {
+    display: grid;
+    gap: var(--space-4);
+    justify-items: center;
+    text-align: center;
+    padding: var(--space-8) var(--space-5);
+}
+
+.wallet-empty h2 {
+    margin: 0;
+    font-size: var(--text-lg);
+}
+
+.wallet-empty p {
+    margin: 0;
+    max-width: 34rem;
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+}
+
+.wallet-empty-actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wallet-fill,
+    .wallet-expense,
+    .wallet-expense-actions,
+    .wallet-month-btn {
+        transition: none;
+    }
+}

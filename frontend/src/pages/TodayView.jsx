@@ -6,6 +6,7 @@ import Button from '../components/common/Button';
 import TaskCard from '../components/tasks/TaskCard';
 import TaskSection from '../components/tasks/TaskSection';
 import TodayGlance from '../components/today/TodayGlance';
+import TodaySpendLine from '../components/today/TodaySpendLine';
 import FocusSessionPanel from '../components/focus/FocusSessionPanel';
 import { STATUS_BADGE_CLASSES, STATUS_LABELS } from '../utils/taskStatus';
 import {
@@ -141,6 +142,7 @@ const TodayView = () => {
                         </p>
                     )}
                     <TodayGlance items={dayItems} nowMinutes={nowMinutes} />
+                    <TodaySpendLine />
                 </div>
             </div>
 
