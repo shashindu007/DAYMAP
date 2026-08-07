@@ -164,6 +164,34 @@ export const TaskProvider = ({ children }) => {
         }
     };
 
+    /**
+     * Status-only change. Goes through PATCH /tasks/:id/status, NOT updateTask:
+     * the PUT route is guarded by taskValidation, which requires a non-empty
+     * title, so a `{ status }`-only PUT is rejected with "Task title is
+     * required". PATCH also stamps completed_at, which PUT does not.
+     */
+    const updateTaskStatus = async (id, status) => {
+        const previousTasks = tasks;
+        try {
+            setError(null);
+            setTasks(prev => prev.map(task => (
+                task.id === id ? { ...task, status } : task
+            )));
+            const response = await taskService.updateStatus(id, status);
+            const updatedTask = normalizeTaskResponse(response);
+            if (updatedTask) {
+                setTasks(prev => prev.map(task =>
+                    task.id === id ? updatedTask : task
+                ));
+            }
+            return response;
+        } catch (error) {
+            setTasks(previousTasks);
+            setError(resolveErrorMessage(error, 'Failed to update task status'));
+            throw error;
+        }
+    };
+
     const deleteTask = async (id) => {
         const previousTasks = tasks;
         try {
@@ -211,6 +239,7 @@ export const TaskProvider = ({ children }) => {
         patchTaskInDate,
         createTask,
         updateTask,
+        updateTaskStatus,
         deleteTask,
         completeTask
     };

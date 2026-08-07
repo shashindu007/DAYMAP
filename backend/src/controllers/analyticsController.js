@@ -1,8 +1,17 @@
 const Analytics = require('../models/Analytics');
 const FocusSession = require('../models/FocusSession');
 const ScheduleTask = require('../models/ScheduleTask');
+const { getUserToday, addDaysToYmd, eachYmd } = require('../utils/date');
 
 const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * TIMEZONE RULE for this file: every "today" and every default range is derived
+ * from req.user.timezone via utils/date, never from `new Date().toISOString()`.
+ * UTC-derived ranges put a user east or west of UTC on the wrong calendar day
+ * for part of every day, which made the Analytics page disagree with Today's
+ * Dashboard and the Wallet — both of which already resolve dates per-user.
+ */
 
 /** Hour (0-23) from an HH:MM[:SS] clock string, or null. */
 const hourOf = (clock) => {
@@ -11,32 +20,48 @@ const hourOf = (clock) => {
     return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : null;
 };
 
-/** Day-of-week (0=Sun) from a YYYY-MM-DD string, or null. */
+const YMD_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Day-of-week (0=Sun) from a YYYY-MM-DD string, or null. Uses UTC arithmetic on
+ * the date parts so the weekday depends only on the string, not on whatever
+ * timezone the server process happens to run in.
+ */
 const dowOf = (ymd) => {
-    if (!ymd || typeof ymd !== 'string') return null;
-    const parsed = new Date(`${ymd}T00:00:00`);
-    return Number.isNaN(parsed.getTime()) ? null : parsed.getDay();
+    if (!YMD_PATTERN.test(ymd || '')) return null;
+    const [year, month, day] = ymd.split('-').map(Number);
+    const parsed = new Date(Date.UTC(year, month - 1, day));
+    return Number.isNaN(parsed.getTime()) ? null : parsed.getUTCDay();
 };
 
 const formatHms = (date) => (
     `${`${date.getHours()}`.padStart(2, '0')}:${`${date.getMinutes()}`.padStart(2, '0')}:${`${date.getSeconds()}`.padStart(2, '0')}`
 );
 
-const getWeekStart = (date) => {
-    const start = new Date(date);
-    const day = start.getDay();
-    const diff = day === 0 ? -6 : 1 - day;
-    start.setDate(start.getDate() + diff);
-    return start.toISOString().split('T')[0];
+/**
+ * Local calendar date of a Date, as YYYY-MM-DD. The Date objects in
+ * logFocusSession are built by parsing `${ymd}T${hms}`, which resolves in
+ * server-local time — so reading them back out has to be local too, or an
+ * evening session silently lands on the next day.
+ */
+const localYmd = (date) => (
+    `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, '0')}-${`${date.getDate()}`.padStart(2, '0')}`
+);
+
+/** Monday-based week start for a YYYY-MM-DD string, as a YYYY-MM-DD string. */
+const getWeekStart = (ymd) => {
+    const dow = dowOf(ymd);
+    if (dow === null) return ymd;
+    return addDaysToYmd(ymd, dow === 0 ? -6 : 1 - dow);
 };
 
 class AnalyticsController {
-    static normalizeDate(value) {
-        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    static normalizeDate(value, timezone) {
+        if (YMD_PATTERN.test(value || '')) {
             return value;
         }
 
-        return new Date().toISOString().split('T')[0];
+        return getUserToday(timezone);
     }
 
     static normalizeClock(value) {
@@ -131,15 +156,10 @@ class AnalyticsController {
                 startDate = start_date;
                 endDate = end_date;
             } else {
-                // Default to current week
-                const today = new Date();
-                const start = new Date(today);
-                start.setDate(today.getDate() - today.getDay());
-                const end = new Date(start);
-                end.setDate(start.getDate() + 6);
-
-                startDate = start.toISOString().split('T')[0];
-                endDate = end.toISOString().split('T')[0];
+                // Default to the user's current (Sunday-based) week.
+                const today = getUserToday(req.user.timezone);
+                startDate = addDaysToYmd(today, -dowOf(today));
+                endDate = addDaysToYmd(startDate, 6);
             }
 
             const analytics = await Analytics.findByWeek(req.user.id, startDate, endDate);
@@ -211,10 +231,10 @@ class AnalyticsController {
                 selectedYear = parseInt(year, 10);
                 selectedMonth = parseInt(month, 10);
             } else {
-                // Default to current month
-                const today = new Date();
-                selectedYear = today.getFullYear();
-                selectedMonth = today.getMonth() + 1;
+                // Default to the user's current month.
+                const [y, m] = getUserToday(req.user.timezone).split('-').map(Number);
+                selectedYear = y;
+                selectedMonth = m;
             }
 
             const analytics = await Analytics.findByMonth(req.user.id, selectedYear, selectedMonth);
@@ -308,12 +328,8 @@ class AnalyticsController {
         try {
             const { days = 30 } = req.query;
 
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - parseInt(days, 10));
-
-            const start = startDate.toISOString().split('T')[0];
-            const end = endDate.toISOString().split('T')[0];
+            const end = getUserToday(req.user.timezone);
+            const start = addDaysToYmd(end, -parseInt(days, 10));
 
             const analytics = await Analytics.findByWeek(req.user.id, start, end);
 
@@ -361,11 +377,8 @@ class AnalyticsController {
         try {
             const days = Math.min(365, Math.max(1, parseInt(req.query.days, 10) || 30));
 
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - days + 1);
-            const start = startDate.toISOString().split('T')[0];
-            const end = endDate.toISOString().split('T')[0];
+            const end = getUserToday(req.user.timezone);
+            const start = addDaysToYmd(end, -(days - 1));
 
             const [tasks, focusSessions] = await Promise.all([
                 ScheduleTask.findByDateRange(req.user.id, start, end),
@@ -534,7 +547,7 @@ class AnalyticsController {
                 tags
             } = req.body;
 
-            const normalizedDate = AnalyticsController.normalizeDate(date);
+            const normalizedDate = AnalyticsController.normalizeDate(date, req.user.timezone);
             const normalizedStart = AnalyticsController.normalizeClock(start_time);
             const normalizedEnd = AnalyticsController.normalizeClock(end_time);
             const minutes = Math.max(1, parseInt(duration_minutes, 10) || 0);
@@ -588,11 +601,11 @@ class AnalyticsController {
             if (!endDateTime) {
                 endDateTime = new Date(safeStart.getTime() + (minutes * 60 * 1000));
                 resolvedEndTime = formatHms(endDateTime);
-                resolvedEndDate = endDateTime.toISOString().split('T')[0];
+                resolvedEndDate = localYmd(endDateTime);
             } else if (endDateTime.getTime() < safeStart.getTime()) {
                 endDateTime = new Date(safeStart.getTime() + (minutes * 60 * 1000));
                 resolvedEndTime = formatHms(endDateTime);
-                resolvedEndDate = endDateTime.toISOString().split('T')[0];
+                resolvedEndDate = localYmd(endDateTime);
             }
 
             await FocusSession.createSession(req.user.id, {
@@ -657,30 +670,22 @@ class AnalyticsController {
         try {
             const days = Math.max(1, parseInt(req.query.days, 10) || 14);
 
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - days + 1);
-
-            const start = startDate.toISOString().split('T')[0];
-            const end = endDate.toISOString().split('T')[0];
+            const end = getUserToday(req.user.timezone);
+            const start = addDaysToYmd(end, -(days - 1));
 
             const rows = await Analytics.getFocusByRange(req.user.id, start, end);
             const byDate = new Map(rows.map((row) => [row.date, row]));
 
-            const daily = [];
-            const walker = new Date(startDate);
-            while (walker <= endDate) {
-                const key = walker.toISOString().split('T')[0];
+            const daily = eachYmd(start, end).map((key) => {
                 const row = byDate.get(key);
-                daily.push({
+                return {
                     date: key,
                     focus_time_spent_minutes: row?.focus_time_spent_minutes || 0,
                     focus_sessions_count: row?.focus_sessions_count || 0,
                     focus_sessions_total: row?.focus_sessions_total || row?.focus_sessions_count || 0,
                     focus_sessions_completed: row?.focus_sessions_completed || 0
-                });
-                walker.setDate(walker.getDate() + 1);
-            }
+                };
+            });
 
             const totals = daily.reduce((acc, item) => {
                 acc.focus_time_spent_minutes += item.focus_time_spent_minutes;
@@ -737,38 +742,33 @@ class AnalyticsController {
             const { start_date, end_date } = req.query;
             const days = Math.max(1, parseInt(req.query.days, 10) || 14);
 
-            let startDate;
-            let endDate;
+            let start;
+            let end;
 
             if (start_date && end_date) {
-                startDate = new Date(start_date);
-                endDate = new Date(end_date);
+                // Already validated as YYYY-MM-DD, so use the strings directly
+                // rather than round-tripping them through Date (which reads them
+                // as UTC midnight and can shift the range by a day).
+                start = start_date;
+                end = end_date;
             } else {
-                endDate = new Date();
-                startDate = new Date();
-                startDate.setDate(endDate.getDate() - days + 1);
+                end = getUserToday(req.user.timezone);
+                start = addDaysToYmd(end, -(days - 1));
             }
-
-            const start = startDate.toISOString().split('T')[0];
-            const end = endDate.toISOString().split('T')[0];
 
             const rows = await Analytics.getFocusByRange(req.user.id, start, end);
             const byDate = new Map(rows.map((row) => [row.date, row]));
 
-            const daily = [];
-            const walker = new Date(startDate);
-            while (walker <= endDate) {
-                const key = walker.toISOString().split('T')[0];
+            const daily = eachYmd(start, end).map((key) => {
                 const row = byDate.get(key);
-                daily.push({
+                return {
                     date: key,
                     focus_time_spent_minutes: row?.focus_time_spent_minutes || 0,
                     focus_sessions_count: row?.focus_sessions_count || 0,
                     focus_sessions_total: row?.focus_sessions_total || row?.focus_sessions_count || 0,
                     focus_sessions_completed: row?.focus_sessions_completed || 0
-                });
-                walker.setDate(walker.getDate() + 1);
-            }
+                };
+            });
 
             const totals = daily.reduce((acc, item) => {
                 acc.focus_time_spent_minutes += item.focus_time_spent_minutes;
@@ -826,7 +826,7 @@ class AnalyticsController {
 
             const weeklyMap = new Map();
             daily.forEach((day) => {
-                const weekStart = getWeekStart(new Date(`${day.date}T00:00:00`));
+                const weekStart = getWeekStart(day.date);
                 const current = weeklyMap.get(weekStart) || {
                     week_start: weekStart,
                     focus_time_spent_minutes: 0,
@@ -841,11 +841,7 @@ class AnalyticsController {
                 .sort((a, b) => a.week_start.localeCompare(b.week_start))
                 .map((item) => ({
                     ...item,
-                    week_end: (() => {
-                        const endWeek = new Date(`${item.week_start}T00:00:00`);
-                        endWeek.setDate(endWeek.getDate() + 6);
-                        return endWeek.toISOString().split('T')[0];
-                    })()
+                    week_end: addDaysToYmd(item.week_start, 6)
                 }));
 
             const insights = [];
@@ -894,14 +890,8 @@ class AnalyticsController {
             const { start_date, end_date } = req.query;
             const limit = Math.max(1, Math.min(500, parseInt(req.query.limit, 10) || 200));
 
-            const endDate = end_date ? new Date(end_date) : new Date();
-            const startDate = start_date ? new Date(start_date) : new Date(endDate);
-            if (!start_date) {
-                startDate.setDate(endDate.getDate() - 13);
-            }
-
-            const start = startDate.toISOString().split('T')[0];
-            const end = endDate.toISOString().split('T')[0];
+            const end = end_date || getUserToday(req.user.timezone);
+            const start = start_date || addDaysToYmd(end, -13);
 
             const sessions = await FocusSession.getByRange(req.user.id, start, end, limit);
 

@@ -1,8 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../common/Button';
 import './ScheduleEditor.css';
 
 const toHm = (value) => (value ? value.slice(0, 5) : '');
+
+/**
+ * The browser's LOCAL calendar date, matching how the rest of the app derives
+ * "today" (Dashboard, WeekView, useTodayItems). toISOString() would give the
+ * UTC date, which is a day off for part of every day in any non-UTC zone — so
+ * the editor stopped recognising the real today and fell back to a 09:00 slot.
+ */
+const toYmd = (date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const tasksToSlots = (tasks = []) => (
     tasks
@@ -73,7 +86,7 @@ const slotsOverlap = (slotA, slotB) => {
 const getDefaultStartTime = (date, hasExistingSlots) => {
     if (hasExistingSlots) return null;
     const today = new Date();
-    const todayYmd = today.toISOString().split('T')[0];
+    const todayYmd = toYmd(today);
     if (date === todayYmd) {
         const nowMinutes = (today.getHours() * 60) + today.getMinutes();
         return formatHm(roundToNextSlot(nowMinutes));
@@ -109,17 +122,17 @@ const ScheduleEditor = ({
     const [addSlotError, setAddSlotError] = useState('');
     const lastDateRef = useRef(date);
 
-    const resetFromTasks = (taskList) => {
+    const resetFromTasks = useCallback((taskList) => {
         const nextSlots = tasksToSlots(taskList);
         if (nextSlots.length) {
             setSlotValues(nextSlots);
         } else {
-            const isToday = date === new Date().toISOString().split('T')[0];
+            const isToday = date === toYmd(new Date());
             const start = (isToday ? getNowRoundedTime() : getDefaultStartTime(date, false)) || '09:00';
             setSlotValues([buildDefaultSlot(start)]);
         }
         setIsDirty(false);
-    };
+    }, [date]);
 
     useEffect(() => {
         if (lastDateRef.current !== date) {
@@ -131,7 +144,7 @@ const ScheduleEditor = ({
         if (!isDirty) {
             resetFromTasks(tasks);
         }
-    }, [tasks, date, isDirty]);
+    }, [tasks, date, isDirty, resetFromTasks]);
 
     const handleSlotChange = (index, field, value) => {
         if (addSlotError) {
@@ -152,7 +165,7 @@ const ScheduleEditor = ({
 
     const handleAddSlot = () => {
         setSlotValues((prev) => {
-            const isToday = date === new Date().toISOString().split('T')[0];
+            const isToday = date === toYmd(new Date());
             const nowStart = isToday ? getNowRoundedTime() : null;
             if (!prev.length) {
                 const start = (nowStart || getDefaultStartTime(date, false)) || '09:00';
