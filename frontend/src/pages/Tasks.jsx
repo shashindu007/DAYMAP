@@ -9,7 +9,19 @@ import './Tasks.css';
 const DAY_WINDOW = 7;
 const HOURS_24_MS = 24 * 60 * 60 * 1000;
 
-const toYmd = (date) => date.toISOString().split('T')[0];
+/**
+ * LOCAL calendar date, not toISOString(). The relative labels below ("Today",
+ * "Yesterday") are computed from the local date, so a UTC-derived fetch window
+ * disagreed with them: west of UTC in the local evening the window ran to
+ * tomorrow, dropping the oldest day and adding a "Tomorrow" group to what is
+ * meant to be the last 7 days.
+ */
+const toYmd = (date) => {
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const addDays = (date, days) => {
     const next = new Date(date);
@@ -49,7 +61,7 @@ const getRelativeLabel = (dateString) => {
 
 const Tasks = () => {
     const { openEditor } = useScheduleEditor();
-    const { tasks, loading, error, fetchTasks, updateTask, deleteTask } = useTasks();
+    const { tasks, loading, error, fetchTasks, updateTaskStatus, deleteTask } = useTasks();
     const [statusFilter, setStatusFilter] = useState('all');
     const [query, setQuery] = useState('');
     const [dateFilter, setDateFilter] = useState('all');
@@ -78,7 +90,7 @@ const Tasks = () => {
 
     const handleStatusChange = async (task, nextStatus) => {
         try {
-            await updateTask(task.id, { status: nextStatus });
+            await updateTaskStatus(task.id, nextStatus);
         } catch (updateError) {
             console.error('Failed to update task status:', updateError);
         }

@@ -163,11 +163,19 @@ class Task {
             return await this.findById(id);
         }
 
+        // completed_at is derived from status, never sent by the client, so it
+        // has to be maintained here too — updateStatus() is not the only path
+        // that can change status. Without this a task completed through PUT
+        // keeps completed_at: null and drops out of anything that reads it.
+        if (updates.status !== undefined) {
+            updates.completed_at = updates.status === 'completed' ? new Date() : null;
+        }
+
         await TaskDocument.updateOne({ id }, { $set: updates });
-        
+
         return await this.findById(id);
     }
-    
+
     /**
      * Update task status
      * @param {String} id - Task ID
