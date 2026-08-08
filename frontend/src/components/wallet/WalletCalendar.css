@@ -1,0 +1,186 @@
+/* ==========================================================================
+   Wallet spending calendar.
+
+   Prefixed .wallet-cal- for the same reason every selector in Wallet.css is
+   prefixed .wallet-: CRA concatenates every stylesheet into one bundle, so an
+   unprefixed .day / .grid / .num would silently restyle the rest of the app.
+
+   State modifiers are two-class selectors (.wallet-cal-day.is-over-pace) so
+   they win on specificity rather than on bundle order, which CRA does not
+   guarantee.
+
+   The three states sit on three DIFFERENT properties on purpose - selected owns
+   box-shadow, over-pace owns border, today owns the number pill - so a day that
+   is all three renders all three instead of one overwriting another.
+   ========================================================================== */
+
+.wallet-cal {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.wallet-cal-head,
+.wallet-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.wallet-cal-head {
+    gap: var(--space-1);
+}
+
+.wallet-cal-head span {
+    text-align: center;
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.wallet-cal-grid {
+    gap: var(--space-1);
+}
+
+.wallet-cal-day {
+    position: relative;
+    isolation: isolate;
+    min-height: 3.4rem;
+    display: grid;
+    align-content: space-between;
+    justify-items: start;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: var(--surface-sunken);
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+    transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+/* The heat tint. Opacity on a pseudo-element rather than an inline rgba(),
+   because --primary is a different hex in dark mode (#7c3aed vs #a78bfa) and an
+   inline colour would bake one theme into the JSX. Sitting behind z-index 1
+   text also means the label keeps full contrast at every heat level. */
+.wallet-cal-day::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--primary);
+    opacity: var(--wallet-heat, 0);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.wallet-cal-num,
+.wallet-cal-amount {
+    position: relative;
+    z-index: 1;
+}
+
+.wallet-cal-day:hover {
+    background: var(--surface-hover);
+}
+
+.wallet-cal-num {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--text-secondary);
+    line-height: 1.2;
+}
+
+.wallet-cal-amount {
+    font-size: var(--text-2xs);
+    font-weight: 700;
+}
+
+.wallet-cal-amount.is-empty {
+    color: var(--text-muted);
+}
+
+.wallet-cal-day.is-selected {
+    box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+.wallet-cal-day.is-today .wallet-cal-num {
+    padding: 0 0.4rem;
+    border-radius: var(--radius-pill);
+    background: var(--primary);
+    color: var(--text-on-brand);
+}
+
+/* Over the day's share of the monthly budget. Dashed BORDER, not just colour -
+   the shape carries the state for anyone who cannot see the red, and the words
+   "over daily pace" are in the cell's accessible name too. */
+.wallet-cal-day.is-over-pace {
+    border-color: var(--danger);
+    border-style: dashed;
+}
+
+/* App.css sets a global :focus-visible box-shadow at specificity (0,1,0), which
+   .wallet-cal-day.is-selected at (0,2,0) would otherwise silently win - leaving
+   a focused selected day with no ring at all. */
+.wallet-cal-day:focus-visible {
+    border-radius: var(--radius-md);
+}
+
+.wallet-cal-day.is-selected:focus-visible {
+    box-shadow: inset 0 0 0 2px var(--primary), var(--ring);
+}
+
+.wallet-cal-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--divider);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+.wallet-cal-stat strong {
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+    .wallet-cal-day {
+        min-height: 3rem;
+        padding: var(--space-1) var(--space-2);
+    }
+}
+
+@media (max-width: 640px) {
+    /* The tint and the day number survive; the figure is still reachable
+       through the cell's title and its accessible name. */
+    .wallet-cal-amount {
+        display: none;
+    }
+
+    .wallet-cal-day {
+        min-height: 2.6rem;
+        padding: var(--space-1);
+        justify-items: center;
+        align-content: center;
+    }
+
+    .wallet-cal-foot {
+        gap: var(--space-2);
+    }
+
+    .wallet-cal-stat {
+        flex: 1 1 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .wallet-cal-day {
+        transition: none;
+    }
+}

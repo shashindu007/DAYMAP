@@ -13,6 +13,10 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { applyChartTheme, seriesColors } from '../utils/chartTheme';
 import { useTheme } from '../context/ThemeContext';
 import { budgetState, barPercent, isValidExpenseCents } from '../utils/money';
+import {
+    currentYearMonth, shiftYearMonth, monthLabel, dayLabel, weekdayDayLabel, localYmd
+} from '../utils/monthDates';
+import WalletCalendar from '../components/wallet/WalletCalendar';
 import './Wallet.css';
 
 // Registered here rather than relying on FocusDashboard having imported
@@ -29,40 +33,12 @@ const STARTER_CATEGORIES = [
     { name: 'Other', color: '#64748b' }
 ];
 
-const pad = (value) => `${value}`.padStart(2, '0');
-
-/** Browser-local current month, only ever a starting point. */
-const currentYearMonth = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
-};
-
-const shiftYearMonth = (ym, months) => {
-    const [year, month] = ym.split('-').map(Number);
-    const dt = new Date(Date.UTC(year, (month - 1) + months, 1));
-    return `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}`;
-};
-
-const monthLabel = (ym) => {
-    const [year, month] = ym.split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString(undefined, {
-        month: 'long', year: 'numeric', timeZone: 'UTC'
-    });
-};
-
-const dayLabel = (ymd) => {
-    const [year, month, day] = ymd.split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(undefined, {
-        month: 'short', day: 'numeric', timeZone: 'UTC'
-    });
-};
-
 const EMPTY_EXPENSE = { amount: '', category_id: '', date: '', note: '' };
 
 const Wallet = () => {
     const {
-        summary, expenses, categories, loading, error,
-        fetchWallet, createExpense, updateExpense, deleteExpense,
+        summary, expenses, categories, todaySpend, loading, error,
+        fetchWallet, ensureTodaySpend, createExpense, updateExpense, deleteExpense,
         saveBudget, deleteBudget, createCategory
     } = useWallet();
     const { pushToast } = useToast();
@@ -79,6 +55,7 @@ const Wallet = () => {
     const [deleting, setDeleting] = useState(false);
     const [budgetDraft, setBudgetDraft] = useState({ categoryId: null, value: '' });
     const [seeding, setSeeding] = useState(false);
+    const [selectedDay, setSelectedDay] = useState(null);
 
     useEffect(() => { applyChartTheme(darkMode); }, [darkMode]);
     const palette = useMemo(() => seriesColors(darkMode), [darkMode]);
@@ -87,9 +64,26 @@ const Wallet = () => {
         fetchWallet(period).catch(() => null);
     }, [fetchWallet, period]);
 
+    // The server owns the user's real today, resolved in their timezone. This
+    // is deduped per user per calendar day per session, so it costs nothing if
+    // Today's dashboard has already been visited.
+    useEffect(() => {
+        ensureTodaySpend();
+    }, [ensureTodaySpend]);
+
+    // A day number means nothing once the month behind it has changed.
+    useEffect(() => {
+        setSelectedDay(null);
+    }, [period]);
+
     const totals = summary?.totals;
     const rows = useMemo(() => summary?.categories || [], [summary]);
     const isCurrentMonth = period === currentYearMonth();
+
+    // The browser's guess is only the bridge until /wallet/today resolves.
+    const todayYmd = todaySpend?.date || localYmd();
+    // A past month has no today.
+    const calendarToday = todayYmd.startsWith(`${period}-`) ? todayYmd : null;
 
     /** Categories with a budget or some spend, plus any with neither. */
     const budgetRows = useMemo(() => {
@@ -106,6 +100,11 @@ const Wallet = () => {
             };
         }).sort((a, b) => b.spent_cents - a.spent_cents || a.name.localeCompare(b.name));
     }, [categories, rows]);
+
+    /** What the expense list shows: one day, or the whole month. */
+    const visibleExpenses = useMemo(() => (
+        selectedDay ? expenses.filter((row) => row.date === selectedDay) : expenses
+    ), [expenses, selectedDay]);
 
     const chartData = useMemo(() => {
         const spent = rows.filter((row) => row.spent_cents > 0);
@@ -144,7 +143,9 @@ const Wallet = () => {
     }, []);
 
     const startCreate = () => {
-        setForm({ ...EMPTY_EXPENSE, date: isCurrentMonth ? '' : `${period}-01` });
+        // A selected day is the strongest signal of intent, ahead of both the
+        // blank-means-today shortcut and the 1st-of-month fallback.
+        setForm({ ...EMPTY_EXPENSE, date: selectedDay || (isCurrentMonth ? '' : `${period}-01`) });
         setEditingId(null);
         setLocalError('');
         setFormOpen(true);
@@ -396,6 +397,23 @@ const Wallet = () => {
                         </article>
                     </section>
 
+                    <section className="card">
+                        <div className="wallet-section-head">
+                            <h2>Spending calendar</h2>
+                            <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>
+                                Pick a day to see just that day
+                            </span>
+                        </div>
+                        <WalletCalendar
+                            period={period}
+                            expenses={expenses}
+                            budgetCents={totals?.budget_cents || 0}
+                            selectedDay={selectedDay}
+                            onSelectDay={setSelectedDay}
+                            todayYmd={calendarToday}
+                        />
+                    </section>
+
                     <div className="wallet-grid">
                         <section className="card">
                             <div className="wallet-section-head">
@@ -510,10 +528,29 @@ const Wallet = () => {
 
                     <section className="card">
                         <div className="wallet-section-head">
-                            <h2>Expenses</h2>
-                            <button type="button" className="btn btn-sm btn-primary" onClick={startCreate}>
-                                Add expense
-                            </button>
+                            <h2>
+                                Expenses
+                                {selectedDay && (
+                                    <>
+                                        {' '}<span aria-hidden>·</span> {weekdayDayLabel(selectedDay)}
+                                    </>
+                                )}
+                            </h2>
+                            <span className="wallet-section-head-actions">
+                                {selectedDay && (
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-ghost wallet-day-clear"
+                                        onClick={() => setSelectedDay(null)}
+                                        aria-label={`Show all of ${monthLabel(period)}`}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                                <button type="button" className="btn btn-sm btn-primary" onClick={startCreate}>
+                                    Add expense
+                                </button>
+                            </span>
                         </div>
 
                         {formOpen && (
@@ -591,11 +628,15 @@ const Wallet = () => {
                             </form>
                         )}
 
-                        {expenses.length === 0 ? (
-                            <p className="muted">No expenses in {monthLabel(period)}.</p>
+                        {visibleExpenses.length === 0 ? (
+                            <p className="muted">
+                                {selectedDay
+                                    ? `No expenses on ${weekdayDayLabel(selectedDay)}.`
+                                    : `No expenses in ${monthLabel(period)}.`}
+                            </p>
                         ) : (
                             <div className="wallet-expense-list">
-                                {expenses.map((expense) => {
+                                {visibleExpenses.map((expense) => {
                                     const category = categories.find((row) => row.id === expense.category_id);
                                     return (
                                         <div className="wallet-expense" key={expense.id}>

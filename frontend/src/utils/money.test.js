@@ -9,6 +9,7 @@
 import {
     parseMoneyInput,
     formatMoney,
+    compactMoney,
     isValidExpenseCents,
     budgetState,
     percentOf,
@@ -141,6 +142,67 @@ describe('formatMoney', () => {
             const rendered = formatMoney(cents, 'USD', EN).replace(/[^\d.,-]/g, '');
             expect(parseMoneyInput(rendered)).toBe(cents);
         });
+    });
+});
+
+describe('compactMoney', () => {
+    it('shortens thousands and millions', () => {
+        expect(compactMoney(370000, 'LKR', EN)).toBe('3.7K');
+        expect(compactMoney(1200000, 'LKR', EN)).toBe('12K');
+        expect(compactMoney(123456789, 'LKR', EN)).toBe('1.2M');
+    });
+
+    it('prints whole major units below a thousand, with no symbol by default', () => {
+        expect(compactMoney(34000, 'LKR', EN)).toBe('340');
+        expect(compactMoney(34049, 'LKR', EN)).toBe('340');   // rounds, not truncates
+        expect(compactMoney(34050, 'LKR', EN)).toBe('341');
+        expect(compactMoney(0, 'LKR', EN)).toBe('0');
+    });
+
+    it('crosses into compact notation on the rounded value, not the raw one', () => {
+        // 999.50 must not render "1,000" - wider than the "1K" it was avoiding.
+        expect(compactMoney(99950, 'LKR', EN)).toBe('1K');
+        expect(compactMoney(99900, 'LKR', EN)).toBe('999');
+    });
+
+    it('never renders a real expense as zero', () => {
+        expect(compactMoney(42, 'USD', EN)).toBe('<1');
+        expect(compactMoney(1, 'USD', EN)).toBe('<1');
+        expect(compactMoney(-42, 'USD', EN)).toBe('-<1');
+        expect(compactMoney(100, 'USD', EN)).toBe('1');
+    });
+
+    it('carries a negative sign', () => {
+        expect(compactMoney(-370000, 'LKR', EN)).toBe('-3.7K');
+    });
+
+    it('respects zero-decimal currencies', () => {
+        // 1234 minor units is 1,234 yen, not 12.34 - already compact-sized.
+        expect(compactMoney(1234, 'JPY', EN)).toBe('1.2K');
+        expect(compactMoney(42, 'JPY', EN)).toBe('42');
+    });
+
+    it('adds the symbol only when asked', () => {
+        expect(compactMoney(370000, 'USD', { ...EN, withSymbol: true })).toBe('$3.7K');
+        // Fails loudly if minimumFractionDigits: 0 is ever dropped - under
+        // style:'currency' Intl would demand two decimals and throw.
+        expect(compactMoney(34000, 'USD', { ...EN, withSymbol: true })).toBe('$340');
+        expect(compactMoney(370000, 'USD', EN)).toBe('3.7K');
+    });
+
+    it('never throws on absent or nonsense input', () => {
+        [null, undefined, NaN, Infinity].forEach((bad) => {
+            expect(() => compactMoney(bad, 'USD', EN)).not.toThrow();
+            expect(compactMoney(bad, 'USD', EN)).toBe('0');
+        });
+    });
+
+    it('falls back rather than throwing on a malformed currency code', () => {
+        ['US', 'TOOLONG', '', '12'].forEach((bad) => {
+            expect(() => compactMoney(100, bad, { ...EN, withSymbol: true })).not.toThrow();
+        });
+        expect(norm(compactMoney(100, 'TOOLONG', { ...EN, withSymbol: true }))).toBe('TOOLONG 1');
+        expect(norm(compactMoney(370000, 'ZZZ', { ...EN, withSymbol: true }))).toBe('ZZZ 3.7K');
     });
 });
 

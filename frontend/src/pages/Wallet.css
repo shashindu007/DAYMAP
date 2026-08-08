@@ -139,6 +139,20 @@
     font-size: var(--text-lg);
 }
 
+.wallet-section-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Clearing the day filter: a quiet × beside the primary action, never a second
+   button competing with it. */
+.wallet-day-clear {
+    font-size: var(--text-base);
+    line-height: 1;
+    padding: var(--space-1) var(--space-2);
+}
+
 .wallet-grid {
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);

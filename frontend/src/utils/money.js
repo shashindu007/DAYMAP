@@ -147,6 +147,78 @@ export const formatMoney = (cents, currency = DEFAULT_CURRENCY, options = {}) =>
 };
 
 /**
+ * Short money for a space that cannot hold a real amount - a calendar cell.
+ *
+ * "3.7K", "340", "<1". Precision is deliberately traded for width, so every
+ * caller MUST also expose the exact figure through formatMoney in a title or an
+ * aria-label. The symbol is off by default: the currency is already stated
+ * elsewhere on the page, and "Rs 3.7K" does not fit in a seventh of a card.
+ *
+ * Never throws - same two-level fallback as formatMoney.
+ *
+ * @param {Number} cents
+ * @param {String} currency
+ * @param {Object} [options]
+ * @param {String} [options.locale]
+ * @param {Boolean} [options.withSymbol]  render the currency symbol too
+ */
+export const compactMoney = (cents, currency = DEFAULT_CURRENCY, options = {}) => {
+    const { locale, withSymbol = false } = options;
+    const code = String(currency || DEFAULT_CURRENCY).toUpperCase();
+    const digits = minorUnitsFor(code);
+
+    const safe = Number.isFinite(cents) ? cents : 0;
+    const exact = safe / (10 ** digits);
+    const magnitude = Math.abs(exact);
+
+    // A real expense must never render as "0". Below one major unit the true
+    // figure does not fit and rounding it away would be a lie, so say so.
+    if (magnitude > 0 && magnitude < 1) return `${safe < 0 ? '-' : ''}<1`;
+
+    // Branch on the ROUNDED magnitude, not the raw one: 999.50 has to render
+    // "1K", because the plain branch would round it to the wider "1,000" that
+    // compacting was avoiding in the first place.
+    const compact = Math.round(magnitude) >= 1000;
+
+    // Intl decides to say "K" from the value it is handed, not from what it
+    // will print - so 999.5 compacts to "999.5" and defeats the branch above.
+    // Snapping that sliver to its rounded form is what makes it read "1K".
+    const value = compact && magnitude < 1000 ? Math.round(exact) : exact;
+
+    // minimumFractionDigits: 0 is not optional. Under style:'currency' Intl
+    // defaults the minimum to the currency's own digits (2), and a maximum
+    // below that minimum is a RangeError - which the catch would silently
+    // swallow, dropping every 2-decimal currency into the fallback.
+    const shape = compact
+        ? {
+            notation: 'compact',
+            compactDisplay: 'short',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1
+        }
+        : { minimumFractionDigits: 0, maximumFractionDigits: 0 };
+
+    if (!withSymbol) {
+        try {
+            return new Intl.NumberFormat(locale, shape).format(value);
+        } catch {
+            return `${Math.round(value)}`;
+        }
+    }
+
+    try {
+        return new Intl.NumberFormat(locale, {
+            style: 'currency',
+            currency: code,
+            ...shape
+        }).format(value);
+    } catch {
+        // Unknown ISO code, or an environment without full ICU.
+        return `${code} ${new Intl.NumberFormat(locale, shape).format(value)}`;
+    }
+};
+
+/**
  * Where a category sits against its budget.
  * 'none'  - no budget set
  * 'under' - comfortably below
