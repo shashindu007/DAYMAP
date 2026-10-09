@@ -12,7 +12,7 @@ import useCurrency from '../hooks/useCurrency';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { applyChartTheme, seriesColors } from '../utils/chartTheme';
 import { useTheme } from '../context/ThemeContext';
-import { budgetState, barPercent, isValidExpenseCents } from '../utils/money';
+import { budgetState, barPercent, percentOf, isValidExpenseCents } from '../utils/money';
 import {
     currentYearMonth, shiftYearMonth, monthLabel, dayLabel, weekdayDayLabel, localYmd
 } from '../utils/monthDates';
@@ -85,6 +85,58 @@ const Wallet = () => {
     // A past month has no today.
     const calendarToday = todayYmd.startsWith(`${period}-`) ? todayYmd : null;
 
+    /** Spend categories by id - the rollups and the expense rows all need it. */
+    const categoryById = useMemo(
+        () => new Map(categories.map((category) => [category.id, category])),
+        [categories]
+    );
+
+    /** What the expense list shows: one day, or the whole month. */
+    const visibleExpenses = useMemo(() => (
+        selectedDay ? expenses.filter((row) => row.date === selectedDay) : expenses
+    ), [expenses, selectedDay]);
+
+    /**
+     * The selected day rolled up per category, in the SAME shape as the API's
+     * monthly `categories` rows - so the chart consumes either scope without
+     * knowing which one it is drawing.
+     *
+     * Built from the expenses already in memory: GET /wallet/expenses returns
+     * the whole period, so picking a day costs no request.
+     */
+    const dayRows = useMemo(() => {
+        if (!selectedDay) return null;
+        const byKey = new Map();
+        visibleExpenses.forEach((expense) => {
+            // Uncategorized expenses share one bucket, exactly as buildSummary
+            // does on the server - otherwise every note would be its own slice.
+            const key = expense.category_id || 'uncategorized';
+            let row = byKey.get(key);
+            if (!row) {
+                const category = expense.category_id ? categoryById.get(expense.category_id) : null;
+                row = {
+                    category_id: expense.category_id || null,
+                    name: category?.name || 'Uncategorized',
+                    color: category?.color || null,
+                    spent_cents: 0,
+                    expense_count: 0
+                };
+                byKey.set(key, row);
+            }
+            row.spent_cents += expense.amount_cents;
+            row.expense_count += 1;
+        });
+        return Array.from(byKey.values()).sort((a, b) => b.spent_cents - a.spent_cents);
+    }, [selectedDay, visibleExpenses, categoryById]);
+
+    /** Category id -> what that category took on the selected day. Empty when
+     *  no day is picked, which is what switches the day layer off everywhere. */
+    const daySpentByCategory = useMemo(() => {
+        const map = new Map();
+        (dayRows || []).forEach((row) => map.set(row.category_id, row.spent_cents));
+        return map;
+    }, [dayRows]);
+
     /** Categories with a budget or some spend, plus any with neither. */
     const budgetRows = useMemo(() => {
         const byId = new Map(rows.filter((row) => row.category_id).map((row) => [row.category_id, row]));
@@ -96,44 +148,99 @@ const Wallet = () => {
                 color: category.color,
                 budget_id: row?.budget_id || null,
                 spent_cents: row?.spent_cents || 0,
-                budget_cents: row?.budget_cents || 0
+                budget_cents: row?.budget_cents || 0,
+                day_spent_cents: daySpentByCategory.get(category.id) || 0
             };
-        }).sort((a, b) => b.spent_cents - a.spent_cents || a.name.localeCompare(b.name));
-    }, [categories, rows]);
+        }).sort((a, b) => (
+            // With a day picked the categories that day touched lead; the month
+            // order would otherwise bury them under untouched ones. Every day
+            // figure is 0 with no day picked, so this falls straight through to
+            // the original month ordering.
+            b.day_spent_cents - a.day_spent_cents
+            || b.spent_cents - a.spent_cents
+            || a.name.localeCompare(b.name)
+        ));
+    }, [categories, rows, daySpentByCategory]);
 
-    /** What the expense list shows: one day, or the whole month. */
-    const visibleExpenses = useMemo(() => (
-        selectedDay ? expenses.filter((row) => row.date === selectedDay) : expenses
-    ), [expenses, selectedDay]);
+    /** Headline numbers for the picked day, for the band above the tiles. */
+    const dayTotals = useMemo(() => {
+        if (!selectedDay) return null;
+        const spentCents = visibleExpenses.reduce((sum, row) => sum + row.amount_cents, 0);
+        return {
+            spent_cents: spentCents,
+            count: visibleExpenses.length,
+            category_count: (dayRows || []).length,
+            // Share of the month's spend, not of its budget: this answers "how
+            // much of what I spent went on this day".
+            share: percentOf(spentCents, totals?.spent_cents || 0)
+        };
+    }, [selectedDay, visibleExpenses, dayRows, totals]);
+
+    /** One day when a day is picked, the whole month otherwise. Memoized only
+     *  so chartSlices below keeps a stable dependency. */
+    const chartRows = useMemo(
+        () => (selectedDay ? (dayRows || []) : rows),
+        [selectedDay, dayRows, rows]
+    );
+    const scopeLabel = selectedDay ? weekdayDayLabel(selectedDay) : monthLabel(period);
+
+    /**
+     * Slices for the doughnut AND the legend beside it, from one source - a
+     * colour or a percentage can never disagree between the two.
+     */
+    const chartSlices = useMemo(() => {
+        const spent = chartRows.filter((row) => row.spent_cents > 0);
+        const total = spent.reduce((sum, row) => sum + row.spent_cents, 0);
+        return spent.map((row, index) => ({
+            key: row.category_id || 'uncategorized',
+            name: row.name,
+            // Category colour is user-owned, so a slice keeps its colour
+            // between renders instead of tracking its position.
+            color: row.color || palette[index % palette.length],
+            spent_cents: row.spent_cents,
+            share: percentOf(row.spent_cents, total)
+        }));
+    }, [chartRows, palette]);
+
+    const chartTotalCents = useMemo(
+        () => chartSlices.reduce((sum, slice) => sum + slice.spent_cents, 0),
+        [chartSlices]
+    );
 
     const chartData = useMemo(() => {
-        const spent = rows.filter((row) => row.spent_cents > 0);
-        if (spent.length === 0) return null;
+        if (chartSlices.length === 0) return null;
         return {
-            labels: spent.map((row) => row.name),
+            labels: chartSlices.map((slice) => slice.name),
             datasets: [{
-                data: spent.map((row) => row.spent_cents),
-                // Category colour is user-owned, so a slice keeps its colour
-                // between renders instead of tracking its position.
-                backgroundColor: spent.map((row, index) => row.color || palette[index % palette.length]),
-                borderWidth: 0
+                data: chartSlices.map((slice) => slice.spent_cents),
+                backgroundColor: chartSlices.map((slice) => slice.color),
+                borderWidth: 0,
+                hoverOffset: 6
             }]
         };
-    }, [rows, palette]);
+    }, [chartSlices]);
 
     const chartOptions = useMemo(() => ({
         responsive: true,
         maintainAspectRatio: false,
-        cutout: '58%',
+        // Wider hole than the old 58%: the total and the scope now live in it,
+        // which is what tells you at a glance whether you are reading a day or
+        // a month. 70% leaves a hole wide enough for a seven-figure amount
+        // without wrapping it.
+        cutout: '70%',
         plugins: {
-            legend: { position: 'bottom' },
+            // Chart.js's own legend has nowhere to put an amount or a share, so
+            // the legend is rendered as HTML beside the arc instead.
+            legend: { display: false },
             tooltip: {
                 callbacks: {
-                    label: (context) => ` ${context.label}: ${format(context.parsed)}`
+                    label: (context) => (
+                        ` ${context.label}: ${format(context.parsed)} · ${percentOf(context.parsed, chartTotalCents)}%`
+                    )
                 }
             }
         }
-    }), [format]);
+    }), [format, chartTotalCents]);
 
     const resetForm = useCallback(() => {
         setForm(EMPTY_EXPENSE);
@@ -358,6 +465,37 @@ const Wallet = () => {
                 </section>
             ) : (
                 <>
+                    {/* The one place that states the filter in words. Without it
+                        a day's chart beside the month's KPI tiles just reads as
+                        two numbers that disagree. */}
+                    {selectedDay && dayTotals && (
+                        <section className="wallet-dayband" aria-live="polite">
+                            <div className="wallet-dayband-main">
+                                <span className="wallet-dayband-chip">{weekdayDayLabel(selectedDay)}</span>
+                                <span className="wallet-dayband-value">{format(dayTotals.spent_cents)}</span>
+                                <span className="wallet-dayband-meta">
+                                    {dayTotals.count} expense{dayTotals.count === 1 ? '' : 's'}
+                                    {' · '}
+                                    {dayTotals.category_count} categor{dayTotals.category_count === 1 ? 'y' : 'ies'}
+                                    {' · '}
+                                    {dayTotals.share}% of {monthLabel(period)}
+                                </span>
+                            </div>
+                            <div className="wallet-dayband-actions">
+                                <button type="button" className="btn btn-sm btn-primary" onClick={startCreate}>
+                                    Add for this day
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-sm btn-ghost"
+                                    onClick={() => setSelectedDay(null)}
+                                >
+                                    Show whole month
+                                </button>
+                            </div>
+                        </section>
+                    )}
+
                     <section className="wallet-cards">
                         <article className="card">
                             <h3>Spent</h3>
@@ -401,7 +539,9 @@ const Wallet = () => {
                         <div className="wallet-section-head">
                             <h2>Spending calendar</h2>
                             <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>
-                                Pick a day to see just that day
+                                {selectedDay
+                                    ? 'Tap the same day again to go back to the month'
+                                    : 'Pick a day to filter the budgets, the chart and the list'}
                             </span>
                         </div>
                         <WalletCalendar
@@ -418,10 +558,19 @@ const Wallet = () => {
                         <section className="card">
                             <div className="wallet-section-head">
                                 <h2>Budgets</h2>
-                                <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>
-                                    {monthLabel(period)}
-                                </span>
+                                <span className="wallet-scope">{monthLabel(period)}</span>
                             </div>
+
+                            {/* A budget is a MONTHLY promise, so the bar stays
+                                monthly even with a day picked - the day is drawn
+                                as a lit segment inside it rather than replacing
+                                it, which would compare a day against a month. */}
+                            {selectedDay && budgetRows.length > 0 && (
+                                <p className="wallet-scope-note">
+                                    <span className="wallet-scope-key" aria-hidden />
+                                    The lit part of each bar is {weekdayDayLabel(selectedDay)}; the bar is the whole month.
+                                </p>
+                            )}
 
                             {budgetRows.length === 0 ? (
                                 <p className="muted">No spending categories yet.</p>
@@ -431,8 +580,18 @@ const Wallet = () => {
                                         const state = budgetState(row.spent_cents, row.budget_cents);
                                         const remaining = row.budget_cents - row.spent_cents;
                                         const editing = budgetDraft.categoryId === row.category_id;
+                                        // The day's slice of this category's month, drawn at the
+                                        // leading edge of the fill. Relative to the month's spend,
+                                        // so it stays right even when the fill is clamped at 100%.
+                                        const dayShareOfMonth = selectedDay && row.spent_cents > 0
+                                            ? barPercent(row.day_spent_cents, row.spent_cents)
+                                            : 0;
+                                        const untouched = Boolean(selectedDay) && row.day_spent_cents === 0;
                                         return (
-                                            <div className="wallet-budget-row" key={row.category_id}>
+                                            <div
+                                                className={`wallet-budget-row${untouched ? ' is-quiet' : ''}`}
+                                                key={row.category_id}
+                                            >
                                                 <div className="wallet-budget-top">
                                                     <span className="wallet-budget-name">
                                                         <span
@@ -443,6 +602,17 @@ const Wallet = () => {
                                                         {row.name}
                                                     </span>
                                                     <span className="wallet-budget-amounts">
+                                                        {selectedDay && (
+                                                            <>
+                                                                {/* An em dash, not a formatted zero: thirty
+                                                                    "LKR 0.00"s would drown the one category
+                                                                    that actually saw money that day. */}
+                                                                <strong className={`wallet-budget-day${untouched ? ' is-zero' : ''}`}>
+                                                                    {untouched ? '—' : format(row.day_spent_cents)}
+                                                                </strong>
+                                                                <span className="wallet-budget-sep" aria-hidden>·</span>
+                                                            </>
+                                                        )}
                                                         {format(row.spent_cents)}
                                                         {row.budget_cents > 0 && ` / ${format(row.budget_cents)}`}
                                                     </span>
@@ -452,7 +622,14 @@ const Wallet = () => {
                                                     <div
                                                         className={`wallet-fill is-${state}`}
                                                         style={{ width: `${barPercent(row.spent_cents, row.budget_cents)}%` }}
-                                                    />
+                                                    >
+                                                        {dayShareOfMonth > 0 && (
+                                                            <span
+                                                                className="wallet-fill-day"
+                                                                style={{ width: `${dayShareOfMonth}%` }}
+                                                            />
+                                                        )}
+                                                    </div>
                                                 </div>
 
                                                 <div className="wallet-budget-foot">
@@ -460,6 +637,7 @@ const Wallet = () => {
                                                         <span className={remaining < 0 ? 'wallet-over' : 'wallet-under'}>
                                                             {/* The word carries the state, not just the colour. */}
                                                             {format(Math.abs(remaining))} {remaining < 0 ? 'over' : 'left'}
+                                                            {selectedDay ? ' this month' : ''}
                                                             {state === 'over' && <span className="badge badge-rose" style={{ marginLeft: 'var(--space-2)' }}>Over</span>}
                                                         </span>
                                                     ) : (
@@ -515,13 +693,62 @@ const Wallet = () => {
                         <section className="card">
                             <div className="wallet-section-head">
                                 <h2>Where it went</h2>
+                                <span className={`wallet-scope${selectedDay ? ' is-day' : ''}`}>
+                                    {scopeLabel}
+                                </span>
                             </div>
                             {chartData ? (
-                                <div className="wallet-chart">
-                                    <Doughnut data={chartData} options={chartOptions} />
+                                <div className="wallet-chart-wrap">
+                                    <div className="wallet-chart">
+                                        <Doughnut data={chartData} options={chartOptions} />
+                                        {/* In the hole rather than above the arc: the total and
+                                            the scope are the two things you need to know before
+                                            reading a single slice. */}
+                                        <div className="wallet-chart-center">
+                                            <span className="wallet-chart-total">{format(chartTotalCents)}</span>
+                                            <span className="wallet-chart-scope">{scopeLabel}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* The canvas is unreadable to a screen reader, so this list
+                                        is the chart's text equivalent as well as its legend. */}
+                                    <ul className="wallet-legend">
+                                        {chartSlices.map((slice) => (
+                                            <li className="wallet-legend-row" key={slice.key}>
+                                                <span
+                                                    className="wallet-dot"
+                                                    style={{ background: slice.color }}
+                                                    aria-hidden
+                                                />
+                                                <span className="wallet-legend-name">{slice.name}</span>
+                                                <span className="wallet-legend-amount">{format(slice.spent_cents)}</span>
+                                                <span className="wallet-legend-share">{slice.share}%</span>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
                             ) : (
-                                <p className="muted">Nothing spent this month yet.</p>
+                                <div className="wallet-chart-empty">
+                                    <p className="muted">
+                                        {selectedDay
+                                            ? `Nothing spent on ${weekdayDayLabel(selectedDay)}.`
+                                            : `Nothing spent in ${monthLabel(period)} yet.`}
+                                    </p>
+                                    {selectedDay && (
+                                        <div className="wallet-empty-actions">
+                                            <button type="button" className="btn btn-sm btn-primary" onClick={startCreate}>
+                                                Add for this day
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="btn btn-sm btn-ghost"
+                                                onClick={() => setSelectedDay(null)}
+                                            >
+                                                Show whole month
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             )}
                         </section>
                     </div>
@@ -637,7 +864,7 @@ const Wallet = () => {
                         ) : (
                             <div className="wallet-expense-list">
                                 {visibleExpenses.map((expense) => {
-                                    const category = categories.find((row) => row.id === expense.category_id);
+                                    const category = categoryById.get(expense.category_id);
                                     return (
                                         <div className="wallet-expense" key={expense.id}>
                                             <span className="wallet-expense-date">{dayLabel(expense.date)}</span>
