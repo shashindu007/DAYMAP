@@ -124,6 +124,105 @@
 .wallet-over { color: var(--danger-dark); }
 .wallet-under { color: var(--success-dark); }
 
+/* ---------- Selected-day band ----------
+   Sits above the month tiles and is the only thing on the page that states the
+   filter in words. Without it, a day's chart beside a month's KPI tiles just
+   reads as two numbers that disagree. */
+.wallet-dayband {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    background: var(--primary-soft);
+    /* The left rule is the visual tie back to the selected calendar cell. */
+    border: 1px solid var(--divider);
+    border-left: 3px solid var(--primary);
+}
+
+.wallet-dayband-main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+.wallet-dayband-chip {
+    padding: 0.15rem var(--space-3);
+    border-radius: var(--radius-pill);
+    background: var(--primary);
+    color: var(--text-on-brand);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.wallet-dayband-value {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.wallet-dayband-meta {
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.wallet-dayband-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+/* ---------- Scope markers ----------
+   The small label in a section head saying which slice of time the section is
+   showing. .is-day is the loud form, because that is the state a user has to be
+   able to spot and undo. */
+.wallet-scope {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.wallet-scope.is-day {
+    padding: 0.1rem var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--primary-soft);
+    color: var(--primary);
+    border: 1px solid var(--primary);
+}
+
+.wallet-scope-note {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: calc(var(--space-2) * -1) 0 var(--space-4);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+}
+
+/* A swatch of the same hatch the bars use, so the sentence points at something
+   the eye can match rather than describing it in the abstract. */
+.wallet-scope-key {
+    width: 22px;
+    height: 8px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--success);
+    background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.75) 0 4px,
+        rgba(255, 255, 255, 0.3) 4px 8px
+    );
+}
+
 /* ---------- Section shell ---------- */
 .wallet-section-head {
     display: flex;
@@ -175,6 +274,18 @@
 .wallet-budget-row {
     display: grid;
     gap: var(--space-2);
+    transition: opacity var(--dur) var(--ease);
+}
+
+/* A category the selected day never touched. Dimmed, never hidden - a budget
+   disappearing because you clicked a date would be the worse surprise. */
+.wallet-budget-row.is-quiet {
+    opacity: 0.5;
+}
+
+.wallet-budget-row.is-quiet:hover,
+.wallet-budget-row.is-quiet:focus-within {
+    opacity: 1;
 }
 
 .wallet-budget-top {
@@ -208,6 +319,24 @@
     white-space: nowrap;
 }
 
+/* The selected day's figure, first and loudest in the row - the month total
+   behind it stays secondary text. */
+.wallet-budget-day {
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-weight: 800;
+}
+
+.wallet-budget-day.is-zero {
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.wallet-budget-sep {
+    margin: 0 var(--space-1);
+    color: var(--text-muted);
+}
+
 /* Own track, deliberately not the shared .progress-bar - that lives in
    styles/stats.css and is owned by Today and Week. */
 .wallet-track {
@@ -219,10 +348,28 @@
 }
 
 .wallet-fill {
+    position: relative;
     height: 100%;
     border-radius: 999px;
     background: var(--success);
     transition: width var(--dur-slow) var(--ease-out), background-color var(--dur) var(--ease);
+}
+
+/* The selected day's share of this category's month, at the leading edge of the
+   fill. Lightened and HATCHED rather than recoloured: the state colour beneath
+   still has to say under / near / over, and a hatch reads for anyone who cannot
+   tell the two tints apart. */
+.wallet-fill-day {
+    position: absolute;
+    inset: 0 0 0 auto;
+    border-radius: inherit;
+    background-image: repeating-linear-gradient(
+        135deg,
+        rgba(255, 255, 255, 0.75) 0 4px,
+        rgba(255, 255, 255, 0.3) 4px 8px
+    );
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.85);
+    transition: width var(--dur-slow) var(--ease-out);
 }
 
 .wallet-fill.is-near { background: var(--warning); }
@@ -254,9 +401,97 @@
 }
 
 /* ---------- Chart ---------- */
+.wallet-chart-wrap {
+    display: grid;
+    gap: var(--space-4);
+}
+
 .wallet-chart {
     position: relative;
-    height: 260px;
+    height: 220px;
+}
+
+/* Lives in the doughnut's hole. pointer-events: none so it never eats a hover
+   that belongs to a slice. */
+.wallet-chart-center {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 2px;
+    pointer-events: none;
+    text-align: center;
+    padding: 0 var(--space-2);
+}
+
+.wallet-chart-total {
+    font-size: var(--text-base);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    /* The hole is a fixed width; a wrapped total would spill onto the arc. */
+    white-space: nowrap;
+}
+
+.wallet-chart-scope {
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* Not Chart.js's legend: this one carries the amount and the share, and it is
+   also the canvas's text equivalent for a screen reader. */
+.wallet-legend {
+    display: grid;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.wallet-legend-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto 2.75rem;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+}
+
+.wallet-legend-row:nth-child(odd) {
+    background: var(--surface-sunken);
+}
+
+.wallet-legend-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.wallet-legend-amount {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.wallet-legend-share {
+    text-align: right;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+.wallet-chart-empty {
+    display: grid;
+    gap: var(--space-4);
+    justify-items: center;
+    align-content: center;
+    text-align: center;
+    /* Matches the chart's height so switching to a day with no spend does not
+       make the whole row of cards jump. */
+    min-height: 220px;
 }
 
 /* ---------- Expense list ---------- */
@@ -390,8 +625,24 @@
     justify-content: center;
 }
 
+@media (max-width: 640px) {
+    .wallet-dayband {
+        align-items: flex-start;
+    }
+
+    .wallet-dayband-actions {
+        width: 100%;
+    }
+
+    .wallet-dayband-actions .btn {
+        flex: 1 1 auto;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .wallet-fill,
+    .wallet-fill-day,
+    .wallet-budget-row,
     .wallet-expense,
     .wallet-expense-actions,
     .wallet-month-btn {
